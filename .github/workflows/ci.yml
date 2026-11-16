@@ -1,0 +1,37 @@
+# NOTE: assumes GitHub (open question Q-19). Not yet run on GitHub.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy src tests
+
+      - name: Architecture contracts (import-linter)
+        run: uv run lint-imports
+
+      - name: Tests
+        run: uv run pytest --cov --cov-report=term-missing
