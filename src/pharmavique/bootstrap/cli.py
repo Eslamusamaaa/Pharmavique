@@ -1,22 +1,29 @@
-"""Command line entry point: `uv run pharmavique <command>`.
+"""Command line entry point: `pharmavique <command>`.
 
 Commands
-    sfda-scrape   crawl the public SFDA registered-drugs list (resumable, polite)
+    sfda-scrape   full crawl of the public SFDA registered-drugs list (resumable, polite)
+    sfda-update   cheap refresh: only new and changed drugs are refetched, then a change report
+    sfda-diff     compare two stored runs offline
 """
 
 import argparse
 import asyncio
+import json
 import logging
+import os
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.http.robots import RobotsPolicy
 from pharmavique.foundation.http.throttle import Throttle
+from pharmavique.ingestion.domain.diff import diff
+from pharmavique.ingestion.domain.records import ChangeSet
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.crawler import (
     CrawlConfig,
     CrawlError,
@@ -25,44 +32,80 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.crawler import (
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.records import to_source_records
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
+    changes_to_json,
+    render_markdown,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 
 DEFAULT_BASE_URL = "https://www.sfda.gov.sa"
 # Generic on purpose: it says what the client is without naming a person or project.
 DEFAULT_USER_AGENT = "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+DEFAULT_RECHECK = 300
 
 EXIT_OK = 0
 EXIT_PARTIAL = 2
 EXIT_STOPPED = 3
+EXIT_NO_BASELINE = 4
+
+
+def _add_fetch_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--out", default="data/sfda", help="folder for run snapshots")
+    parser.add_argument("--run-id", help="run id (reuse an existing one to resume it)")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    parser.add_argument("--delay", type=float, default=1.5, help="seconds between requests")
+    parser.add_argument("--jitter", type=float, default=0.5, help="extra random seconds, 0 to N")
+    parser.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+    parser.add_argument("--enable-js", action="store_true", help="run page JavaScript")
+    parser.add_argument("--headed", action="store_true", help="show the browser window")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pharmavique")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    scrape = commands.add_parser("sfda-scrape", help="crawl the public SFDA registered-drugs list")
-    scrape.add_argument("--out", default="data/sfda", help="folder for run snapshots")
-    scrape.add_argument("--run-id", help="reuse an existing run id to resume it")
-    scrape.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    scrape = commands.add_parser("sfda-scrape", help="full crawl of the public SFDA list")
+    _add_fetch_options(scrape)
     scrape.add_argument("--max-pages", type=int, help="only crawl this many list pages (sample)")
     scrape.add_argument("--max-details", type=int, help="only fetch details for this many drugs")
-    scrape.add_argument("--delay", type=float, default=1.5, help="seconds between requests")
-    scrape.add_argument("--jitter", type=float, default=0.5, help="extra random seconds, 0 to N")
-    scrape.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
-    scrape.add_argument("--enable-js", action="store_true", help="run page JavaScript")
-    scrape.add_argument("--headed", action="store_true", help="show the browser window")
+
+    update = commands.add_parser("sfda-update", help="refresh only what changed, then report")
+    _add_fetch_options(update)
+    update.add_argument("--baseline", help="run id to compare with (default: the latest complete)")
+    update.add_argument(
+        "--recheck",
+        type=int,
+        default=DEFAULT_RECHECK,
+        help="also re-fetch the details of this many drugs, oldest first",
+    )
+
+    compare = commands.add_parser("sfda-diff", help="compare two stored runs (no network)")
+    compare.add_argument("old", help="older run id")
+    compare.add_argument("new", help="newer run id")
+    compare.add_argument("--out", default="data/sfda")
+    compare.add_argument("--limit", type=int, default=200, help="rows per section in the report")
     return parser
 
 
-async def _load_robots(base_url: str, user_agent: str) -> RobotsPolicy:
-    async with httpx.AsyncClient(
-        headers={"User-Agent": user_agent}, timeout=30.0, follow_redirects=True
-    ) as client:
-        response = await client.get(f"{base_url}/robots.txt")
-    if response.status_code == 404:
-        return RobotsPolicy.from_text("", user_agent)
-    response.raise_for_status()
-    return RobotsPolicy.from_text(response.text, user_agent)
+# ---- small synchronous helpers (file system) ---------------------------------------------------
+def _latest_file(root: Path) -> Path:
+    return root / "latest.json"
+
+
+def _read_latest(root: Path) -> str | None:
+    path = _latest_file(root)
+    if not path.exists():
+        return None
+    return str(json.loads(path.read_text(encoding="utf-8"))["run_id"])
+
+
+def _write_latest(root: Path, run_id: str, finished_at: str) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {"run_id": run_id, "finished_at": finished_at}
+    temporary = _latest_file(root).with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(temporary, _latest_file(root))
 
 
 def _configure_logging(run_dir: Path) -> None:
@@ -75,18 +118,57 @@ def _configure_logging(run_dir: Path) -> None:
     )
 
 
-async def _sfda_scrape(args: argparse.Namespace) -> int:
-    run_id = args.run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    store = SnapshotStore(Path(args.out), run_id)
-    _configure_logging(store.run_dir)
-    log = logging.getLogger("sfda.cli")
-    log.info("run %s, output %s", run_id, store.run_dir)
+def _new_run_id(prefix: str = "") -> str:
+    return prefix + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
+
+def _display_names(*record_sets: list[dict[str, Any]]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for records in record_sets:
+        for record in records:
+            names[record["key"]] = record["list"].get("trade_name", "")
+    return names
+
+
+def _write_reports(
+    run_dir: Path,
+    result: ChangeSet,
+    names: dict[str, str],
+    old_run: str,
+    new_run: str,
+) -> None:
+    report = changes_to_json(result, names, old_run=old_run, new_run=new_run)
+    (run_dir / "changes.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    markdown = render_markdown(result, names, old_run=old_run, new_run=new_run)
+    (run_dir / "changes.md").write_text(markdown, encoding="utf-8")
+
+
+# ---- network -----------------------------------------------------------------------------------
+async def _load_robots(base_url: str, user_agent: str) -> RobotsPolicy:
+    async with httpx.AsyncClient(
+        headers={"User-Agent": user_agent}, timeout=30.0, follow_redirects=True
+    ) as client:
+        response = await client.get(f"{base_url}/robots.txt")
+    if response.status_code == 404:
+        return RobotsPolicy.from_text("", user_agent)
+    response.raise_for_status()
+    return RobotsPolicy.from_text(response.text, user_agent)
+
+
+async def _crawl(
+    args: argparse.Namespace,
+    store: SnapshotStore,
+    baseline: dict[str, dict[str, Any]] | None,
+) -> tuple[int, dict[str, Any] | None]:
+    """Run a full crawl (no baseline) or an update (with a baseline)."""
+    log = logging.getLogger("sfda.cli")
     robots = await _load_robots(args.base_url, args.user_agent)
     config = CrawlConfig(
         base_url=args.base_url,
-        max_pages=args.max_pages,
-        max_details=args.max_details,
+        max_pages=getattr(args, "max_pages", None),
+        max_details=getattr(args, "max_details", None),
         user_agent=args.user_agent,
     )
     clock = SystemClock()
@@ -101,19 +183,93 @@ async def _sfda_scrape(args: argparse.Namespace) -> int:
             fetcher=fetcher, store=store, robots=robots, clock=clock, config=config
         )
         try:
-            manifest = await crawler.run()
+            manifest = (
+                await crawler.run()
+                if baseline is None
+                else await crawler.update(baseline, args.recheck)
+            )
         except CrawlError as exc:
-            log.error("crawl stopped: %s (run %s can be resumed with --run-id)", exc, run_id)
-            return EXIT_STOPPED
-
+            log.error("crawl stopped: %s (run %s can be resumed with --run-id)", exc, store.run_id)
+            return EXIT_STOPPED, None
     log.info("finished with status %s: %s", manifest["status"], manifest.get("counts"))
-    return EXIT_OK if manifest["status"] == "complete" else EXIT_PARTIAL
+    return (EXIT_OK if manifest["status"] == "complete" else EXIT_PARTIAL), manifest
+
+
+# ---- commands ----------------------------------------------------------------------------------
+async def _sfda_scrape(args: argparse.Namespace) -> int:
+    root = Path(args.out)
+    store = SnapshotStore(root, args.run_id or _new_run_id())
+    _configure_logging(store.run_dir)
+    logging.getLogger("sfda.cli").info("run %s, output %s", store.run_id, store.run_dir)
+
+    code, manifest = await _crawl(args, store, baseline=None)
+    if manifest is not None and manifest["status"] == "complete":
+        _write_latest(root, store.run_id, manifest["finished_at"])
+    return code
+
+
+async def _sfda_update(args: argparse.Namespace) -> int:
+    root = Path(args.out)
+    baseline_id = args.baseline or _read_latest(root)
+    if baseline_id is None:
+        print("no baseline run: run `pharmavique sfda-scrape` to completion first", file=sys.stderr)
+        return EXIT_NO_BASELINE
+    baseline_records = SnapshotStore(root, baseline_id).read_records()
+    if not baseline_records:
+        print(f"baseline run {baseline_id} has no records", file=sys.stderr)
+        return EXIT_NO_BASELINE
+
+    store = SnapshotStore(root, args.run_id or _new_run_id("upd-"))
+    _configure_logging(store.run_dir)
+    logging.getLogger("sfda.cli").info(
+        "update %s against baseline %s (%s drugs)", store.run_id, baseline_id, len(baseline_records)
+    )
+
+    code, manifest = await _crawl(args, store, baseline={r["key"]: r for r in baseline_records})
+    if manifest is None:
+        return code
+
+    new_records = store.read_records()
+    result = diff(to_source_records(baseline_records), to_source_records(new_records))
+    names = _display_names(baseline_records, new_records)
+    _write_reports(store.run_dir, result, names, baseline_id, store.run_id)
+    counts = result.counts()
+    print(
+        f"changes since {baseline_id}: added={counts['added']} removed={counts['removed']} "
+        f"changed={counts['changed']} (report: {store.run_dir / 'changes.md'})"
+    )
+    if manifest["status"] == "complete":
+        _write_latest(root, store.run_id, manifest["finished_at"])
+    return code
+
+
+def _sfda_diff(args: argparse.Namespace) -> int:
+    root = Path(args.out)
+    old = SnapshotStore(root, args.old).read_records()
+    new = SnapshotStore(root, args.new).read_records()
+    if not old or not new:
+        print("one of the runs has no records", file=sys.stderr)
+        return EXIT_NO_BASELINE
+    result = diff(to_source_records(old), to_source_records(new))
+    print(
+        render_markdown(
+            result, _display_names(old, new), old_run=args.old, new_run=args.new, limit=args.limit
+        )
+    )
+    return EXIT_OK
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
     if args.command == "sfda-scrape":
         return asyncio.run(_sfda_scrape(args))
+    if args.command == "sfda-update":
+        return asyncio.run(_sfda_update(args))
+    if args.command == "sfda-diff":
+        return _sfda_diff(args)
     raise AssertionError(f"unhandled command {args.command!r}")  # pragma: no cover
 
 
