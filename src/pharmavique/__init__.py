@@ -1,0 +1,1 @@
+"""Pharmavique: drug intelligence platform."""
