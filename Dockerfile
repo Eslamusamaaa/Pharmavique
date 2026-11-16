@@ -1,4 +1,3 @@
-# NOTE: written in Phase 0 on a machine without Docker; not yet built. Verify with `docker compose build api`.
 FROM python:3.12-slim AS base
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /usr/local/bin/uv

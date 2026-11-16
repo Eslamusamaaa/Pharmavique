@@ -1,5 +1,4 @@
 # Local development stack. Ports are bound to localhost only.
-# NOTE: written in Phase 0 on a machine without Docker; not yet executed. Verify with `docker compose up`.
 services:
   db:
     image: pgvector/pgvector:pg17
