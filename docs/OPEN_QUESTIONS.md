@@ -82,6 +82,7 @@ Per the working agreements, anything unknown is recorded here instead of being a
 | Q-16 | Which clients consume the API first (mobile app, web, partner integrations)? Webhooks vs polling for recognition results? | API shape, CORS, auth flows | Phase 3 | Polling with status endpoint |
 | Q-18 | Notification channels for alerts (push, SMS, email, messaging apps)? | `NotificationSender` port and provider choice | Phase 5 | Port only, no channel until decided |
 | Q-3 | Should the repo language (code comments, docs) stay English? | Consistency | None | English |
+| Q-21 | Who defines which dosage forms belong to the same "family" for equivalence (for example whether two oral forms are interchangeable), and who reviews the mapping from SFDA/EG form names to families? | This is a pharmaceutical decision. The code takes the family as reference data and returns "possible, needs pharmacist check" when it is unknown, but someone qualified must own the table | Phase 1 equivalents endpoint | No families defined; every product's family is unknown until a pharmacist-reviewed table exists |
 
 ---
 
