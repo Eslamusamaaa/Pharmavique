@@ -11,7 +11,7 @@ Rules this crawler keeps, on purpose:
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, TypeVar
@@ -32,6 +32,17 @@ SOURCE = "sfda-drugs-list-web"
 LANGUAGES = ("en", "ar")
 _T = TypeVar("_T")
 _MAX_RECORDED_ITEMS = 200
+
+
+def list_fields(row: ListRow) -> dict[str, str]:
+    """The list-page fields used to notice that a drug changed, without the page number."""
+    return {
+        "scientific_name": row.scientific_name,
+        "trade_name": row.trade_name,
+        "strength": row.strength,
+        "dosage_form": row.dosage_form,
+        "price": row.price,
+    }
 
 
 class CrawlError(Exception):
@@ -87,6 +98,42 @@ class SfdaCrawler:
 
     # ---- public ------------------------------------------------------------------------------
     async def run(self) -> dict[str, Any]:
+        """Full crawl: every list page, then the details of every drug (or of the first N)."""
+
+        async def work(manifest: dict[str, Any]) -> None:
+            rows = await self._crawl_list(manifest)
+            keys = list(rows)[: self._config.max_details]
+            await self._crawl_details(rows, manifest, keys)
+            self._build_records(rows, keys, manifest, carry={})
+
+        return await self._execute(work)
+
+    async def update(
+        self, baseline: Mapping[str, Mapping[str, Any]], recheck: int = 0
+    ) -> dict[str, Any]:
+        """Cheap refresh against `baseline` (the records of the last complete run).
+
+        Reads every list page, fetches details only for new drugs, drugs whose list fields
+        changed, and the `recheck` drugs whose details are oldest. Everything else is carried
+        over from the baseline. Details-only changes are therefore found within
+        ceil(total / recheck) runs.
+        """
+        if self._config.max_pages is not None:
+            raise CrawlError("an update needs the whole list; do not set max_pages")
+
+        async def work(manifest: dict[str, Any]) -> None:
+            rows = await self._crawl_list(manifest)
+            keys, new_or_changed = self._keys_to_refresh(rows, baseline, recheck)
+            manifest["refresh"] = {
+                "new_or_changed": new_or_changed,
+                "recheck": len(keys) - new_or_changed,
+            }
+            await self._crawl_details(rows, manifest, keys)
+            self._build_records(rows, list(rows), manifest, carry=baseline)
+
+        return await self._execute(work)
+
+    async def _execute(self, work: Callable[[dict[str, Any]], Awaitable[None]]) -> dict[str, Any]:
         manifest = self._store.load_manifest() or self._new_manifest()
         manifest.setdefault("resumed_at", [])
         if manifest.get("status") not in (None, "new"):
@@ -96,9 +143,7 @@ class SfdaCrawler:
         self._store.save_manifest(manifest)
 
         try:
-            rows = await self._crawl_list(manifest)
-            await self._crawl_details(rows, manifest)
-            self._build_records(rows, manifest)
+            await work(manifest)
         except SourceBlocked:
             manifest["status"] = "blocked"
             raise
@@ -150,12 +195,34 @@ class SfdaCrawler:
         self._counts["duplicate_rows"] = len(duplicates)
         return rows
 
+    def _keys_to_refresh(
+        self,
+        rows: dict[str, tuple[ListRow, int]],
+        baseline: Mapping[str, Mapping[str, Any]],
+        recheck: int,
+    ) -> tuple[list[str], int]:
+        def unchanged(key: str) -> bool:
+            old = baseline.get(key)
+            if old is None:
+                return False
+            old_list = {k: v for k, v in old["list"].items() if k != "list_page"}
+            return old_list == list_fields(rows[key][0])
+
+        changed = [key for key in rows if not unchanged(key)]
+        changed_set = set(changed)
+        stale = [key for key in rows if key not in changed_set]
+        # oldest details first; a drug with no stored fetch time (or no details) sorts first
+        stale.sort(key=lambda k: str(baseline[k].get("provenance", {}).get("en_fetched_at", "")))
+        return changed + stale[: max(recheck, 0)], len(changed)
+
     async def _crawl_details(
-        self, rows: dict[str, tuple[ListRow, int]], manifest: dict[str, Any]
+        self,
+        rows: dict[str, tuple[ListRow, int]],
+        manifest: dict[str, Any],
+        keys: list[str],
     ) -> None:
         failures: dict[str, str] = manifest.get("failures", {})
         consecutive = 0
-        keys = list(rows)[: self._config.max_details]
 
         for index, key in enumerate(keys):
             row = rows[key][0]
@@ -191,25 +258,21 @@ class SfdaCrawler:
         manifest["failures"] = failures
 
     def _build_records(
-        self, rows: dict[str, tuple[ListRow, int]], manifest: dict[str, Any]
+        self,
+        rows: dict[str, tuple[ListRow, int]],
+        keys: list[str],
+        manifest: dict[str, Any],
+        carry: Mapping[str, Mapping[str, Any]],
     ) -> None:
         records: list[dict[str, Any]] = []
         mismatched: list[str] = []
         complete = True
-        keys = list(rows)[: self._config.max_details]
 
         for key in keys:
             row, page_no = rows[key]
             record: dict[str, Any] = {
                 "key": key,
-                "list": {
-                    "scientific_name": row.scientific_name,
-                    "trade_name": row.trade_name,
-                    "strength": row.strength,
-                    "dosage_form": row.dosage_form,
-                    "price": row.price,
-                    "list_page": page_no,
-                },
+                "list": {**list_fields(row), "list_page": page_no},
                 "provenance": {
                     "source": SOURCE,
                     "snapshot_id": self._store.run_id,
@@ -219,14 +282,25 @@ class SfdaCrawler:
             for language in LANGUAGES:
                 path = self._store.details_path(language, key)
                 if not self._store.has(path):
-                    record[language] = None
-                    complete = False
+                    old = carry.get(key)
+                    if old is not None and old.get(language):
+                        # no fresh page in this run: keep the baseline's details and say so
+                        record[language] = old[language]
+                        for suffix in ("source_ref", "fetched_at", "snapshot_id"):
+                            name = f"{language}_{suffix}"
+                            if name in old.get("provenance", {}):
+                                record["provenance"][name] = old["provenance"][name]
+                        self._bump("details_carried_over")
+                    else:
+                        record[language] = None
+                        complete = False
                     continue
                 stored = self._store.load_page(path)
                 fields = parse_details_page(stored.html).fields
                 record[language] = [{"label": f.label, "value": f.value} for f in fields]
                 record["provenance"][f"{language}_source_ref"] = stored.url
                 record["provenance"][f"{language}_fetched_at"] = stored.fetched_at.isoformat()
+                record["provenance"][f"{language}_snapshot_id"] = self._store.run_id
                 if language == "en" and not any(f.value == key for f in fields):
                     mismatched.append(key)
             records.append(record)
