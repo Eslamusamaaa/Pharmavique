@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+.import_linter_cache/
+
+# Secrets and local config: never commit
+.env
+.env.*
+!.env.example
+
+# Local data and uploads
+/data/
+/uploads/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
