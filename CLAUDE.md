@@ -35,4 +35,5 @@ Multi-tenant drug-intelligence API (patient, pharmacist, pharma company) on offi
 
 ## Git rules (owner's instruction)
 - Every commit and push is authored by the repository owner only: their name and email. **Never** add `Co-Authored-By`, "Generated with", or any mention of Claude or an AI tool in commit messages, PR descriptions or authorship.
-- Split commits by unit of work (one logical change per commit, with a clear message). Do not lump unrelated work into one commit.
+- Split commits by unit of work (one logical change per commit). Do not lump unrelated work into one commit.
+- Commit messages are one short plain line saying what was added or changed. Not two bare words, not two sentences, no body.
