@@ -64,7 +64,7 @@ Per the working agreements, anything unknown is recorded here instead of being a
 |---|---|---|---|---|
 | Q-11 | Target numbers: concurrent users, requests per second on lookups, photos per minute at peak, p95/p99 latency SLOs, availability target? | Load-test plan, ADR revisit triggers (ADR-001/002/003), cache and index sizing | Phase 1 plan (for SLOs), Phase 7 | None; I will not invent numbers |
 | Q-10 | Do you accept Arq despite its maintenance-only status (ADR-002)? | Long-term dependency risk | ADR-002 sign-off | Yes, behind the port with documented exit criteria |
-| Q-17 | Which managed Postgres (if any), and does it offer `pg_trgm` and `pgvector`? Which locale/encoding will the database use? | ADR-003 spike: trigram behavior on Arabic text depends on locale settings | Phase 1 | Docker image with UTF-8 locale; verify in spike |
+| Q-17 | Which managed Postgres (if any), and does it offer `pg_trgm` and `pgvector`? Which locale/encoding will the database use? | ADR-003 spike: trigram behavior on Arabic text depends on locale settings | Phase 1 | Local Docker image verified (spike 001: `en_US.UTF-8` works for Arabic trigrams). A managed Postgres must repeat the spike |
 
 ### AI providers
 
