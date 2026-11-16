@@ -1,0 +1,57 @@
+# Local development stack. Ports are bound to localhost only.
+# NOTE: written in Phase 0 on a machine without Docker; not yet executed. Verify with `docker compose up`.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pharmavique}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-pharmavique}
+      # UTF-8 locale on purpose: pg_trgm decides what counts as a word character from the DB locale.
+      # ADR-003 requires a Phase 1 spike to prove Arabic trigrams work with this setting.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # AOF persistence on; production durability/HA requirements are tracked in ADR-002.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      PHARMAVIQUE_ENVIRONMENT: dev
+      PHARMAVIQUE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pharmavique}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pharmavique}
+      PHARMAVIQUE_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
