@@ -19,6 +19,9 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
 ]
 
+[project.scripts]
+pharmavique = "pharmavique.bootstrap.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
