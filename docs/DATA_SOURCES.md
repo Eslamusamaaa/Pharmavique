@@ -91,7 +91,32 @@ SFDA's "Information Lists" catalog (`https://www.sfda.gov.sa/en/lists-categories
 
 The 2023 Excel files on the Open Data page (veterinary medicines, low-risk medical devices, cosmetics, energy drinks, feed) are older snapshots of some of these; the live lists above are preferred.
 
-Status: not started. The same crawler design (public pages, polite, resumable, no CAPTCHA) would apply per list once a list's structure has been read.
+### What each list looks like (probed 2026-11-17, one request per list)
+
+All lists are server-rendered tables of **10 rows per page** with a `?page=N` pager. Every page carries the CAPTCHA fields of the site's filter form, but the plain GET list pages are returned without any CAPTCHA, exactly like the drugs list; the filter form is never used. "Pages" is the pager's last page, so rows are an estimate (pages x 10).
+
+| List | Columns | Pages | About rows | Detail pages |
+|---|---|---|---|---|
+| Drug Shortage List | Generic Name, Availability Status (Arabic), Trade name number | 72 | 720 | yes |
+| Drugs Safety Labeling Updates | Scientific Name, Trade Name, Updated Section, Month | 26 | 260 | no |
+| Safety Alert | Title, Date, Type of news, link to a PDF | 27 | 270 | PDFs |
+| Unregistered pharmaceuticals ("Incentive Project List") | Scientific Name, Strength, Dosage Form, Purpose, Date of Update | 53 | 530 | no |
+| Licensed Pharmacies | Pharmacy Name, Contact Number, Address, Region | 38 | 380 | no |
+| New drug approvals | Request Type, Drug Type, Trade Name, Scientific Name, Strength, Dosage Form, Approval Date, Approved Use | 46 | 460 | yes |
+| Drug Companies | Company Name, Address, Company status, Registration Number, Certificate date, Drug Type, Production line, Country | 616 | 6,160 | no |
+| Veterinary drugs | Trade Name, Agent Name, Manufacturer, Register Number | 136 | 1,360 | yes |
+| Cosmetic ingredients (All Cosmetic List) | Scientific ingredient name, ingredient number (CAS) | 235 | 2,350 | yes |
+| Feed List | Product Name, Product Type, Animal | 2,081 | 20,800 | yes |
+| **Medical Equipment List** | Brand Name, Classification, Manufacturer, Status | **16,040** | **about 160,000** | yes |
+| **Food products (Registered)** | Barcode, Registration Number, Brand Name, Trade Name | **150,480** | **about 1.5 million** | yes |
+| **Cosmetic products (Notification of marketing)** | Product Name, Category, Country, Company | **298,336** | **about 3 million** | yes |
+| Marketed Products | Registration Number, Scientific Name, Trade Name, Dosage Form | none | 3 rows seen; appears search-driven | unknown |
+
+The Downloadable Information Lists page offers only a few PDF reports (adverse events, a pesticides list), **not bulk exports** of these registers.
+
+**The three large lists cannot be crawled politely.** At about 2 seconds per request, the cosmetic products list alone is about 7 days of list pages with no details, and food products about 3.5 days. Crawling them would put a sustained load on SFDA's site that we should not impose without its agreement. They need an official data export (OPEN_QUESTIONS Q-29) or a decision to leave them out.
+
+Status: not started. The 11 small and medium lists above can use the same crawler design (public pages, polite, resumable, no CAPTCHA, repeat fetches because the list order is unstable).
 
 ---
 
