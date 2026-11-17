@@ -21,9 +21,11 @@ from pharmavique.ingestion.application.ports import FetchedPage
 
 
 class SnapshotStore:
-    def __init__(self, root: Path, run_id: str) -> None:
+    def __init__(self, root: Path, run_id: str, shard_size: int | None = None) -> None:
+        """`shard_size` spreads list pages over sub-folders of that many pages (huge lists)."""
         self.run_id = run_id
         self.run_dir = root / run_id
+        self._shard_size = shard_size
 
     # ---- paths -------------------------------------------------------------------------------
     def list_page_path(self, page: int, pass_no: int = 1) -> Path:
@@ -31,6 +33,8 @@ class SnapshotStore:
         folder = self.run_dir / "list"
         if pass_no != 1:
             folder = folder / f"pass-{pass_no:02d}"
+        if self._shard_size:
+            folder = folder / f"{page // self._shard_size:05d}"
         return folder / f"page-{page:05d}.json.gz"
 
     def details_path(self, language: str, key: str) -> Path:
