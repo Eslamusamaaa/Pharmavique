@@ -41,7 +41,10 @@ Per the working agreements, anything unknown is recorded here instead of being a
 | ID | Question | Why it matters | Blocks | Proposed default |
 |---|---|---|---|---|
 | Q-4 | Do you already have an SFDA developer-portal key? Is it usable from outside Saudi IP ranges? Can you share a real sample response? | The brief warns the API may be restricted to Saudi IPs, and says never to invent field names. The adapter schema must come from real calls | Phase 1 SA adapter | Build the file-import adapter first and the API adapter after a real sample exists |
-| Q-5 | Currency and price units in the SA data? | Never assumed; stored per market and surfaced as `unconfirmed` if undocumented | Phase 1 pricing | `unconfirmed` |
+| Q-5 | Currency and price units in the SA data? | The SFDA pages show a bare number. **Owner decision 2026-11-17: SAR.** It is stored as SAR with the basis "owner-confirmed assumption, the source does not state it" and the API shows that basis. If SFDA documents a different unit, this is corrected in one place | Phase 1 pricing | SAR, basis shown. What the price unit is for (per pack?) is still unknown |
+| Q-22 | Web search features: which sources are allowed (SFDA announcements and recalls, FDA, EMA, WHO, manufacturer sites?), which search provider, and what may be shown? | External pages are `unofficial_unverified`, have their own terms and copyright, and can be wrong | Web search features | Allow-listed official domains only, summaries with links |
+| Q-23 | Maps and location: which maps provider, and what happens to the user's location? | Location is sensitive. Costs and terms differ by provider | Pharmacy finder | Location used once per request and not stored; nearest pharmacies only, no stock claims |
+| Q-24 | Leaflet RAG was in the brief (Phase 4) but is now out of scope. Confirm, and write the ADR | The assistant answers from catalog data only | Phase 4 | Out of scope until a leaflet source exists |
 | Q-8 | License status for commercial use of SFDA data, and status of any data-sharing request? | The brief notes site terms limit use to internal/personal business use. Must be recorded per source in `DATA_SOURCES.md` | Phase 1 launch | Treat as unverified; do not scrape site pages |
 
 ### EG data
