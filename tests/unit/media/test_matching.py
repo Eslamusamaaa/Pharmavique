@@ -174,3 +174,44 @@ def test_a_registry_product_without_strengths_never_conflicts() -> None:
     result = judge(product(), with_text("Panadol Extra 1000 mg tablets"))
 
     assert result.verdict is MatchVerdict.MATCHED
+
+
+def test_dosage_form_and_strength_words_in_the_registry_name_are_not_required_on_the_page() -> None:
+    # SFDA writes "PANADOL EXTRA TAB"; no shop titles its page that way
+    result = judge(
+        product(trade_name_en="PANADOL EXTRA TAB", trade_name_ar=None),
+        candidate(title="Panadol Extra 24S | Medon Pharmacy - Saudi Arabia"),
+    )
+
+    assert result.verdict is MatchVerdict.MATCHED
+
+
+def test_numbers_and_units_in_the_registry_name_are_dropped_too() -> None:
+    result = judge(
+        product(trade_name_en="AUGMENTIN 228 MG-5ML Powder for oral suspension"),
+        candidate(title="Augmentin suspension, Saudi Arabia"),
+    )
+
+    assert result.verdict is MatchVerdict.MATCHED
+
+
+def test_a_name_made_only_of_such_words_is_kept_as_written() -> None:
+    result = judge(
+        product(trade_name_en="Tablet", trade_name_ar=None),
+        candidate(title="Tablet - Saudi Arabia"),
+    )
+
+    assert "name" in result.signals
+
+
+def test_queries_use_the_brand_without_form_and_strength_words() -> None:
+    queries = build_queries(
+        product(
+            trade_name_en="AUGMENTIN 228 MG-5ML Powder for oral suspension",
+            trade_name_ar=None,
+            ingredient_names=("AMOXICILLIN",),
+        )
+    )
+
+    assert "AUGMENTIN AMOXICILLIN Saudi Arabia" in queries
+    assert all("228" not in q for q in queries)

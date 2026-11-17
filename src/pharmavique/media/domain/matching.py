@@ -28,6 +28,19 @@ from urllib.parse import unquote, urlparse
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.text import normalize_text
 
+# Words in a registry trade name that describe the form or the strength, not the brand. Shops do
+# not put them in a page title, so they are dropped before matching and before searching.
+_NAME_NOISE = frozenset(
+    {
+        "tab", "tabs", "tablet", "tablets", "caplet", "caplets", "cap", "caps", "capsule",
+        "capsules", "syrup", "susp", "suspension", "supp", "suppository", "suppositories",
+        "inj", "injection", "vial", "amp", "ampoule", "cream", "gel", "ointment", "drops",
+        "drop", "oral", "film", "coated", "powder", "solution", "for", "per", "and", "with",
+        "sachet", "sachets", "spray", "lotion", "infusion", "iv", "mg", "mcg", "g", "ml", "iu",
+        "اقراص", "قرص", "كبسول", "شراب", "معلق", "كريم", "مرهم", "لبوس", "حقن", "محلول", "للحقن",
+        "ميكروجرام", "ميكرولتر", "مجم", "ملجم", "مل", "جم",
+    }
+)  # fmt: skip
 _SAUDI_WORDS = frozenset({"saudi", "ksa", "السعوديه", "سعودي", "سعوديه"})
 _WEIGHTS = {"name": 0.4, "ingredient": 0.15, "saudi": 0.2, "company": 0.1, "strength": 0.15}
 # "500 mg", "0.5 ml", "10 iu" after normalization (digits and letters are already separated)
@@ -71,15 +84,32 @@ class MatchResult:
     signals: tuple[str, ...]  # which of name, ingredient, saudi, company, strength fired
 
 
+def core_name(name: str | None) -> str:
+    """The brand part of a registry trade name: form words, numbers and units are dropped.
+
+    "AUGMENTIN 228 MG-5ML Powder for oral suspension" becomes "AUGMENTIN". A name made only of
+    such words is kept as written.
+    """
+    raw = (name or "").strip()
+    kept = [
+        word
+        for word in raw.split()
+        if (normalized := normalize_text(word))
+        and not any(char.isdigit() for char in normalized)
+        and not set(normalized.split()) <= _NAME_NOISE
+    ]
+    return " ".join(kept) or raw
+
+
 def build_queries(product: ProductRef) -> tuple[str, ...]:
     """Search phrases naming the drug and Saudi Arabia, in English and in Arabic."""
     queries: list[str] = []
-    english = (product.trade_name_en or "").strip()
+    english = core_name(product.trade_name_en)
     if english:
         ingredient = product.ingredient_names[0] if product.ingredient_names else ""
         queries.append(" ".join(part for part in (english, ingredient, "Saudi Arabia") if part))
         queries.append(f"{english} Saudi Arabia")
-    arabic = (product.trade_name_ar or "").strip()
+    arabic = core_name(product.trade_name_ar)
     if arabic:
         queries.append(f"{arabic} السعودية")
     return tuple(dict.fromkeys(queries))
@@ -129,7 +159,9 @@ def _strength_signals(product: ProductRef, normalized: str) -> list[str]:
 
 
 def _names_appear(product: ProductRef, text_tokens: set[str]) -> bool:
-    return _any_phrase_in((product.trade_name_en or "", product.trade_name_ar or ""), text_tokens)
+    return _any_phrase_in(
+        (core_name(product.trade_name_en), core_name(product.trade_name_ar)), text_tokens
+    )
 
 
 def _any_phrase_in(phrases: tuple[str, ...], text_tokens: set[str]) -> bool:
