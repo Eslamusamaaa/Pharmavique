@@ -94,3 +94,29 @@ def test_load_options_are_parsed() -> None:
     )
 
     assert (args.run_id, args.batch_size, args.limit) == ("r1", 50, 10)
+
+
+def test_lists_defaults_skip_the_giants_and_stay_polite() -> None:
+    args = build_parser().parse_args(["sfda-lists"])
+
+    assert args.out == "data/lists"
+    assert args.include_giant is False
+    assert args.delay >= 1.0
+
+
+def test_lists_show_prints_every_known_list_without_network(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["sfda-lists", "--show"]) == 0
+
+    out = capsys.readouterr().out
+    assert "drug-shortage" in out
+    assert out.count("giant") == 3
+
+
+def test_lists_with_an_unknown_name_says_which_names_exist(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["sfda-lists", "--lists", "nope"]) == 4
+
+    assert "unknown list" in capsys.readouterr().err

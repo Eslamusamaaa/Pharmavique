@@ -4,6 +4,7 @@ Commands
     sfda-scrape   full crawl of the public SFDA registered-drugs list (resumable, polite)
     sfda-update   cheap refresh: only new and changed drugs are refetched, then a change report
     sfda-diff     compare two stored runs offline
+    sfda-lists    crawl the other official SFDA lists (shortages, pharmacies, companies, ...)
 """
 
 import argparse
@@ -39,6 +40,16 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.crawler import (
     CrawlError,
     SfdaCrawler,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.errors import SourceBlocked
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_crawler import (
+    ListCrawlConfig,
+    ListCrawler,
+)
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
+    SFDA_LISTS,
+    ListSpec,
+    get_list,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
 )
@@ -66,8 +77,8 @@ EXIT_STOPPED = 3
 EXIT_NO_BASELINE = 4
 
 
-def _add_fetch_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--out", default="data/sfda", help="folder for run snapshots")
+def _add_fetch_options(parser: argparse.ArgumentParser, default_out: str = "data/sfda") -> None:
+    parser.add_argument("--out", default=default_out, help="folder for run snapshots")
     parser.add_argument("--run-id", help="run id (reuse an existing one to resume it)")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--delay", type=float, default=1.5, help="seconds between requests")
@@ -101,6 +112,19 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("new", help="newer run id")
     compare.add_argument("--out", default="data/sfda")
     compare.add_argument("--limit", type=int, default=200, help="rows per section in the report")
+
+    lists = commands.add_parser(
+        "sfda-lists", help="crawl the other official SFDA lists, one after another (resumable)"
+    )
+    _add_fetch_options(lists, default_out="data/lists")
+    lists.add_argument("--lists", help="comma-separated list names (default: all but the giants)")
+    lists.add_argument(
+        "--include-giant",
+        action="store_true",
+        help="also crawl the three giant lists (days of polite crawling each)",
+    )
+    lists.add_argument("--max-pages", type=int, help="only crawl this many pages per list (sample)")
+    lists.add_argument("--show", action="store_true", help="print the known lists and stop")
 
     load = commands.add_parser(
         "sfda-load", help="load a stored run into the catalog database (safe to repeat)"
@@ -267,6 +291,68 @@ async def _sfda_update(args: argparse.Namespace) -> int:
     return code
 
 
+def _selected_lists(args: argparse.Namespace) -> list[ListSpec]:
+    if args.lists:
+        return [get_list(name.strip()) for name in args.lists.split(",") if name.strip()]
+    return [spec for spec in SFDA_LISTS if args.include_giant or not spec.is_giant]
+
+
+async def _sfda_lists(args: argparse.Namespace) -> int:
+    if args.show:
+        for spec in SFDA_LISTS:
+            size = "giant" if spec.is_giant else "normal"
+            print(f"{spec.name:30} {spec.probed_pages:>8} pages  {size:6} {spec.path}")
+        return EXIT_OK
+    try:
+        specs = _selected_lists(args)
+    except KeyError as exc:
+        print(exc.args[0], file=sys.stderr)
+        return EXIT_NO_BASELINE
+
+    root = Path(args.out)
+    run_id = args.run_id or _new_run_id()
+    log = logging.getLogger("sfda.cli")
+    robots = await _load_robots(args.base_url, args.user_agent)
+    clock = SystemClock()
+    config = ListCrawlConfig(
+        base_url=args.base_url, max_pages=args.max_pages, user_agent=args.user_agent
+    )
+    code = EXIT_OK
+    async with PlaywrightPageFetcher(
+        user_agent=args.user_agent,
+        throttle=Throttle(args.delay, args.jitter),
+        clock=clock,
+        java_script=args.enable_js,
+        headless=not args.headed,
+    ) as fetcher:
+        for spec in specs:
+            store = SnapshotStore(
+                root / spec.name, run_id, shard_size=1000 if spec.is_giant else None
+            )
+            _configure_logging(store.run_dir)
+            manifest = store.load_manifest()
+            if manifest is not None and manifest.get("status") == "complete":
+                log.info("%s is already complete in run %s, skipping", spec.name, run_id)
+                continue
+            log.info("list %s (run %s, output %s)", spec.name, run_id, store.run_dir)
+            crawler = ListCrawler(
+                spec=spec, fetcher=fetcher, store=store, robots=robots, clock=clock, config=config
+            )
+            try:
+                manifest = await crawler.run()
+            except SourceBlocked as exc:
+                log.error("the site blocked the crawl: %s; stopping the whole queue", exc)
+                return EXIT_STOPPED
+            except CrawlError as exc:
+                log.error("%s stopped: %s (resume with --run-id %s)", spec.name, exc, run_id)
+                code = EXIT_PARTIAL
+                continue
+            log.info("%s finished with status %s", spec.name, manifest["status"])
+            if manifest["status"] != "complete":
+                code = EXIT_PARTIAL
+    return code
+
+
 def _sfda_diff(args: argparse.Namespace) -> int:
     root = Path(args.out)
     old = SnapshotStore(root, args.old).read_records()
@@ -344,6 +430,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sfda_scrape(args))
     if args.command == "sfda-update":
         return asyncio.run(_sfda_update(args))
+    if args.command == "sfda-lists":
+        return asyncio.run(_sfda_lists(args))
     if args.command == "sfda-diff":
         return _sfda_diff(args)
     if args.command == "sfda-load":
