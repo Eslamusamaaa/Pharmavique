@@ -45,14 +45,21 @@ class PoliteWeb:
         self._throttle = throttle
         self._user_agent = user_agent
         self._robots: dict[str, RobotsPolicy | None] = {}
+        self._unreadable: set[str] = set()
         self.blocked_hosts: set[str] = set()
 
-    async def get(self, url: str) -> httpx.Response | None:
-        """The response, or None when the site is blocked, forbids the URL, or the request fails."""
+    async def get(self, url: str, *, strict_robots: bool = True) -> httpx.Response | None:
+        """The response, or None when the site is blocked, forbids the URL, or the request fails.
+
+        A page host whose robots.txt cannot be read is treated as blocked. For image files
+        (`strict_robots=False`) an unreadable robots.txt means "no rules": CDN buckets often
+        refuse robots.txt while serving files normally. A readable robots.txt is always obeyed,
+        and a refusal of the file itself still marks the host blocked.
+        """
         host = urlparse(url).netloc
         if host in self.blocked_hosts:
             return None
-        policy = await self._policy_for(url)
+        policy = await self._policy_for(url, strict=strict_robots)
         if policy is None or not policy.allows(url):
             return None
         response = await self._request(url)
@@ -63,22 +70,25 @@ class PoliteWeb:
             return None
         return response
 
-    async def _policy_for(self, url: str) -> RobotsPolicy | None:
+    async def _policy_for(self, url: str, *, strict: bool) -> RobotsPolicy | None:
         parts = urlparse(url)
         host = parts.netloc
         if host not in self._robots:
             response = await self._request(f"{parts.scheme}://{host}/robots.txt")
-            if response is None:
-                self._robots[host] = None
-                self._block(host, "robots.txt could not be read")
-            elif response.status_code == 404:
-                self._robots[host] = RobotsPolicy.from_text("", self._user_agent)
-            elif response.status_code == 200:
+            if response is not None and response.status_code == 200:
                 self._robots[host] = RobotsPolicy.from_text(response.text, self._user_agent)
+            elif response is not None and response.status_code == 404:
+                self._robots[host] = RobotsPolicy.from_text("", self._user_agent)
             else:
                 self._robots[host] = None
-                self._block(host, f"robots.txt answered {response.status_code}")
-        return self._robots[host]
+                self._unreadable.add(host)
+        policy = self._robots[host]
+        if policy is None and host in self._unreadable:
+            if strict:
+                self._block(host, "robots.txt could not be read")
+                return None
+            return RobotsPolicy.from_text("", self._user_agent)
+        return policy
 
     async def _request(self, url: str) -> httpx.Response | None:
         await self._throttle.wait()
@@ -154,7 +164,7 @@ class HttpImageDownloader:
         self._web = web
 
     async def download(self, url: str) -> DownloadedImage | None:
-        response = await self._web.get(url)
+        response = await self._web.get(url, strict_robots=False)
         if response is None or response.status_code != 200:
             return None
         data = response.content

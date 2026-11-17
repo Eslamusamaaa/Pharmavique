@@ -142,3 +142,34 @@ async def test_an_oversized_download_is_refused() -> None:
     )
 
     assert await HttpImageDownloader(web(site)).download("https://cdn.example.sa/big.jpg") is None
+
+
+async def test_an_image_host_without_a_readable_robots_txt_still_serves_the_picture() -> None:
+    # CDN buckets often answer 403 for robots.txt while serving files normally
+    site = Site({"/robots.txt": (403, "text/html", b"denied"), "/i.jpg": (200, "image/jpeg", JPEG)})
+    polite = web(site)
+
+    image = await HttpImageDownloader(polite).download("https://cdn.example.net/i.jpg")
+
+    assert image is not None
+    assert polite.blocked_hosts == set()
+
+
+async def test_an_image_host_that_refuses_the_picture_itself_is_still_marked_blocked() -> None:
+    site = Site({"/robots.txt": (403, "text/html", b"denied"), "/i.jpg": (403, "text/html", b"no")})
+    polite = web(site)
+
+    assert await HttpImageDownloader(polite).download("https://cdn.example.net/i.jpg") is None
+    assert polite.blocked_hosts == {"cdn.example.net"}
+
+
+async def test_an_image_host_whose_robots_txt_forbids_the_picture_is_obeyed() -> None:
+    site = Site(
+        {
+            "/robots.txt": (200, "text/plain", b"User-agent: *\nDisallow: /i.jpg\n"),
+            "/i.jpg": (200, "image/jpeg", JPEG),
+        }
+    )
+
+    assert await HttpImageDownloader(web(site)).download("https://cdn.example.net/i.jpg") is None
+    assert "/i.jpg" not in site.requests
