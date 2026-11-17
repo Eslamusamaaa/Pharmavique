@@ -118,3 +118,68 @@ def test_the_fetch_command_is_polite_by_default() -> None:
 
     assert args.delay >= 1.0
     assert args.out == "data/media"
+
+
+def _image_row(number: str, status: str) -> dict[str, object]:
+    return {
+        "market": "SA",
+        "register_number": number,
+        "image_url": f"https://shop.example.sa/{number}.jpg",
+        "page_url": "https://shop.example.sa/p",
+        "query": "q",
+        "status": status,
+        "score": 0.8,
+        "signals": ["name"],
+        "content_hash": number * 8,
+        "content_type": "image/jpeg",
+        "size_bytes": 2000,
+        "storage_key": f"products/SA/{number}/x.jpg",
+        "provenance": {
+            "source": "web-image-search",
+            "source_ref": "https://shop.example.sa/p",
+            "fetched_at": "2026-01-01T00:00:00+00:00",
+            "snapshot_id": "r",
+            "trust": "unofficial_unverified",
+        },
+    }
+
+
+def test_the_report_counts_coverage_and_lists_products_without_a_picture(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    products = tmp_path / "products.jsonl"
+    rows: list[dict[str, object]] = [
+        {"market": "SA", "register_number": n, "trade_name_en": f"DRUG{n}", "trade_name_ar": None,
+         "ingredients": [], "dosage_form_en": None, "company": None}
+        for n in ("1", "2", "3", "4")
+    ]  # fmt: skip
+    products.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    media = tmp_path / "media"
+    media.mkdir()
+    images = [
+        _image_row("1", "matched"),
+        _image_row("2", "needs_review"),
+        _image_row("2", "needs_review"),
+    ]
+    (media / "images.jsonl").write_text("\n".join(json.dumps(r) for r in images), encoding="utf-8")
+
+    code = main(["sfda-images-report", "--products", str(products), "--out", str(media)])
+
+    out = capsys.readouterr().out
+    missing = json.loads((media / "missing.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert "4 products" in out
+    assert "matched: 1" in out
+    assert "only needs_review: 1" in out
+    assert "no picture: 2" in out
+    assert [m["register_number"] for m in missing] == ["3", "4"]
+
+
+def test_fetching_needs_exactly_one_source_of_pages() -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["sfda-images"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["sfda-images", "--results", "r.json", "--sitemaps", "dir"])
+    assert parser.parse_args(["sfda-images", "--sitemaps", "dir"]).concurrency >= 1

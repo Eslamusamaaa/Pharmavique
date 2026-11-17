@@ -2,8 +2,10 @@
 
     sfda-images-export    cache the stored SFDA products as one JSON line each (slow, once)
     sfda-images-queries   write the search phrases for a slice of products
-    sfda-images           read the search results, check each page against the registry data,
-                          download the pictures that pass, record them with their source
+    sfda-images-sitemaps  collect the page addresses of Saudi pharmacy sites (once)
+    sfda-images           find each drug's page (sitemaps or a results file), check it against
+                          the registry data, download the picture that passes, record its source
+    sfda-images-report    coverage: which drugs have a picture, which have none
 
 The search itself is not done here: results come from a file (`--results`) that any search runner
 fills, so the search backend can change without touching the rest.
@@ -22,15 +24,17 @@ from typing import Any
 import httpx
 
 from pharmavique.foundation.clock import SystemClock
+from pharmavique.foundation.concurrency import map_concurrently
 from pharmavique.foundation.http.throttle import Throttle
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping import map_records
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import StoredRecords
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
-from pharmavique.media.application.page_search import PageImageSearch
+from pharmavique.media.application.page_search import PageImageSearch, PageSearch
 from pharmavique.media.domain.matching import ProductRef, build_queries
 from pharmavique.media.infrastructure.files import FileImageStore, JsonlImageRepository
 from pharmavique.media.infrastructure.search_file import FilePageSearch
+from pharmavique.media.infrastructure.sitemaps import SitemapCollector, SitemapPageSearch
 from pharmavique.media.infrastructure.web import HttpImageDownloader, PoliteWeb, WebPageReader
 from pharmavique.shared_kernel.currency import Currency
 from pharmavique.shared_kernel.market import Market
@@ -38,6 +42,17 @@ from pharmavique.shared_kernel.market import Market
 EXIT_OK = 0
 EXIT_NO_INPUT = 4
 DEFAULT_PRODUCTS = "data/media/products.jsonl"
+# Saudi pharmacy sites whose robots.txt allows crawling and that publish sitemaps (checked
+# 2026-11-17). Sites that blocked us (Boots, Dawi, Desertcart, Danube) are left out on purpose.
+DEFAULT_SHOPS = {
+    "lifepharmacy": "https://www.lifepharmacy.com/__sitemap__/en-SA.xml",
+    "unitedpharmacy": "https://unitedpharmacy.sa/sitemap_en.xml",
+    "rafpharmacy": "https://rafpharmacy.com/sitemap.xml",
+    "aljawaher": "https://aljawaher.online/sitemap.xml",
+    "nahdi": "https://www.nahdionline.com/sitemap_index_en.xml",
+    "medon": "https://medononline.com/sitemap.xml",
+    "ibrand": "https://ibrand.com.sa/ar/sitemap.xml",
+}
 DEFAULT_USER_AGENT = "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
 
 
@@ -59,13 +74,34 @@ def add_arguments(commands: Any) -> None:
         "sfda-images", help="check search results against the registry, download matching pictures"
     )
     _slice_options(fetch)
-    fetch.add_argument("--results", required=True, help="JSON file: search phrase -> result pages")
+    source = fetch.add_mutually_exclusive_group(required=True)
+    source.add_argument("--results", help="JSON file: search phrase -> result pages")
+    source.add_argument("--sitemaps", help="folder of collected sitemap files (*.jsonl)")
+    fetch.add_argument("--concurrency", type=int, default=6, help="products worked at once")
+    fetch.add_argument("--pages-per-query", type=int, default=3, help="pages read per phrase")
     fetch.add_argument("--out", default="data/media", help="folder for pictures and records")
     fetch.add_argument("--run-id", help="id recorded as the snapshot of these pictures")
     fetch.add_argument("--max-images", type=int, default=3, help="pictures kept per product")
     fetch.add_argument("--delay", type=float, default=2.0, help="seconds between requests")
     fetch.add_argument("--jitter", type=float, default=1.0)
     fetch.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+
+    maps = commands.add_parser(
+        "sfda-images-sitemaps", help="collect the page addresses of the pharmacy sites"
+    )
+    maps.add_argument("--out", default="data/media/sitemaps")
+    maps.add_argument(
+        "--shop", action="append", help="name=sitemap-url (repeat); default: the built-in list"
+    )
+    maps.add_argument("--delay", type=float, default=2.0)
+    maps.add_argument("--jitter", type=float, default=1.0)
+    maps.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+
+    report = commands.add_parser(
+        "sfda-images-report", help="how many drugs have a picture; write the list of those without"
+    )
+    report.add_argument("--products", default=DEFAULT_PRODUCTS)
+    report.add_argument("--out", default="data/media")
 
 
 def _slice_options(parser: argparse.ArgumentParser) -> None:
@@ -172,34 +208,72 @@ def write_queries(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-async def fetch_images(args: argparse.Namespace) -> int:
-    log = logging.getLogger("media.cli")
-    refs = _load_or_explain(Path(args.products))
-    if refs is None:
-        return EXIT_NO_INPUT
+def _configure_logging(out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[logging.StreamHandler(sys.stderr), logging.FileHandler(out / "run.log")],
+        force=True,
+    )
+
+
+def _page_search(args: argparse.Namespace) -> PageSearch | None:
+    if args.sitemaps:
+        files = sorted(Path(args.sitemaps).glob("*.jsonl"))
+        if not files:
+            print(
+                f"no sitemap files in {args.sitemaps}: "
+                "run `pharmavique sfda-images-sitemaps` first",
+                file=sys.stderr,
+            )
+            return None
+        return SitemapPageSearch(files)
     results = _existing_file(Path(args.results))
     if results is None:
         print(f"no search results file at {args.results}", file=sys.stderr)
+        return None
+    return FilePageSearch(results)
+
+
+async def fetch_images(args: argparse.Namespace) -> int:
+    refs = _load_or_explain(Path(args.products))
+    if refs is None:
+        return EXIT_NO_INPUT
+    page_search = _page_search(args)
+    if page_search is None:
         return EXIT_NO_INPUT
 
     out = Path(args.out)
+    _configure_logging(out)
+    log = logging.getLogger("media.cli")
     run_id = args.run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    chosen = _slice(refs, args)
     totals = FindImagesReport()
+    done = 0
     async with httpx.AsyncClient(timeout=40.0) as client:
         web = PoliteWeb(
             client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
         )
         handler = FindProductImagesHandler(
-            PageImageSearch(FilePageSearch(results), WebPageReader(web)),
+            PageImageSearch(page_search, WebPageReader(web)),
             HttpImageDownloader(web),
             FileImageStore(out / "images"),
             JsonlImageRepository(out / "images.jsonl"),
             SystemClock(),
             run_id=run_id,
+            results_per_query=args.pages_per_query,
         )
-        for ref in _slice(refs, args):
+
+        async def work(ref: ProductRef) -> FindImagesReport:
+            nonlocal done
             report = await handler.handle(ref, args.max_images)
-            log.info("%s %s: %s", ref.register_number, ref.trade_name_en, report)
+            done += 1
+            if done % 25 == 0 or done == len(chosen):
+                log.info("%s of %s products worked; last: %s", done, len(chosen), report)
+            return report
+
+        for report in await map_concurrently(chosen, work, limit=args.concurrency):
             totals.queries += report.queries
             totals.candidates += report.candidates
             totals.rejected += report.rejected
@@ -211,4 +285,67 @@ async def fetch_images(args: argparse.Namespace) -> int:
     print(f"pictures stored: {totals.stored} | {totals}")
     if blocked:
         print(f"sites that blocked us and were left alone: {', '.join(blocked)}")
+    return EXIT_OK
+
+
+async def collect_sitemaps(args: argparse.Namespace) -> int:
+    shops = dict(DEFAULT_SHOPS)
+    if args.shop:
+        shops = dict(item.split("=", 1) for item in args.shop)
+    out = Path(args.out)
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        web = PoliteWeb(
+            client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
+        )
+        collector = SitemapCollector(web)
+        for name, url in shops.items():
+            count = await collector.collect(url, out / f"{name}.jsonl")
+            print(f"{name}: {count} page addresses")
+        blocked = sorted(web.blocked_hosts)
+    if blocked:
+        print(f"sites that blocked us and were left alone: {', '.join(blocked)}")
+    return EXIT_OK
+
+
+def report_coverage(args: argparse.Namespace) -> int:
+    refs = _load_or_explain(Path(args.products))
+    if refs is None:
+        return EXIT_NO_INPUT
+    named = [r for r in refs if r.trade_name_en or r.trade_name_ar]
+    best: dict[str, str] = {}
+    images_file = Path(args.out) / "images.jsonl"
+    if images_file.is_file():
+        for line in images_file.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            number, status = row["register_number"], row["status"]
+            good = status in ("matched", "confirmed")
+            if good or number not in best:
+                best[number] = "matched" if good else "needs_review"
+    matched = sum(1 for r in named if best.get(r.register_number) == "matched")
+    review = sum(1 for r in named if best.get(r.register_number) == "needs_review")
+    missing = [r for r in named if r.register_number not in best]
+    (Path(args.out) / "missing.json").write_text(
+        json.dumps(
+            [
+                {
+                    "register_number": r.register_number,
+                    "trade_name_en": r.trade_name_en,
+                    "trade_name_ar": r.trade_name_ar,
+                    "ingredients": list(r.ingredient_names),
+                    "strengths": list(r.strengths),
+                }
+                for r in missing
+            ],
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    print(
+        f"{len(named)} products ({len(refs) - len(named)} without any name) | "
+        f"matched: {matched} | only needs_review: {review} | no picture: {len(missing)}"
+    )
     return EXIT_OK
