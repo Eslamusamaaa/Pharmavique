@@ -81,6 +81,14 @@ def test_unreadable_stored_pages_are_skipped(tmp_path: Path) -> None:
     assert keys == ["k1", "k2"]
 
 
+def test_keys_already_handled_are_skipped_before_their_pages_are_read(tmp_path: Path) -> None:
+    store = stored(tmp_path)
+
+    keys = [r["key"] for r in StoredRecords(store).records(skip={"k1"})]
+
+    assert keys == ["k2"]
+
+
 def test_keys_with_special_characters_survive_the_file_name_round_trip(tmp_path: Path) -> None:
     store = SnapshotStore(tmp_path, "run-1")
     save(store, "en", "1-585-09", details_html("1-585-09"))

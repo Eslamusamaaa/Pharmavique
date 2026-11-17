@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 
 from pharmavique.media.domain.images import ImageStatus, ProductImage
-from pharmavique.media.infrastructure.files import FileImageStore, JsonlImageRepository
+from pharmavique.media.infrastructure.files import (
+    FileImageStore,
+    JsonlAttemptLog,
+    JsonlImageRepository,
+)
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.provenance import Provenance, TrustLevel
 
@@ -68,3 +72,28 @@ async def test_a_half_written_last_line_is_ignored_not_fatal(tmp_path: Path) -> 
         handle.write('{"market": "SA", "register_n')
 
     assert len(await JsonlImageRepository(path).for_product(Market.SA, "1-1")) == 1
+
+
+def test_the_attempt_log_remembers_which_products_were_tried_across_restarts(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "attempts.jsonl"
+    log = JsonlAttemptLog(path)
+    log.record(Market.SA, "1-1", stored=2, at=datetime(2026, 1, 1, tzinfo=UTC))
+    log.record(Market.SA, "2-2", stored=0, at=datetime(2026, 1, 1, tzinfo=UTC))
+
+    again = JsonlAttemptLog(path)
+
+    assert again.was_tried(Market.SA, "1-1")
+    assert again.was_tried(Market.SA, "2-2")
+    assert not again.was_tried(Market.SA, "3-3")
+    assert again.tried_count == 2
+
+
+def test_a_half_written_attempt_line_is_ignored(tmp_path: Path) -> None:
+    path = tmp_path / "attempts.jsonl"
+    JsonlAttemptLog(path).record(Market.SA, "1-1", stored=1, at=datetime(2026, 1, 1, tzinfo=UTC))
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write('{"market": "SA", "regi')
+
+    assert JsonlAttemptLog(path).was_tried(Market.SA, "1-1")

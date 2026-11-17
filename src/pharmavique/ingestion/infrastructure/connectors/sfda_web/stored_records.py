@@ -1,6 +1,6 @@
 """Read the pages a crawl has stored on disk as source records, even while the crawl still runs."""
 
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -21,14 +21,17 @@ class StoredRecords:
     def __init__(self, store: SnapshotStore) -> None:
         self._store = store
 
-    def records(self) -> Iterator[dict[str, Any]]:
+    def records(self, skip: Collection[str] = frozenset()) -> Iterator[dict[str, Any]]:
+        """Every stored drug; keys in `skip` are passed over before their pages are read."""
         folder = self._store.run_dir / "details" / "en"
         for path in sorted(folder.glob(f"*{_SUFFIX}")):
+            key = unquote(path.name.removesuffix(_SUFFIX))
+            if key in skip:
+                continue
             english = self._read(path)
             if english is None:
                 continue
             page, fields = english
-            key = unquote(path.name.removesuffix(_SUFFIX))
             arabic_path = self._store.details_path("ar", key)
             arabic = self._read(arabic_path) if self._store.has(arabic_path) else None
             yield {

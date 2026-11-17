@@ -104,3 +104,41 @@ class JsonlImageRepository:
         with self._path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(_to_json(image), ensure_ascii=False) + "\n")
         self._images.append(image)
+
+
+class JsonlAttemptLog:
+    """Which products a run has already worked on, with or without a result.
+
+    A product with no picture is not asked about again on every cycle; the report lists the ones
+    still missing so they can be handled another way.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        self._tried: set[tuple[str, str]] = set()
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    row = json.loads(line)
+                    self._tried.add((row["market"], row["register_number"]))
+                except (ValueError, KeyError):
+                    continue
+
+    @property
+    def tried_count(self) -> int:
+        return len(self._tried)
+
+    def was_tried(self, market: Market, register_number: str) -> bool:
+        return (market.value, register_number) in self._tried
+
+    def record(self, market: Market, register_number: str, *, stored: int, at: datetime) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        row = {
+            "market": market.value,
+            "register_number": register_number,
+            "stored": stored,
+            "at": at.isoformat(),
+        }
+        with self._path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row) + "\n")
+        self._tried.add((market.value, register_number))
