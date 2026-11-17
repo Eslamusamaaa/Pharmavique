@@ -104,7 +104,7 @@ class ListCrawler:
             key_of=lambda row: row.key,
             max_pages=self._config.max_pages,
             max_list_pages=self._spec.max_list_pages,
-            max_list_passes=self._config.max_list_passes,
+            max_list_passes=self._spec.max_passes(self._config.max_list_passes),
             list_patience=self._config.list_patience,
             log=self._log,
         )

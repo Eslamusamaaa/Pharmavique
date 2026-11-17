@@ -8,6 +8,9 @@ always trusts the pager it reads, never these numbers.
 from dataclasses import dataclass
 
 GIANT_PAGES = 10_000  # lists with more pages than this are only crawled on request
+# Passes 2 and 3 refetch only suspect pages; later passes sweep every page, which on a giant list
+# would be days more. So giants stop after the targeted passes and report any gap that is left.
+GIANT_MAX_PASSES = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +32,9 @@ class ListSpec:
     def max_list_pages(self) -> int:
         """Hard stop if the list never seems to end: double what was probed, at least 100."""
         return max(self.probed_pages * 2, 100)
+
+    def max_passes(self, wanted: int) -> int:
+        return min(wanted, GIANT_MAX_PASSES) if self.is_giant else wanted
 
     def url(self, base_url: str, page: int) -> str:
         return f"{base_url}{self.path}?page={page}"

@@ -162,6 +162,11 @@ def test_list_catalog_has_unique_names_and_marks_the_three_giants() -> None:
         get_list("nope")
 
 
+def test_giant_lists_only_get_the_cheap_targeted_repair_passes() -> None:
+    assert get_list("cosmetic-products").max_passes(8) == 3
+    assert get_list("drug-shortage").max_passes(8) == 8
+
+
 def test_sharded_store_keeps_folders_small(tmp_path: Path) -> None:
     store = SnapshotStore(tmp_path, "r", shard_size=1000)
     assert store.list_page_path(12).parent.name == "00000"
