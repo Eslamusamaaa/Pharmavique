@@ -18,6 +18,12 @@ Last updated: 2026-11-17. The three roles (patient, pharmacist, pharma company) 
 | 2026-11-17 | **Look-alike sound-alike (LASA) name warnings** are an early feature | Computed from the catalog names (about 9,000) with string and phonetic similarity, in Arabic and English. Informational only: "a similar name exists, double-check". Also lowers OCR confidence for confusable names |
 | 2026-11-17 | **SFDA safety bulletins linked to the drug page** is the first extra data source | The monthly "Recalls, Market Withdrawals & Safety Alerts" PDF. Product matching is reviewed by a person. We show what SFDA published, with a link, and no advice. Same unverified SFDA reuse status (DATA_SOURCES SA-2) |
 
+### Later decisions (2026-11-17)
+
+- The feature build order was approved by the owner (see "Build order").
+- **Pharmacist shelf scan:** the pharmacist photographs a whole shelf and the system finds each box and reads the name on it, so items are never typed in by hand. The confirmed items become the shelf list used for price and safety alerts. Details under "AI features".
+- The system must be **scalable**; software architecture gets focused attention before feature code (ADR-004, proposed).
+
 ## Core features (data we already collect)
 
 Search in Arabic and English with spelling tolerance; full drug page (26 fields in both languages, with source and fetch time); equivalents sorted by price (with a "possible, needs pharmacist check" tier); side-by-side comparison; price history; change alerts (price, new drug, authorization or marketing status); patient list with a shared-ingredient warning; competitor radar, market map per active ingredient and gap discovery for companies; company portfolio view; data-quality dashboard for operators.
@@ -32,6 +38,7 @@ Search in Arabic and English with spelling tolerance; full drug page (26 fields 
 | Assistant (agentic RAG) | An LLM chooses among read-only tools (search, product details, equivalents, price comparison, change history) and answers with citations to our records | Equivalence is computed by our deterministic code, never decided by the LLM. Step limit, timeout, cost cap. Medical-advice questions get a polite "ask your pharmacist or doctor" |
 | Ingredient and form normalization | Offline LLM-assisted mapping of free text (salts, dosage forms) to canonical ids, reviewed by a person | Nothing goes live unreviewed |
 | Alias generation | Offline Arabic and English transliteration aliases for trade names, reviewed | Same |
+| Shelf scan (pharmacist) | One photo of a shelf: find each box, read the name on it, match it to the catalog, and show a grid to confirm. The confirmed items become the pharmacy's shelf list for price and safety alerts | Names are never typed in by hand. Each match shows a confidence; low confidence is flagged and the pharmacist confirms. Similar names (LASA) are highlighted. No stock counts and no availability claims. Photos are deleted after processing |
 | Weekly change digest | Natural-language summary of the change report | Generated only from the structured diff |
 | Company analytics questions | The LLM calls predefined analytics queries (no free SQL) | Read-only, tenant-scoped |
 | Price anomaly flags | Statistical outlier detection on price changes | Informational |
