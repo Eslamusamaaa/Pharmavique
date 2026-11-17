@@ -45,6 +45,20 @@ Last updated: 2026-11-16.
 
 ---
 
+## SA-2. SFDA recalls, market withdrawals and safety alerts (planned)
+
+| | |
+|---|---|
+| Owner | Saudi Food and Drug Authority |
+| Where | A monthly PDF bulletin titled "Recalls, Market Withdrawals & Safety Alerts" on sfda.gov.sa, and the drug circulars and withdrawals pages |
+| What it adds | Official notices that a product was recalled or withdrawn, with the reason, so the drug page can say why a product disappeared from the list |
+| How we would get it | Download the monthly PDF, extract product names and details, match them to catalog drugs, and have a person review each match before it is shown |
+| Trust level | `official` |
+| License status | **Unverified**, same position as SA-1: SFDA states its content is its property, and no reuse licence was found |
+| Status | Not started. Exact page URLs and the publication schedule must be checked on sfda.gov.sa before building (OPEN_QUESTIONS Q-25) |
+
+---
+
 ## EG-1. Egyptian drug data
 
 Not started. Rules from the project brief: the official Egyptian Drug Authority search sits behind a CAPTCHA and **must not be scraped or bypassed**. Plan: a CSV-import adapter for a third-party dataset marked `unofficial_unverified`, and a request to the Egyptian Drug Authority for an official feed. EG prices have no known source (OPEN_QUESTIONS Q-6, Q-7).

@@ -15,6 +15,8 @@ Last updated: 2026-11-17. The three roles (patient, pharmacist, pharma company) 
 | 2026-11-17 | **Find pharmacies near me**: ask for the location, show nearby pharmacies on a map | Nearest pharmacies only. It never says that a pharmacy has a given drug, because we have no inventory data |
 | 2026-11-17 | Web search features are wanted | Scope and allowed sources to be decided (OPEN_QUESTIONS Q-22) |
 | 2026-11-17 | Agentic RAG is wanted, as a read-only tool-using assistant over our own contracts | See "AI features" below |
+| 2026-11-17 | **Look-alike sound-alike (LASA) name warnings** are an early feature | Computed from the catalog names (about 9,000) with string and phonetic similarity, in Arabic and English. Informational only: "a similar name exists, double-check". Also lowers OCR confidence for confusable names |
+| 2026-11-17 | **SFDA safety bulletins linked to the drug page** is the first extra data source | The monthly "Recalls, Market Withdrawals & Safety Alerts" PDF. Product matching is reviewed by a person. We show what SFDA published, with a link, and no advice. Same unverified SFDA reuse status (DATA_SOURCES SA-2) |
 
 ## Core features (data we already collect)
 
@@ -34,6 +36,19 @@ Search in Arabic and English with spelling tolerance; full drug page (26 fields 
 | Company analytics questions | The LLM calls predefined analytics queries (no free SQL) | Read-only, tenant-scoped |
 | Price anomaly flags | Statistical outlier detection on price changes | Informational |
 | Web-search enrichment | Search allowed sources, summarize with links | Labeled `unofficial_unverified`, allow-listed domains, link instead of copy |
+
+## Build order
+
+Shared core first (all three roles need it), then the two safety features, then the role views and AI features.
+
+1. Slice 1: search, drug page, price (shared by patient, pharmacist and company)
+2. Equivalents sorted by price
+3. Change history and alerts
+4. **LASA name warnings**
+5. **SFDA safety bulletins linked to the drug page**
+6. Role views and the public API
+7. OCR (box first, then prescription) and voice search
+8. Assistant (agentic RAG), web search enrichment, pharmacy finder
 
 ## Not now
 
