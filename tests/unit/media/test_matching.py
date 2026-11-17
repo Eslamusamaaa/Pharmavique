@@ -131,3 +131,46 @@ def test_the_website_name_alone_is_not_taken_as_the_drug_name() -> None:
     result = judge(product(), candidate(title="Welcome", page_url="https://panadol-extra.com.sa/"))
 
     assert result.verdict is MatchVerdict.REJECTED
+
+
+def strong(**overrides: object) -> ProductRef:
+    return product(strengths=("500 mg", "65 mg"), **overrides)
+
+
+def with_text(text: str, title: str = "Panadol Extra Saudi Arabia") -> ImageCandidate:
+    return ImageCandidate(
+        image_url="https://example.com/i.jpg",
+        page_url="https://example.com/p",
+        title=title,
+        alt_text="",
+        page_text=text,
+    )
+
+
+def test_the_strength_from_the_registry_found_on_the_page_strengthens_the_match() -> None:
+    result = judge(strong(), with_text("Each tablet contains Paracetamol 500mg and Caffeine 65mg"))
+
+    assert result.verdict is MatchVerdict.MATCHED
+    assert "strength" in result.signals
+
+
+def test_a_page_that_states_only_other_strengths_goes_to_a_person() -> None:
+    # same brand name, different strength: not the product in our registry
+    result = judge(strong(), with_text("Panadol Extra 1000 mg tablets"))
+
+    assert result.verdict is MatchVerdict.NEEDS_REVIEW
+    assert "strength_conflict" in result.signals
+
+
+def test_a_page_with_no_strength_at_all_is_neutral_about_it() -> None:
+    result = judge(strong(), with_text("Fast relief for headaches"))
+
+    assert result.verdict is MatchVerdict.MATCHED
+    assert "strength" not in result.signals
+    assert "strength_conflict" not in result.signals
+
+
+def test_a_registry_product_without_strengths_never_conflicts() -> None:
+    result = judge(product(), with_text("Panadol Extra 1000 mg tablets"))
+
+    assert result.verdict is MatchVerdict.MATCHED

@@ -10,20 +10,28 @@ The rule is conservative on purpose, because the same brand name is sold in othe
 different product:
 
 - `matched`: every word of the trade name appears, **and** there is Saudi evidence (a `.sa` domain,
-  the word Saudi or its Arabic form, or the marketing company's name);
-- `needs_review`: the name appears but nothing says Saudi, so a person looks;
+  the word Saudi or its Arabic form, or the marketing company's name), **and** the page does not
+  state a strength that contradicts the registry;
+- `needs_review`: the name appears but nothing says Saudi, or the page states other strengths than
+  the registry's, so a person looks;
 - `rejected`: the name does not appear (words about the active ingredient alone are not enough).
+
+A page that states no strength at all is neutral about it; one that states the registry's strength
+scores higher.
 """
 
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from urllib.parse import unquote, urlparse
 
 from pharmavique.shared_kernel.market import Market
-from pharmavique.shared_kernel.text import normalize_text, tokenize
+from pharmavique.shared_kernel.text import normalize_text
 
 _SAUDI_WORDS = frozenset({"saudi", "ksa", "السعوديه", "سعودي", "سعوديه"})
-_WEIGHTS = {"name": 0.5, "ingredient": 0.2, "saudi": 0.2, "company": 0.1}
+_WEIGHTS = {"name": 0.4, "ingredient": 0.15, "saudi": 0.2, "company": 0.1, "strength": 0.15}
+# "500 mg", "0.5 ml", "10 iu" after normalization (digits and letters are already separated)
+_STATED_STRENGTH = re.compile(r"(?<!\S)\d+(?:\.\d+)? (?:mg|mcg|μg|g|ml|iu)(?!\S)")
 
 
 class MatchVerdict(StrEnum):
@@ -42,6 +50,7 @@ class ProductRef:
     trade_name_ar: str | None
     ingredient_names: tuple[str, ...]
     marketing_company: str | None
+    strengths: tuple[str, ...] = ()  # as the registry states them, for example "500 mg"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,13 +61,14 @@ class ImageCandidate:
     page_url: str
     title: str
     alt_text: str
+    page_text: str = ""  # description, headings and other visible text of the page, when read
 
 
 @dataclass(frozen=True, slots=True)
 class MatchResult:
     verdict: MatchVerdict
     score: float  # 0 to 1, from the signals that fired
-    signals: tuple[str, ...]  # which of name, ingredient, saudi, company fired
+    signals: tuple[str, ...]  # which of name, ingredient, saudi, company, strength fired
 
 
 def build_queries(product: ProductRef) -> tuple[str, ...]:
@@ -80,7 +90,10 @@ def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
     host = (parsed.hostname or "").lower()
     # The address path counts as page text (shops put the product name in it); the host does not,
     # so a site called after the drug is not mistaken for a page about it.
-    text_tokens = set(tokenize(f"{candidate.title} {candidate.alt_text} {unquote(parsed.path)}"))
+    normalized = normalize_text(
+        f"{candidate.title} {candidate.alt_text} {unquote(parsed.path)} {candidate.page_text}"
+    )
+    text_tokens = set(normalized.split())
 
     signals: list[str] = []
     if _names_appear(product, text_tokens):
@@ -91,15 +104,28 @@ def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
         signals.append("saudi")
     if _any_phrase_in((product.marketing_company or "",), text_tokens):
         signals.append("company")
+    signals.extend(_strength_signals(product, normalized))
 
-    score = round(sum(_WEIGHTS[name] for name in signals), 6)
+    score = round(sum(_WEIGHTS.get(name, 0.0) for name in signals), 6)
     if "name" not in signals:
         verdict = MatchVerdict.REJECTED
-    elif "saudi" in signals or "company" in signals:
-        verdict = MatchVerdict.MATCHED
-    else:
+    elif "strength_conflict" in signals or not ({"saudi", "company"} & set(signals)):
         verdict = MatchVerdict.NEEDS_REVIEW
+    else:
+        verdict = MatchVerdict.MATCHED
     return MatchResult(verdict=verdict, score=score, signals=tuple(signals))
+
+
+def _strength_signals(product: ProductRef, normalized: str) -> list[str]:
+    """`strength` when a registry strength is on the page; `strength_conflict` when the page
+    states strengths and none of them is the registry's."""
+    ours = [s for s in (normalize_text(strength) for strength in product.strengths) if s]
+    if not ours:
+        return []
+    padded = f" {normalized} "
+    if any(f" {strength} " in padded for strength in ours):
+        return ["strength"]
+    return ["strength_conflict"] if _STATED_STRENGTH.search(normalized) else []
 
 
 def _names_appear(product: ProductRef, text_tokens: set[str]) -> bool:
