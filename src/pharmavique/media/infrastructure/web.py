@@ -1,0 +1,164 @@
+"""Polite web access for pictures: read a product page, download its image.
+
+The rules, the same ones the SFDA crawler keeps:
+- robots.txt of the site is read first and obeyed; a page it forbids is never requested;
+- one throttle for every outbound request;
+- a site that answers 401, 403 or 429, or shows a bot check ("Just a moment...", a CAPTCHA), is
+  marked blocked for the rest of the run and not asked again. Nothing here works around a block;
+- a download is accepted only if the bytes really are an image of a sensible size, whatever the
+  server claims about the content type.
+"""
+
+import logging
+from urllib.parse import urljoin, urlparse
+
+import httpx
+from bs4 import BeautifulSoup
+
+from pharmavique.foundation.http.robots import RobotsPolicy
+from pharmavique.foundation.http.throttle import Throttle
+from pharmavique.media.application.ports import DownloadedImage
+from pharmavique.media.domain.matching import ImageCandidate
+
+_log = logging.getLogger("media.web")
+_BLOCK_STATUSES = (401, 403, 429)
+_BLOCK_MARKERS = ("just a moment", "attention required", "access denied", "captcha")
+_MAX_PAGE_TEXT = 1_500
+_MAX_IMAGE_BYTES = 5_000_000
+_MIN_IMAGE_BYTES = 1_000
+_MAGIC = {b"\xff\xd8\xff": "image/jpeg", b"\x89PNG": "image/png", b"GIF8": "image/gif"}
+
+
+def _sniff(data: bytes) -> str | None:
+    """The image type the bytes themselves show, not the one the server claims."""
+    for magic, content_type in _MAGIC.items():
+        if data.startswith(magic):
+            return content_type
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+class PoliteWeb:
+    def __init__(self, client: httpx.AsyncClient, throttle: Throttle, *, user_agent: str) -> None:
+        self._client = client
+        self._throttle = throttle
+        self._user_agent = user_agent
+        self._robots: dict[str, RobotsPolicy | None] = {}
+        self.blocked_hosts: set[str] = set()
+
+    async def get(self, url: str) -> httpx.Response | None:
+        """The response, or None when the site is blocked, forbids the URL, or the request fails."""
+        host = urlparse(url).netloc
+        if host in self.blocked_hosts:
+            return None
+        policy = await self._policy_for(url)
+        if policy is None or not policy.allows(url):
+            return None
+        response = await self._request(url)
+        if response is None:
+            return None
+        if self._is_block(response):
+            self._block(host, f"HTTP {response.status_code} or a bot check at {url}")
+            return None
+        return response
+
+    async def _policy_for(self, url: str) -> RobotsPolicy | None:
+        parts = urlparse(url)
+        host = parts.netloc
+        if host not in self._robots:
+            response = await self._request(f"{parts.scheme}://{host}/robots.txt")
+            if response is None:
+                self._robots[host] = None
+                self._block(host, "robots.txt could not be read")
+            elif response.status_code == 404:
+                self._robots[host] = RobotsPolicy.from_text("", self._user_agent)
+            elif response.status_code == 200:
+                self._robots[host] = RobotsPolicy.from_text(response.text, self._user_agent)
+            else:
+                self._robots[host] = None
+                self._block(host, f"robots.txt answered {response.status_code}")
+        return self._robots[host]
+
+    async def _request(self, url: str) -> httpx.Response | None:
+        await self._throttle.wait()
+        try:
+            return await self._client.get(
+                url, headers={"User-Agent": self._user_agent}, follow_redirects=True
+            )
+        except httpx.HTTPError as error:
+            _log.warning("request failed for %s: %s", url, error)
+            return None
+
+    @staticmethod
+    def _is_block(response: httpx.Response) -> bool:
+        if response.status_code in _BLOCK_STATUSES:
+            return True
+        content_type = response.headers.get("content-type", "")
+        if response.status_code == 200 and content_type.startswith("text/html"):
+            return any(marker in response.text[:3000].lower() for marker in _BLOCK_MARKERS)
+        return False
+
+    def _block(self, host: str, reason: str) -> None:
+        _log.warning("not asking %s again this run: %s", host, reason)
+        self.blocked_hosts.add(host)
+
+
+class WebPageReader:
+    """Reads a product page into an `ImageCandidate`: its picture, title, headings and text."""
+
+    def __init__(self, web: PoliteWeb) -> None:
+        self._web = web
+
+    async def read(self, page_url: str) -> ImageCandidate | None:
+        response = await self._web.get(page_url)
+        if response is None or response.status_code != 200:
+            return None
+        soup = BeautifulSoup(response.text, "html.parser")
+        image = soup.find("meta", property="og:image")
+        content = image.get("content") if image else None
+        if not content:
+            return None
+
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        title = " ".join(
+            part
+            for part in (
+                soup.title.get_text(" ", strip=True) if soup.title else "",
+                _meta(soup, "property", "og:title"),
+            )
+            if part
+        )
+        heading = soup.find("h1")
+        description = _meta(soup, "name", "description")
+        body = " ".join(soup.get_text(" ", strip=True).split())
+        return ImageCandidate(
+            image_url=urljoin(page_url, str(content)),
+            page_url=page_url,
+            title=title,
+            alt_text=heading.get_text(" ", strip=True) if heading else "",
+            page_text=f"{description} {body}"[:_MAX_PAGE_TEXT].strip(),
+        )
+
+
+def _meta(soup: BeautifulSoup, attribute: str, value: str) -> str:
+    tag = soup.find("meta", attrs={attribute: value})
+    return str(tag.get("content", "")).strip() if tag else ""
+
+
+class HttpImageDownloader:
+    """Implements the `ImageDownloader` port over `PoliteWeb`."""
+
+    def __init__(self, web: PoliteWeb) -> None:
+        self._web = web
+
+    async def download(self, url: str) -> DownloadedImage | None:
+        response = await self._web.get(url)
+        if response is None or response.status_code != 200:
+            return None
+        data = response.content
+        content_type = _sniff(data)
+        if content_type is None or not _MIN_IMAGE_BYTES <= len(data) <= _MAX_IMAGE_BYTES:
+            return None
+        return DownloadedImage(data=data, content_type=content_type)
