@@ -37,6 +37,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records imp
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
 from pharmavique.media.application.page_search import PageImageSearch, PageSearch
 from pharmavique.media.domain.matching import ProductRef, build_queries
+from pharmavique.media.domain.placeholders import FORMS, form_group, placeholder_svg
 from pharmavique.media.domain.verification import PictureVerdict, verify_picture
 from pharmavique.media.infrastructure.files import (
     FileImageStore,
@@ -583,6 +584,11 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
     """One row per drug: its names, ingredients and the best picture found, with how it was
     checked. Drugs with no picture are in the file too (`picture_check` is `no_picture`)."""
     refs = [r for r in load_product_refs(products) if r.trade_name_en or r.trade_name_ar]
+    forms = {row["register_number"]: row.get("dosage_form_en") for row in _jsonl(products)}
+    placeholders = media / "placeholders"
+    placeholders.mkdir(parents=True, exist_ok=True)
+    for group in FORMS:
+        (placeholders / f"{group}.svg").write_text(placeholder_svg(group), encoding="utf-8")
     checks = {row["storage_key"]: row["verdict"] for row in _jsonl(media / "verification.jsonl")}
     by_drug: dict[str, list[dict[str, Any]]] = {}
     for image in _jsonl(media / "images.jsonl"):
@@ -592,12 +598,20 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
         check = checks.get(image["storage_key"], "unchecked")
         return (_CHECK_RANK[check], _STATUS_RANK.get(image["status"], 9), -image["score"])
 
-    summary = {"drugs": len(refs), "with_picture": 0, "confirmed": 0, "unverified": 0, "missing": 0}
+    summary = {
+        "drugs": len(refs),
+        "with_picture": 0,
+        "confirmed": 0,
+        "unverified": 0,
+        "missing": 0,
+        "placeholders": 0,
+    }
     with (media / "mapping.jsonl").open("w", encoding="utf-8") as handle:
         for ref in refs:
             candidates = by_drug.get(ref.register_number, [])
             best = min(candidates, key=rank) if candidates else None
             check = "no_picture" if best is None else checks.get(best["storage_key"], "unchecked")
+            group = form_group(forms.get(ref.register_number))
             row = {
                 "market": ref.market.value,
                 "register_number": ref.register_number,
@@ -606,7 +620,13 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
                 "scientific_names": list(ref.ingredient_names),
                 "strengths": list(ref.strengths),
                 "company": ref.marketing_company,
-                "picture": None if best is None else str(media / "images" / best["storage_key"]),
+                "picture": (
+                    str(placeholders / f"{group}.svg")
+                    if best is None
+                    else str(media / "images" / best["storage_key"])
+                ),
+                "picture_kind": "placeholder" if best is None else "real",
+                "placeholder_form": group if best is None else None,
                 "picture_status": None if best is None else best["status"],
                 "picture_check": check,
                 "source_page": None if best is None else best["page_url"],
@@ -616,6 +636,7 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
             if best is None:
                 summary["missing"] += 1
+                summary["placeholders"] += 1
             else:
                 summary["with_picture"] += 1
                 summary["confirmed" if check == "confirmed" else "unverified"] += 1
@@ -631,6 +652,7 @@ def run_map(args: argparse.Namespace) -> int:
     print(
         f"{summary['drugs']} drugs | with a picture: {summary['with_picture']} "
         f"(confirmed by the text on the box: {summary['confirmed']}, "
-        f"not confirmed: {summary['unverified']}) | no picture: {summary['missing']}"
+        f"not confirmed: {summary['unverified']}) | no real picture, form placeholder: "
+        f"{summary['missing']}"
     )
     return EXIT_OK

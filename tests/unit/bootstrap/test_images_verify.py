@@ -17,7 +17,8 @@ def write_products(path: Path) -> None:
          "ingredients": [{"name": "IBUPROFEN", "strength": "400", "unit": "mg"}],
          "dosage_form_en": "Tablet", "company": None},
         {"market": "SA", "register_number": "3", "trade_name_en": "RARE INJECTION",
-         "trade_name_ar": None, "ingredients": [], "dosage_form_en": None, "company": None},
+         "trade_name_ar": None, "ingredients": [], "dosage_form_en": "Solution for injection",
+         "company": None},
     ]  # fmt: skip
     path.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
 
@@ -126,11 +127,25 @@ def test_the_mapping_gives_every_drug_its_best_picture_and_lists_the_rest_as_mis
             json.loads(line) for line in (media / "mapping.jsonl").read_text("utf-8").splitlines()
         )
     }
-    assert summary == {"drugs": 3, "with_picture": 2, "confirmed": 2, "unverified": 0, "missing": 1}
+    assert summary == {
+        "drugs": 3,
+        "with_picture": 2,
+        "confirmed": 2,
+        "unverified": 0,
+        "missing": 1,
+        "placeholders": 1,
+    }
     # drug 2 has two pictures; the one whose box shows the brand wins over the text-only match
     assert mapping["2"]["picture"].endswith("cc.jpg")
     assert mapping["2"]["picture_check"] == "confirmed"
     assert mapping["1"]["scientific_names"] == ["PARACETAMOL"]
     assert mapping["1"]["trade_name_ar"] == "بنادول اكسترا"
-    assert mapping["3"]["picture"] is None
+    assert mapping["2"]["picture_kind"] == "real"
+    # a drug with no real picture gets its dosage form's stand-in, marked as one
+    assert mapping["3"]["picture_kind"] == "placeholder"
     assert mapping["3"]["picture_check"] == "no_picture"
+    assert mapping["3"]["placeholder_form"] == "injection"
+    placeholder = Path(mapping["3"]["picture"])
+    assert (placeholder.parent.name, placeholder.name) == ("placeholders", "injection.svg")
+    assert (media / "placeholders" / "injection.svg").read_text("utf-8").startswith("<svg")
+    assert mapping["3"]["source_page"] is None
