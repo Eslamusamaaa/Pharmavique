@@ -115,6 +115,14 @@ def core_name(name: str | None) -> str:
     return " ".join(kept) or raw
 
 
+def brand_words(name: str | None) -> tuple[str, ...]:
+    """The normalized words of the brand part of a registry name, without form or strength words.
+
+    Empty when nothing but such words is left, because then the name says nothing about a brand.
+    """
+    return tuple(w for w in normalize_text(core_name(name)).split() if w not in _NAME_NOISE)
+
+
 def build_queries(product: ProductRef) -> tuple[str, ...]:
     """Search phrases naming the drug and Saudi Arabia, in English and in Arabic."""
     queries: list[str] = []
@@ -153,7 +161,7 @@ def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
         signals.append("saudi")
     if _any_phrase_in((product.marketing_company or "",), text_tokens):
         signals.append("company")
-    signals.extend(_strength_signals(product, normalized))
+    signals.extend(strength_signals(product, normalized))
 
     score = round(sum(_WEIGHTS.get(name, 0.0) for name in signals), 6)
     if "name" not in signals:
@@ -175,7 +183,7 @@ def is_site_asset(image_url: str) -> bool:
     return any(word in address for word in _SITE_ASSET_WORDS)
 
 
-def _strength_signals(product: ProductRef, normalized: str) -> list[str]:
+def strength_signals(product: ProductRef, normalized: str) -> list[str]:
     """`strength` when a registry strength is on the page; `strength_conflict` when the page
     states strengths and none of them is the registry's."""
     ours = [s for s in (normalize_text(strength) for strength in product.strengths) if s]

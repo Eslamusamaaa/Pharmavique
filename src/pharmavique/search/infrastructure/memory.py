@@ -8,8 +8,8 @@ from collections.abc import Sequence
 
 from pharmavique.search.application.ports import IndexHit
 from pharmavique.search.domain.documents import ProductKey, SearchDocument
-from pharmavique.search.domain.trigrams import similarity
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.trigrams import similarity
 
 INGREDIENT_WEIGHT = 0.9  # a match on an ingredient counts a little less than one on a name
 

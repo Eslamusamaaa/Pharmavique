@@ -5,7 +5,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from pharmavique.search.domain.trigrams import similarity, trigrams
+from pharmavique.shared_kernel.trigrams import similarity, trigrams
 
 
 def test_words_are_padded_like_pg_trgm() -> None:
