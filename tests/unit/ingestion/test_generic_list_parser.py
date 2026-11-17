@@ -135,7 +135,7 @@ def test_a_row_with_the_wrong_number_of_cells_raises() -> None:
 def test_the_no_results_page_past_the_end_of_a_list_is_an_empty_page() -> None:
     # What the real site answers for a page number past the last one (seen 2026-11-17)
     html = (
-        "<html><body><main><h3>No Results Found</h3></main><footer>Comments</footer></body></html>"
+        "<html><body><form></form>\n\nNo Results Found\n\n<footer>Comments</footer></body></html>"
     )
 
     page = parse_generic_page(html)

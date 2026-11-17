@@ -3,7 +3,7 @@
 All the lists share one layout: a server-rendered table with a header row, 10 rows per page and a
 `?page=N` pager. Column names are taken from the page itself, never guessed. A page that is not
 shaped like a list raises `ParseError`, so a block page can never be mistaken for "no rows". The one
-exception is the site's own "No Results Found" heading, which is what a page past the end shows.
+exception is the site's own "No Results Found" text, which is what a page past the end shows.
 """
 
 import hashlib
@@ -80,14 +80,16 @@ def parse_generic_page(html: str) -> GenericPage:
 
 
 def _is_no_results_page(soup: BeautifulSoup) -> bool:
-    """The site's own "No Results Found" heading: what a page number past the end shows.
+    """The site's own "No Results Found" text: what a page number past the end shows.
 
-    Only that exact heading counts, so a block or error page is never read as "the list ended".
+    On the real site it is a bare text node on a page with no table. Only a text node that says
+    exactly that counts, so a block or error page is never read as "the list ended".
     """
-    return any(
-        _clean(heading.get_text(" ")).lower() == "no results found"
-        for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])
-    )
+
+    def says_no_results(text: str | None) -> bool:
+        return text is not None and _clean(text).lower() == "no results found"
+
+    return soup.find(string=says_no_results) is not None
 
 
 def _is_action_header(header: str, rows: tuple[GenericRow, ...]) -> bool:
