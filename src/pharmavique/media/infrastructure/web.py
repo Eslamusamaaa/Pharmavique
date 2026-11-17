@@ -133,8 +133,14 @@ class WebPageReader:
 
     def __init__(self, web: PoliteWeb) -> None:
         self._web = web
+        self._seen: dict[str, ImageCandidate | None] = {}  # a page is requested once per run
 
     async def read(self, page_url: str) -> ImageCandidate | None:
+        if page_url not in self._seen:
+            self._seen[page_url] = await self._read_page(page_url)
+        return self._seen[page_url]
+
+    async def _read_page(self, page_url: str) -> ImageCandidate | None:
         response = await self._web.get(page_url)
         if response is None or response.status_code != 200:
             return None

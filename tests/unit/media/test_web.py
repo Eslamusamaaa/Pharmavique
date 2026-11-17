@@ -197,3 +197,14 @@ async def test_each_host_has_its_own_pace_so_different_sites_never_wait_for_each
 
     assert waited_on_a == 1
     assert first_request_to_b == 2  # only b's second request (its page after robots.txt) waited
+
+
+async def test_a_page_read_twice_is_requested_once() -> None:
+    site = Site({"/robots.txt": (404, "text/plain", b""), "/p/panadol": html(PAGE)})
+    reader = WebPageReader(web(site))
+
+    first = await reader.read("https://shop.example.sa/p/panadol")
+    second = await reader.read("https://shop.example.sa/p/panadol")
+
+    assert first == second
+    assert site.requests.count("/p/panadol") == 1

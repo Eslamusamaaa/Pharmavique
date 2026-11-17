@@ -62,7 +62,9 @@ class FindProductImagesHandler:
         clock: Clock,
         *,
         run_id: str,
+        results_per_query: int = RESULTS_PER_QUERY,
     ) -> None:
+        self._results_per_query = results_per_query
         self._search = search
         self._downloader = downloader
         self._store = store
@@ -72,14 +74,16 @@ class FindProductImagesHandler:
 
     async def handle(self, product: ProductRef, max_images: int = 3) -> FindImagesReport:
         report = FindImagesReport()
+        existing = await self._repository.for_product(product.market, product.register_number)
+        room = max_images - len(existing)
+        if room <= 0:
+            return report  # already has its pictures: no search, no requests
+        known_hashes = {image.content_hash for image in existing}
+        known_urls = {image.image_url for image in existing}
+
         queries = build_queries(product)
         report.queries = len(queries)
         found = await self._candidates(product, queries, report)
-
-        existing = await self._repository.for_product(product.market, product.register_number)
-        known_hashes = {image.content_hash for image in existing}
-        known_urls = {image.image_url for image in existing}
-        room = max_images - len(existing)
 
         for item in found:
             if room <= 0:
@@ -103,7 +107,7 @@ class FindProductImagesHandler:
         seen: set[str] = set()
         found: list[_Found] = []
         for query in queries:
-            for candidate in await self._search.search(query, RESULTS_PER_QUERY):
+            for candidate in await self._search.search(query, self._results_per_query):
                 if candidate.image_url in seen:
                     continue
                 seen.add(candidate.image_url)

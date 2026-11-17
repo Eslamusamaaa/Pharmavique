@@ -211,3 +211,38 @@ async def test_a_product_with_no_name_makes_no_search() -> None:
 
     assert report.queries == 0
     assert repo.images == []
+
+
+async def test_a_product_that_already_has_its_pictures_makes_no_search_at_all() -> None:
+    first, _, repo, _ = rig(
+        {QUERY: [hit(1, "Panadol Extra Saudi")]}, {"https://shop.example.sa/img1.jpg": good(1)}
+    )
+    await first.handle(PRODUCT, max_images=1)
+    search = FakeSearch({QUERY: [hit(2, "Panadol Extra Saudi")]})
+    again = FindProductImagesHandler(
+        search, FakeDownloader({}), FakeStore(), repo, FixedClock(), run_id="run-2"
+    )
+
+    report = await again.handle(PRODUCT, max_images=1)
+
+    assert search.queries == []
+    assert report.queries == 0
+    assert len(repo.images) == 1
+
+
+async def test_the_number_of_pages_asked_for_per_query_is_configurable() -> None:
+    many = [hit(n, "Panadol Extra Saudi") for n in range(1, 8)]
+    search = FakeSearch({QUERY: many})
+    handler = FindProductImagesHandler(
+        search,
+        FakeDownloader({}),
+        FakeStore(),
+        FakeRepository(),
+        FixedClock(),
+        run_id="r",
+        results_per_query=3,
+    )
+
+    report = await handler.handle(PRODUCT)
+
+    assert report.candidates == 3
