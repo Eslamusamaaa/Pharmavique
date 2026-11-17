@@ -53,6 +53,9 @@ ignore = ["N818"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
+# Alembic files are loaded by path, not imported, so their names may start with a digit
+"**/migrations/versions/*.py" = ["N999"]
+"migrations/env.py" = ["INP001"]
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
