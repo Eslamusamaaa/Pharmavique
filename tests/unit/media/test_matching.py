@@ -10,6 +10,7 @@ from pharmavique.media.domain.matching import (
     MatchVerdict,
     ProductRef,
     build_queries,
+    core_name,
     judge,
 )
 from pharmavique.shared_kernel.market import Market
@@ -269,3 +270,11 @@ def test_a_normal_product_page_and_picture_are_unaffected() -> None:
     )
 
     assert result.verdict is MatchVerdict.MATCHED
+
+
+def test_more_registry_noise_words_are_dropped_from_the_brand() -> None:
+    assert core_name("SENERGY PLUS (10/160/25)MG F.C TABLETS") == "SENERGY PLUS"
+    assert core_name("MOXICLAV gm Coted") == "MOXICLAV"
+    assert core_name("EDYST F.C.TABLET") == "EDYST"
+    assert core_name("SINGLE DOSE PLASTIC U") == "SINGLE DOSE PLASTIC U"  # only noise: kept as is
+    assert core_name("VITAMIN C 1000") == "VITAMIN C"  # a lone C is part of a real name
