@@ -5,6 +5,7 @@ Commands
     sfda-update   cheap refresh: only new and changed drugs are refetched, then a change report
     sfda-diff     compare two stored runs offline
     sfda-lists    crawl the other official SFDA lists (shortages, pharmacies, companies, ...)
+    sfda-images-export / sfda-images-queries / sfda-images    find and store product pictures
 """
 
 import argparse
@@ -20,6 +21,7 @@ from typing import Any
 
 import httpx
 
+from pharmavique.bootstrap import images
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.handlers import (
     ApplyCatalogChangesHandler,
@@ -125,6 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lists.add_argument("--max-pages", type=int, help="only crawl this many pages per list (sample)")
     lists.add_argument("--show", action="store_true", help="print the known lists and stop")
+
+    images.add_arguments(commands)
 
     load = commands.add_parser(
         "sfda-load", help="load a stored run into the catalog database (safe to repeat)"
@@ -450,6 +454,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sfda_update(args))
     if args.command == "sfda-lists":
         return asyncio.run(_sfda_lists(args))
+    if args.command == "sfda-images-export":
+        return images.export_products(args)
+    if args.command == "sfda-images-queries":
+        return images.write_queries(args)
+    if args.command == "sfda-images":
+        return asyncio.run(images.fetch_images(args))
     if args.command == "sfda-diff":
         return _sfda_diff(args)
     if args.command == "sfda-load":
