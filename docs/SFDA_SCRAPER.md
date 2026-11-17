@@ -107,3 +107,16 @@ What the crawler does about it:
 The end of the list is read from the pager: past the last page the site returns the last page again, labelled with its real number, so a label lower than the requested page means the list ended.
 
 To close the remaining gap after a run: resume it with the same `--run-id`. The stored pages are reused and only the extra passes and the details of newly found drugs are fetched.
+
+## Result of the first full crawl (run `full-20261116`, finished 2026-11-18)
+
+- **9,162 unique drugs**, the list complete (`list_completeness.gap = 0`; the pager alone suggested
+  9,152 rows, and the first single pass had found only 8,626).
+- English and Arabic details for **9,144 of them**. The status stayed `partial` because the details
+  page of **18 drugs** answers with an empty table, even on repeated tries; SFDA itself has no
+  details for them. Their list data (names, scientific name, strength, form, price) is in
+  `records.jsonl`, so they are kept, without details.
+- The run took about 10 hours of polite crawling, with about 110 connection resets that the
+  retries and the restart script (`scripts/resume_sfda_scrape.ps1`) absorbed.
+- A resume stops after 15 failing pages in a row, so with the 18 empty pages in the list it will not
+  finish by itself; that is expected.

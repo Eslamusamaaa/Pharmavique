@@ -1,0 +1,85 @@
+# Product pictures: how they are found, checked and mapped
+
+Status 2026-11-18: built and run once over the whole SFDA drug list. Pictures come from Saudi
+online pharmacies; drugs no shop sells get a marked stand-in. Picture rights are **not cleared**
+(OPEN_QUESTIONS Q-35): everything here is for development, not for showing to users.
+
+## The idea in one paragraph
+
+For every SFDA drug we have its trade name (English and Arabic), active ingredients, strengths,
+dosage form and company. We find the page of that drug in a Saudi pharmacy's own catalog, check
+that the page is about this drug (name, strength, Saudi evidence), download its picture, and read
+the text printed on the picture with OCR to confirm it is the right box. Each drug ends up with
+one row in `data/media/mapping.jsonl`.
+
+## Where pictures come from (no search engine)
+
+Search-engine result pages are not scraped (their terms forbid it and they answer with CAPTCHAs).
+Instead the pipeline uses the **sitemaps** that shops publish for crawlers:
+
+1. `sfda-images-sitemaps` collects the page addresses of the shops once (robots.txt first). The
+   built-in list: Life, United, Raf, Aljawaher, Nahdi, Medon, Ibrand, Aster, The Outlet. Shops that
+   blocked us (Boots, Dawi, Desertcart, Danube, Al-Dawaa, Tdawi, Lemon) are left alone.
+2. A drug's page is found by matching the words of its brand name against the words in each
+   address ("panadol-extra-24-tablets"). Form and strength words in the registry name ("TAB",
+   "500 MG", "F.C") are dropped first.
+3. The page is read politely: one pace per website, robots.txt obeyed, a bot check or HTTP 403 means
+   the site is left alone for the run, and HTTP 429 means a cool-down (it was once treated as a
+   permanent block, which lost thousands of drugs; fixed 2026-11-18).
+
+## Checks, in order
+
+| Check | What it looks at | Result |
+|---|---|---|
+| Page check | The page text and address: every word of the brand, a `.sa` address or the word Saudi or the company, and the registry strength | `matched`, `needs_review` (no Saudi evidence, or a different strength) or rejected |
+| Not a listing page, not a shop logo | `/collections/`, `/brands/`, `logo`, `og-image`, a picture already used by 4 other drugs | rejected |
+| Box check (OCR) | The text on the picture, read in English and Arabic by the OCR built into Windows (`scripts/ocr_windows.ps1`, nothing leaves the PC) | `confirmed`, `likely`, `strength_conflict`, `not_confirmed` |
+
+Only `confirmed` means "the box shows this drug's name". `not_confirmed` is not "wrong": stylised
+logos, tiny pictures and some Arabic packs cannot be read. A different strength on the box
+(`Glucophage XR 750` for the registry's 500 mg) is never confirmed.
+
+## Drugs with no real picture
+
+Many registry entries (infusions, dialysis fluids, local generics, hospital-only products) are sold
+in no online shop, so **no real picture exists to find**. A manual web search of 12 such brands found
+a shop page for none of the seven that no shop lists. For those the mapping offers a plain picture
+of the dosage form (tablet, capsule, liquid, drops, injection, topical, inhaler, suppository,
+other) and marks it `picture_kind = placeholder`. A placeholder is never counted as a picture of
+the drug and never shown as its box. A real picture replaces it when one appears.
+
+## Commands
+
+```bash
+uv run pharmavique sfda-images-export --run-id full-20261116      # products from the crawl (incremental)
+uv run pharmavique sfda-images-sitemaps                           # shops' page addresses (once)
+uv run pharmavique sfda-images-sync --run-id full-20261116 --sitemaps data/media/sitemaps
+uv run pharmavique sfda-images --sitemaps data/media/sitemaps --retry   # work the drugs tried before
+uv run pharmavique sfda-images-verify                             # OCR every stored picture (Windows)
+uv run pharmavique sfda-images-map                                # write the mapping and its summary
+uv run pharmavique sfda-images-report                             # coverage and the missing list
+```
+
+`scripts/run_images_sync.ps1` restarts the sync if it stops. Progress is kept on disk
+(`images.jsonl`, `attempts.jsonl`, `verification.jsonl`), so every command can be repeated.
+
+## Output files (all under `data/`, ignored by git)
+
+- `media/products.jsonl`: the drugs, one JSON line each (names, ingredients, strengths, form).
+- `media/images/` and `media/images.jsonl`: the downloaded pictures and their records
+  (source page, image address, status, score, hash, provenance, trust `unofficial_unverified`).
+- `media/verification.jsonl`: the OCR text and verdict for each picture.
+- `media/mapping.jsonl`: **one row per drug**: names in both languages, scientific names,
+  strengths, company, picture path, `picture_kind` (`real` or `placeholder`), `picture_status`,
+  `picture_check`, source page and image address.
+- `media/placeholders/*.svg`: the dosage-form stand-ins.
+
+## Known limits
+
+- **Coverage is bounded by what shops sell.** About a quarter of the drugs have a real picture
+  from the pharmacies in the list; the rest wait for another source (manufacturers or distributors
+  supplying their pack shots) or keep the placeholder.
+- **The OCR cannot read everything**: tiny pictures, decorative lettering and some Arabic packs.
+- **Drugs whose SFDA details page is empty** (18 of 9,162; the page exists but its table is empty)
+  are built from the list data alone: no Arabic name, no strength unit.
+- **Rights**: shop pictures belong to the shops. Do not show them to users before Q-35 is settled.

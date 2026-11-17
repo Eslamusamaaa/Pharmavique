@@ -59,6 +59,10 @@ Last updated: 2026-11-16.
 
 ---
 
+**Update 2026-11-18:** the full crawl of the drugs list is done: 9,162 unique drugs (not 9,026), see `docs/SFDA_SCRAPER.md`. Product pictures are a separate, unofficial source: see `docs/MEDIA_PIPELINE.md`.
+
+---
+
 ## SA-3. The other official SFDA lists (catalog found 2026-11-17)
 
 SFDA's "Information Lists" catalog (`https://www.sfda.gov.sa/en/lists-categories`, three pages) shows **28 official lists** across drugs, food, medical devices and cosmetics. Only their titles and categories were read; the **contents, columns, update frequency and terms of each list have not been checked**. Every list has the same unverified reuse status as SA-1.
