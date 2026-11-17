@@ -48,6 +48,18 @@ class GenericRow:
         """Identity: the id of its details link, else its link path, else a content hash."""
         return _row_key(self.cells, self.link)
 
+    @property
+    def content_key(self) -> str:
+        """`key` plus a hash of the cells.
+
+        Some lists repeat one link id on several different rows (the shortage list has one row
+        per group of trade names of the same generic name). `key` alone would merge them and lose
+        data; this keeps them apart while an identical repeat of the same row still collapses.
+        """
+        joined = "\x1f".join(value for _, value in self.cells)
+        digest = hashlib.sha1(joined.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
+        return f"{self.key}#{digest}"
+
 
 @dataclass(frozen=True, slots=True)
 class GenericPage:

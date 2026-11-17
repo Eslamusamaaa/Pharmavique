@@ -172,3 +172,34 @@ def test_sharded_store_keeps_folders_small(tmp_path: Path) -> None:
     assert store.list_page_path(12).parent.name == "00000"
     assert store.list_page_path(2345).parent.name == "00002"
     assert SnapshotStore(tmp_path, "r").list_page_path(2345).parent.name == "list"
+
+
+def linked_row(name: str, count: str) -> str:
+    return (
+        f'<tr><td>{name}</td><td>Limited</td><td><a href="/en/details_data?id={name}&amp;page=0">'
+        f"Details</a>{count}</td></tr>"
+    )
+
+
+async def test_rows_that_share_a_link_id_but_differ_are_both_kept(tmp_path: Path) -> None:
+    # The shortage list repeats a generic name once per group of trade names (seen 2026-11-17)
+    rows = linked_row("CARBOPLATIN", "5") + linked_row("CARBOPLATIN", "1")
+    rows += linked_row("CARBOPLATIN", "1")  # an identical repeat is still one row
+    html = (
+        "<table><thead><tr><th>Generic Name</th><th>Availability</th><th>Details</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+        '<li class="page-item active"><span class="page-link">1</span></li><a href="?page=0">1</a>'
+    )
+
+    class OnePage(FakeFetcher):
+        async def fetch(self, url: str) -> FetchedPage:
+            self.calls.append(url)
+            return FetchedPage(url, 200, html, NOW)
+
+    c, store = crawler(OnePage([]), tmp_path, config=ListCrawlConfig(base_url=BASE, max_pages=1))
+    await c.run()
+
+    records = store.read_records()
+    assert len(records) == 2
+    assert {r["entity_key"] for r in records} == {"CARBOPLATIN"}
+    assert len({r["key"] for r in records}) == 2

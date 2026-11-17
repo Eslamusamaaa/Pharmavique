@@ -101,7 +101,7 @@ class ListCrawler:
     async def _crawl(self, manifest: dict[str, Any]) -> None:
         walker = ListWalker[GenericRow](
             get_page=self._get_page,
-            key_of=lambda row: row.key,
+            key_of=lambda row: row.content_key,
             max_pages=self._config.max_pages,
             max_list_pages=self._spec.max_list_pages,
             max_list_passes=self._spec.max_passes(self._config.max_list_passes),
@@ -137,6 +137,7 @@ class ListCrawler:
         fetched_at = self._first_seen_at.get(key)
         return {
             "key": key,
+            "entity_key": row.key,
             "list": [{"label": label, "value": value} for label, value in row.cells],
             "link": row.link,
             "list_page": page_no,
@@ -171,7 +172,7 @@ class ListCrawler:
 
     def _note_first_seen(self, parsed: GenericPage, fetched_at: datetime) -> None:
         for row in parsed.rows:
-            self._first_seen_at.setdefault(row.key, fetched_at)
+            self._first_seen_at.setdefault(row.content_key, fetched_at)
 
     def _bump(self, name: str) -> None:
         self._counts[name] = self._counts.get(name, 0) + 1
