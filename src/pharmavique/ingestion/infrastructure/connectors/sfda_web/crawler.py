@@ -19,6 +19,13 @@ from urllib.parse import urljoin
 
 from pharmavique.foundation.http.robots import RobotsPolicy
 from pharmavique.ingestion.application.ports import FetchedPage, PageFetcher
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.errors import (
+    CrawlError,
+    FetchFailed,
+    SourceBlocked,
+    TooManyFailures,
+)
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_walker import ListWalker
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.parser import (
     ListPage,
     ListRow,
@@ -26,6 +33,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.parser import (
     parse_details_page,
     parse_list_page,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 from pharmavique.shared_kernel.ports import Clock
 
@@ -33,26 +41,6 @@ SOURCE = "sfda-drugs-list-web"
 LANGUAGES = ("en", "ar")
 _T = TypeVar("_T")
 _MAX_RECORDED_ITEMS = 200
-_HINT_TOLERANCE = 5  # the pager's "last page" link has been seen off by a few pages
-_TARGETED_PASSES = 3  # passes 2 and 3 refetch suspect pages only; later passes sweep every page
-
-
-def _suspect_pages(pages: dict[int, tuple[ListRow, ...]]) -> set[int]:
-    """Pages to fetch again: one that repeats the page before it, or shares drugs with another."""
-    suspects: set[int] = set()
-    first_seen: dict[str, int] = {}
-    previous: tuple[str, ...] | None = None
-    for number in sorted(pages):
-        keys = tuple(row.registration_key for row in pages[number])
-        if previous is not None and keys == previous:
-            suspects.add(number)
-        for key in keys:
-            if key in first_seen and first_seen[key] != number:
-                suspects.update({number, first_seen[key]})
-            else:
-                first_seen.setdefault(key, number)
-        previous = keys
-    return suspects
 
 
 def list_fields(row: ListRow) -> dict[str, str]:
@@ -64,26 +52,6 @@ def list_fields(row: ListRow) -> dict[str, str]:
         "dosage_form": row.dosage_form,
         "price": row.price,
     }
-
-
-class CrawlError(Exception):
-    """The crawl cannot continue."""
-
-
-class SourceBlocked(CrawlError):
-    """robots.txt forbids the URL or the site answered 401/403/429. Stop; do not work around it."""
-
-
-class FetchFailed(CrawlError):
-    """One URL could not be fetched or parsed after the allowed retries."""
-
-
-class NotFound(FetchFailed):
-    """The site answered 404 for this URL."""
-
-
-class TooManyFailures(CrawlError):
-    """Many pages in a row failed, which usually means the site is blocking or has changed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +87,13 @@ class SfdaCrawler:
         self._sleep = sleep
         self._log = logging.getLogger("sfda.crawl")
         self._counts: dict[str, int] = {}
+        self._polite = PoliteFetch(
+            fetcher,
+            robots,
+            retries=self._config.retries,
+            retry_wait=self._config.retry_wait,
+            sleep=sleep,
+        )
 
     # ---- public ------------------------------------------------------------------------------
     async def run(self) -> dict[str, Any]:
@@ -185,75 +160,30 @@ class SfdaCrawler:
 
     # ---- phases ------------------------------------------------------------------------------
     async def _crawl_list(self, manifest: dict[str, Any]) -> dict[str, tuple[ListRow, int]]:
-        """Read the whole list.
-
-        Two quirks of the real site shape this:
-        - past its last page the site does not answer "empty", it answers the last page again,
-          but with the pager label of that last page. A label lower than the page we asked for
-          therefore means "the list ended";
-        - now and then a page comes back with the rows of the page before it (its pager label
-          still looks right). Pages like that are fetched again in repair passes, and the manifest
-          says how many drugs are still missing if some cannot be recovered.
-        """
-        pages: dict[int, tuple[ListRow, ...]] = {}
-        hint: int | None = None
-        real_last: int | None = None
-        page_no = 0
-
-        while self._config.max_pages is None or page_no < self._config.max_pages:
-            if page_no >= self._config.max_list_pages:
-                raise CrawlError(f"the list has more than {self._config.max_list_pages} pages")
-            parsed = await self._get_list_page(page_no, 1)
-            if page_no == 0:
-                hint = parsed.last_page
-            clamped = parsed.current_page is not None and parsed.current_page < page_no
-            if clamped or not parsed.rows:
-                if hint is not None and page_no < hint - _HINT_TOLERANCE:
-                    raise CrawlError(
-                        f"the list ends early at page {page_no} but the pager says {hint}"
-                    )
-                if not clamped and hint is not None and page_no <= hint:
-                    raise CrawlError(f"list page {page_no} is empty but the pager says {hint}")
-                real_last = page_no - 1
-                break
-            pages[page_no] = parsed.rows
-            if page_no % 20 == 0:
-                self._log.info("list page %s of %s", page_no, hint)
-            page_no += 1
-
-        known: dict[str, tuple[ListRow, int]] = {}
-        duplicates: list[str] = []
-        for number in sorted(pages):
-            for row in pages[number]:
-                if row.registration_key in known:
-                    duplicates.append(row.registration_key)
-                else:
-                    known[row.registration_key] = (row, number)
-
-        passes = 1
-        if self._config.max_pages is None and real_last is not None:
-            passes = await self._repair_list(pages, known, real_last)
-            expected = self._expected_total(pages, real_last)
+        """Read the whole list. `ListWalker` handles the site's quirks (see its docstring)."""
+        walker = ListWalker[ListRow](
+            get_page=self._get_list_page,
+            key_of=lambda row: row.registration_key,
+            max_pages=self._config.max_pages,
+            max_list_pages=self._config.max_list_pages,
+            max_list_passes=self._config.max_list_passes,
+            list_patience=self._config.list_patience,
+            log=self._log,
+        )
+        result = await walker.walk()
+        rows = dict(sorted(result.known.items(), key=lambda item: item[1][1]))
+        manifest["last_page_in_pager"] = result.hint
+        manifest["duplicates"] = result.duplicates[:_MAX_RECORDED_ITEMS]
+        if result.expected is not None:
             manifest["list_completeness"] = {
-                "expected": expected,
-                "unique": len(known),
-                "gap": max(expected - len(known), 0),
-                "passes": passes,
+                "expected": result.expected,
+                "unique": len(result.known),
+                "gap": max(result.expected - len(result.known), 0),
+                "passes": result.passes,
             }
-            if len(known) < expected:
-                self._log.warning(
-                    "the list shows %s drugs but %s were expected; see manifest",
-                    len(known),
-                    expected,
-                )
-
-        rows = dict(sorted(known.items(), key=lambda item: item[1][1]))
-        total_rows = sum(len(page) for page in pages.values())
-        manifest["last_page_in_pager"] = hint
-        manifest["duplicates"] = duplicates[:_MAX_RECORDED_ITEMS]
-        self._counts["list_pages"] = (real_last + 1) if real_last is not None else page_no
+        self._counts["list_pages"] = result.page_count
         self._counts["unique_drugs"] = len(rows)
-        self._counts["duplicate_rows"] = max(total_rows - len(rows), 0)
+        self._counts["duplicate_rows"] = max(result.total_rows - len(rows), 0)
         return rows
 
     async def _get_list_page(self, page_no: int, pass_no: int) -> ListPage:
@@ -263,56 +193,6 @@ class SfdaCrawler:
             parse_list_page,
             "list",
         )
-
-    async def _repair_list(
-        self,
-        pages: dict[int, tuple[ListRow, ...]],
-        known: dict[str, tuple[ListRow, int]],
-        real_last: int,
-    ) -> int:
-        """Fetch pages again and keep the union of everything seen. Returns the passes used.
-
-        The site's list order is unstable: every fetch of a page can show different rows near
-        its edges, so one drug can appear on two pages while another appears on none. Fetching
-        again converges on the full list. Passes 2 and 3 target pages that look wrong; later
-        passes sweep every page, because a skipped drug leaves no duplicate to point at. It stops
-        when nothing is missing, after `list_patience` passes in a row that found nothing new, or
-        at `max_list_passes`.
-        """
-        passes = 1
-        idle = 0
-        while passes < self._config.max_list_passes:
-            if len(known) >= self._expected_total(pages, real_last):
-                break
-            suspects = _suspect_pages(pages)
-            targets = suspects if passes < _TARGETED_PASSES and suspects else set(pages)
-            passes += 1
-            self._log.info(
-                "repair pass %s: fetching %s list pages again (%s of %s drugs known)",
-                passes,
-                len(targets),
-                len(known),
-                self._expected_total(pages, real_last),
-            )
-            gained = 0
-            for number in sorted(targets):
-                parsed = await self._get_list_page(number, passes)
-                if parsed.current_page is not None and parsed.current_page != number:
-                    continue  # the site answered with a different page; ignore it
-                pages[number] = parsed.rows
-                for row in parsed.rows:
-                    if row.registration_key not in known:
-                        known[row.registration_key] = (row, number)
-                        gained += 1
-            idle = idle + 1 if gained == 0 else 0
-            if idle >= self._config.list_patience:
-                break
-        return passes
-
-    @staticmethod
-    def _expected_total(pages: dict[int, tuple[ListRow, ...]], real_last: int) -> int:
-        """Drugs the list should hold: full pages (sized like page 0) plus the last page."""
-        return len(pages[0]) * real_last + len(pages[real_last])
 
     def _keys_to_refresh(
         self,
@@ -453,30 +333,7 @@ class SfdaCrawler:
         return parsed
 
     async def _fetch_valid(self, url: str, parse: Callable[[str], _T]) -> tuple[FetchedPage, _T]:
-        if not self._robots.allows(url):
-            raise SourceBlocked(f"robots.txt does not allow {url}")
-
-        last_error: Exception | None = None
-        for attempt in range(1, self._config.retries + 1):
-            try:
-                page = await self._fetcher.fetch(url)
-            except Exception as exc:  # network errors and timeouts are retried
-                last_error = exc
-            else:
-                if page.status in (401, 403, 429):
-                    raise SourceBlocked(f"HTTP {page.status} for {url}")
-                if page.status == 404:
-                    raise NotFound(f"HTTP 404 for {url}")
-                if page.status == 200:
-                    try:
-                        return page, parse(page.html)
-                    except ParseError as exc:
-                        last_error = exc
-                else:
-                    last_error = FetchFailed(f"HTTP {page.status}")
-            if attempt < self._config.retries:
-                await self._sleep(self._config.retry_wait * attempt)
-        raise FetchFailed(f"{url}: {last_error}")
+        return await self._polite.fetch_valid(url, parse)
 
     # ---- helpers -----------------------------------------------------------------------------
     def _list_url(self, page_no: int) -> str:
