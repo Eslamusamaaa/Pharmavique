@@ -38,7 +38,9 @@ Guiding principles:
 | `ingestion` | Source connectors, snapshots, normalization pipeline, diff engine, ingestion runs | Core (supporting for EG) |
 | `recognition` | Photo-to-fields jobs, vision port, match results | Core |
 | `search` | Search projection (normalized names, aliases, trigram + vector indexes), Arabic/English normalization | Supporting |
-| `knowledge` | Leaflet documents, chunks, embeddings, grounded retrieval with citations | Supporting |
+| `knowledge` | **Parked** (2026-11-17): leaflet documents and chunks, only once a leaflet source exists (Q-24). Retrieval over the catalog lives in `search` | Supporting |
+| `assistant` | **Planned, not before search is measured** (see `AI_ARCHITECTURE.md`): conversations, tool-using loop, citations, guardrails, cost ledger | Supporting |
+| `media` | **Planned** (see `AI_ARCHITECTURE.md` section 14): product pictures found on the web, their verification and provenance. Nothing is downloaded until Q-35 is answered | Supporting |
 | `identity` | Users, roles, tenants, RBAC policy | Generic |
 | `watchlist` | Personal medicine lists, alert rules, notification preferences | Supporting |
 | `analytics` | Read models for the company view (market map, gaps, competitor radar) | Supporting |
