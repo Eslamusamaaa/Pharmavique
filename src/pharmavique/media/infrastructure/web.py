@@ -2,14 +2,16 @@
 
 The rules, the same ones the SFDA crawler keeps:
 - robots.txt of the site is read first and obeyed; a page it forbids is never requested;
-- one throttle for every outbound request;
+- one throttle **per host**, so many sites can be worked in parallel without pressing on any one;
 - a site that answers 401, 403 or 429, or shows a bot check ("Just a moment...", a CAPTCHA), is
   marked blocked for the rest of the run and not asked again. Nothing here works around a block;
 - a download is accepted only if the bytes really are an image of a sensible size, whatever the
   server claims about the content type.
 """
 
+import asyncio
 import logging
+from collections.abc import Callable
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -40,9 +42,16 @@ def _sniff(data: bytes) -> str | None:
 
 
 class PoliteWeb:
-    def __init__(self, client: httpx.AsyncClient, throttle: Throttle, *, user_agent: str) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        throttle_factory: Callable[[], Throttle],
+        *,
+        user_agent: str,
+    ) -> None:
         self._client = client
-        self._throttle = throttle
+        self._throttle_factory = throttle_factory
+        self._throttles: dict[str, tuple[Throttle, asyncio.Lock]] = {}
         self._user_agent = user_agent
         self._robots: dict[str, RobotsPolicy | None] = {}
         self._unreadable: set[str] = set()
@@ -91,7 +100,12 @@ class PoliteWeb:
         return policy
 
     async def _request(self, url: str) -> httpx.Response | None:
-        await self._throttle.wait()
+        host = urlparse(url).netloc
+        if host not in self._throttles:
+            self._throttles[host] = (self._throttle_factory(), asyncio.Lock())
+        throttle, lock = self._throttles[host]
+        async with lock:  # requests to one host queue up behind its throttle
+            await throttle.wait()
         try:
             return await self._client.get(
                 url, headers={"User-Agent": self._user_agent}, follow_redirects=True

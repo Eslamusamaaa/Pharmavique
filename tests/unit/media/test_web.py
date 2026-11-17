@@ -30,7 +30,7 @@ class Site:
 
 def web(site: Site) -> PoliteWeb:
     client = httpx.AsyncClient(transport=httpx.MockTransport(site))
-    return PoliteWeb(client, Throttle(0.0), user_agent="test-agent")
+    return PoliteWeb(client, lambda: Throttle(0.0), user_agent="test-agent")
 
 
 def html(body: str, status: int = 200) -> tuple[int, str, bytes]:
@@ -173,3 +173,27 @@ async def test_an_image_host_whose_robots_txt_forbids_the_picture_is_obeyed() ->
 
     assert await HttpImageDownloader(web(site)).download("https://cdn.example.net/i.jpg") is None
     assert "/i.jpg" not in site.requests
+
+
+async def test_each_host_has_its_own_pace_so_different_sites_never_wait_for_each_other() -> None:
+    slept: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    clock = {"now": 100.0}
+    site = Site({"/robots.txt": (404, "text/plain", b""), "/p": html("<html></html>")})
+    client = httpx.AsyncClient(transport=httpx.MockTransport(site))
+    polite = PoliteWeb(
+        client,
+        lambda: Throttle(2.0, now=lambda: clock["now"], sleep=record_sleep),
+        user_agent="test-agent",
+    )
+
+    await polite.get("https://a.example.sa/p")  # robots.txt then the page: the second one waits
+    waited_on_a = len(slept)
+    await polite.get("https://b.example.sa/p")  # a new host starts fresh: its first request is free
+    first_request_to_b = len(slept)
+
+    assert waited_on_a == 1
+    assert first_request_to_b == 2  # only b's second request (its page after robots.txt) waited

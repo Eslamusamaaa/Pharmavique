@@ -186,7 +186,9 @@ async def fetch_images(args: argparse.Namespace) -> int:
     run_id = args.run_id or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     totals = FindImagesReport()
     async with httpx.AsyncClient(timeout=40.0) as client:
-        web = PoliteWeb(client, Throttle(args.delay, args.jitter), user_agent=args.user_agent)
+        web = PoliteWeb(
+            client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
+        )
         handler = FindProductImagesHandler(
             PageImageSearch(FilePageSearch(results), WebPageReader(web)),
             HttpImageDownloader(web),
