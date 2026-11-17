@@ -116,7 +116,7 @@ The Downloadable Information Lists page offers only a few PDF reports (adverse e
 
 **The three large lists cannot be crawled politely.** At about 2 seconds per request, the cosmetic products list alone is about 7 days of list pages with no details, and food products about 3.5 days. Crawling them would put a sustained load on SFDA's site that we should not impose without its agreement. They need an official data export (OPEN_QUESTIONS Q-29) or a decision to leave them out.
 
-Status: not started. The 11 small and medium lists above can use the same crawler design (public pages, polite, resumable, no CAPTCHA, repeat fetches because the list order is unstable).
+Status: the crawler is built (`pharmavique sfda-lists`, see `docs/SFDA_SCRAPER.md`, section 4) and was tried on two real pages of the shortage list on 2026-11-17: the rows, the column names and the pager (72 pages) were read correctly. The full lists have **not been crawled yet**. List pages only; details pages are not fetched. Marketed Products is left out (it appears search-driven, with no pager).
 
 ---
 

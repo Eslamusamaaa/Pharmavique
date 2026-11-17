@@ -66,6 +66,22 @@ Each scheduled run appends to `data/sfda/update.log`. Do not start the schedule 
 
 Later, once the worker from ADR-002 exists, the same command becomes a scheduled job there.
 
+## 4. The other official lists (shortages, pharmacies, companies, ...)
+
+`sfda-lists` crawls the 13 other official SFDA lists (catalog in `docs/DATA_SOURCES.md`, SA-3) one after another, with the same rules as the drugs crawl: public pages only, robots.txt first, stop on 401/403/429, nothing stored unless it parses, repeat fetches to cope with the unstable order. It reads **list pages only** (no details pages yet); column names are taken from each page, never guessed.
+
+```bash
+uv run pharmavique sfda-lists --show                    # the known lists and their size
+uv run pharmavique sfda-lists                           # every list except the three giants
+uv run pharmavique sfda-lists --lists drug-shortage,pharmacies
+uv run pharmavique sfda-lists --include-giant           # also the three giants, see below
+uv run pharmavique sfda-lists --run-id lists-1          # run again with the same id to resume
+```
+
+Output: `data/lists/<list>/<run-id>/` with `manifest.json`, `records.jsonl` (one row per list row, with provenance) and the stored pages. A list that is already `complete` in the run is skipped, so the whole queue can be restarted safely. If the site blocks the crawl, the whole queue stops; any other failure marks that list `aborted` and the queue moves on (exit code 2).
+
+**The three giant lists** (medical equipment about 160,000 rows, food products about 1.5 million, cosmetic products about 3 million) are crawled only with `--include-giant`. At the default pace they take roughly 9 hours, 3.5 days and 7 days of list pages. They get only the two cheap targeted repair passes (not the full sweeps), so a small gap may remain; `manifest.json` reports it in `list_completeness`. Their pages are stored in sub-folders of 1,000 pages. Known limit: the crawler keeps the rows of a list in memory while it works, which is fine up to a few hundred thousand rows but not for the 1.5 and 3 million row lists; a streaming mode is still to be built before those two are started.
+
 ## Exit codes
 
 | Code | Meaning |
