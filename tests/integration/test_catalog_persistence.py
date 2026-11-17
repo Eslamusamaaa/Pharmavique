@@ -236,3 +236,30 @@ async def test_the_schema_has_no_foreign_keys_to_other_schemas(engine: Any) -> N
             )
         )
         assert rows.scalar_one() == 0
+
+
+async def test_the_reader_serves_cards_and_exports_in_pages(
+    rig: Rig, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    from pharmavique.catalog.application.queries import ReadProductCardsHandler
+    from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
+
+    await rig.apply.handle(
+        ApplyCatalogChanges((snapshot("a"), snapshot("b"), snapshot("c")), provenance())
+    )
+    await rig.withdraw.handle(WithdrawProducts(Market.SA, ("b",), provenance("run-2")))
+    queries = ReadProductCardsHandler(SqlAlchemyProductReader(session_factory))
+
+    cards = await queries.get_cards(Market.SA, ("c", "a", "missing"))
+    first = await queries.export_cards(Market.SA, None, limit=2)
+    second = await queries.export_cards(Market.SA, first.next_after, limit=2)
+
+    assert [c.register_number for c in cards] == ["a", "c"]
+    assert cards[0].trade_name_ar == "اسم تجاري"
+    assert [c.register_number for c in first.cards] == ["a", "b"]
+    assert [c.register_number for c in second.cards] == ["c"]
+    assert {c.register_number: c.listing_status for c in first.cards + second.cards} == {
+        "a": "listed",
+        "b": "withdrawn",
+        "c": "listed",
+    }

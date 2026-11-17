@@ -1,7 +1,7 @@
-"""Inbound adapter: the catalog's published commands, served in-process.
+"""Inbound adapter: the catalog's published commands and queries, served in-process.
 
-Other contexts call `CatalogCommands`; today that is a direct call, later it can be an HTTP client
-with the same shape (ARCHITECTURE.md section 7).
+Other contexts call `CatalogCommands` and `CatalogQueries`; today that is a direct call, later it
+can be an HTTP client with the same shape (ARCHITECTURE.md section 7).
 """
 
 from pharmavique.catalog.application.handlers import (
