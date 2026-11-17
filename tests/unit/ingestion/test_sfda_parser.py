@@ -170,3 +170,16 @@ def test_arabic_labels_parse_the_same_way() -> None:
 def test_details_page_without_label_value_rows_raises(html: str) -> None:
     with pytest.raises(ParseError):
         parse_details_page(html)
+
+
+def test_current_page_is_the_active_pager_item_as_a_zero_based_index() -> None:
+    html = LIST_HTML.replace(
+        "<li><span>1</span></li>",
+        '<li class="page-item active"><span class="page-link">370</span></li>',
+    )
+
+    assert parse_list_page(html).current_page == 369
+
+
+def test_current_page_is_unknown_without_an_active_pager_item() -> None:
+    assert parse_list_page(LIST_HTML).current_page is None

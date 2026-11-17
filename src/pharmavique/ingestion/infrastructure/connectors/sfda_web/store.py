@@ -26,8 +26,12 @@ class SnapshotStore:
         self.run_dir = root / run_id
 
     # ---- paths -------------------------------------------------------------------------------
-    def list_page_path(self, page: int) -> Path:
-        return self.run_dir / "list" / f"page-{page:05d}.json.gz"
+    def list_page_path(self, page: int, pass_no: int = 1) -> Path:
+        """Pass 1 keeps the original location; later passes (repairs) live in their own folder."""
+        folder = self.run_dir / "list"
+        if pass_no != 1:
+            folder = folder / f"pass-{pass_no:02d}"
+        return folder / f"page-{page:05d}.json.gz"
 
     def details_path(self, language: str, key: str) -> Path:
         return self.run_dir / "details" / language / f"{quote(key, safe='')}.json.gz"

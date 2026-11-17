@@ -32,6 +32,7 @@ class ListRow:
 class ListPage:
     rows: tuple[ListRow, ...]
     last_page: int | None  # highest `?page=N` seen in the pager, if any
+    current_page: int | None = None  # 0-based index of the active pager item, if there is one
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +94,7 @@ def parse_list_page(html: str) -> ListPage:
         if indexes is None:
             continue
         rows = tuple(_list_row(tr, indexes, len(headers)) for tr in _data_rows(table))
-        return ListPage(rows=rows, last_page=_last_page(soup))
+        return ListPage(rows=rows, last_page=_last_page(soup), current_page=_current_page(soup))
 
     raise ParseError("no table with the expected drug list columns was found")
 
@@ -124,6 +125,15 @@ def _list_row(tr: Tag, indexes: dict[str, int], column_count: int) -> ListRow:
         details_href=href,
         registration_key=_registration_key(href),
     )
+
+
+def _current_page(soup: BeautifulSoup) -> int | None:
+    """The page the pager marks as active (shown 1-based on the site, returned 0-based)."""
+    item = soup.select_one("li.page-item.active")
+    if item is None:
+        return None
+    digits = re.search(r"\d+", item.get_text())
+    return int(digits.group(0)) - 1 if digits else None
 
 
 def _last_page(soup: BeautifulSoup) -> int | None:

@@ -27,7 +27,12 @@ HEADERS = (
 )
 
 
-def list_html(keys: list[str], last_page: int = 2, prices: dict[str, str] | None = None) -> str:
+def list_html(
+    keys: list[str],
+    last_page: int = 2,
+    prices: dict[str, str] | None = None,
+    current: int | None = None,
+) -> str:
     prices = prices or {}
     rows = "".join(
         f"<tr><td>SCI-{k}</td><td>TRADE-{k}</td><td>5</td><td>Tablet</td>"
@@ -35,7 +40,12 @@ def list_html(keys: list[str], last_page: int = 2, prices: dict[str, str] | None
         f'<td><a href="/en/details_data?nid=1&amp;id={k}&amp;page=0">Details</a></td></tr>'
         for k in keys
     )
-    pager = f'<a href="?page=1">2</a><a href="?page={last_page}">last</a>'
+    active = (
+        f'<li class="page-item active"><span class="page-link">{current + 1}</span></li>'
+        if current is not None
+        else ""
+    )
+    pager = f'{active}<a href="?page=1">2</a><a href="?page={last_page}">last</a>'
     return f"<table><thead><tr>{HEADERS}</tr></thead><tbody>{rows}</tbody></table>{pager}"
 
 
@@ -395,3 +405,100 @@ async def test_update_needs_the_whole_list(tmp_path: Path) -> None:
 
     with pytest.raises(CrawlError, match="whole list"):
         await c.update(baseline)
+
+
+# ---- list quirks seen on the real site: it clamps to its last page, and sometimes answers
+# ---- a page with the rows of the page before it (the pager label still looks right) ------------
+
+
+def list_url(number: int) -> str:
+    return f"{BASE}/en/drugs-list?page={number}"
+
+
+def labelled_site(pages: list[list[str]], hint: int | None = None) -> FakeFetcher:
+    """Every list page carries its pager label; requests past the end get the last page back."""
+    last = len(pages) - 1
+    shown_hint = last if hint is None else hint
+    fetcher = make_site(pages, shown_hint)
+    for number, keys in enumerate(pages):
+        fetcher.add(list_url(number), list_html(keys, shown_hint, current=number))
+    for number in range(len(pages), len(pages) + 5):
+        fetcher.add(list_url(number), list_html(pages[-1], shown_hint, current=last))
+    return fetcher
+
+
+def glitch(fetcher: FakeFetcher, number: int, pages: list[list[str]], times: int | None) -> None:
+    """Page `number` answers with the rows of the page before it (forever if times is None)."""
+    wrong = FetchedPage(list_url(number), 200, list_html(pages[number - 1], 2, current=number), NOW)
+    right = fetcher.responses[list_url(number)][0]
+    answers: list[FetchedPage | Exception] = [wrong] * (times or 1)
+    if times:
+        answers.append(right)
+    fetcher.add_sequence(list_url(number), answers)
+
+
+def list_requests(fetcher: FakeFetcher) -> list[str]:
+    return [u for u in fetcher.calls if "drugs-list" in u]
+
+
+async def test_list_ends_where_the_pager_label_stops_matching_the_request(tmp_path: Path) -> None:
+    site = labelled_site(PAGES)
+    c, store = crawler(site, tmp_path)
+
+    manifest = await c.run()
+
+    assert [r["key"] for r in store.read_records()] == ["k1", "k2", "k3", "k4", "k5"]
+    assert list_requests(site) == [list_url(n) for n in range(4)]  # page 3 is the clamped one
+    assert manifest["counts"]["list_pages"] == 3
+    assert manifest["list_completeness"] == {"expected": 5, "unique": 5, "gap": 0, "passes": 1}
+    assert manifest["status"] == "complete"
+
+
+async def test_a_page_that_repeats_the_one_before_is_fetched_again_and_repaired(
+    tmp_path: Path,
+) -> None:
+    site = labelled_site(PAGES)
+    glitch(site, 1, PAGES, times=1)  # first answer is wrong, the next one is right
+    c, store = crawler(site, tmp_path)
+
+    manifest = await c.run()
+
+    assert [r["key"] for r in store.read_records()] == ["k1", "k2", "k3", "k4", "k5"]
+    assert list_requests(site).count(list_url(1)) == 2
+    assert manifest["list_completeness"] == {"expected": 5, "unique": 5, "gap": 0, "passes": 2}
+    assert manifest["status"] == "complete"
+
+
+async def test_a_gap_that_cannot_be_closed_is_reported_and_does_not_loop(tmp_path: Path) -> None:
+    site = labelled_site(PAGES)
+    glitch(site, 1, PAGES, times=None)  # page 1 never answers correctly
+    c, store = crawler(site, tmp_path)
+
+    manifest = await c.run()
+
+    assert [r["key"] for r in store.read_records()] == ["k1", "k2", "k5"]
+    assert manifest["list_completeness"]["gap"] == 2
+    assert manifest["list_completeness"]["unique"] == 3
+    assert manifest["status"] == "partial"
+    assert list_requests(site).count(list_url(1)) <= 3  # the allowed passes, then it stops
+
+
+async def test_a_list_that_seems_to_end_far_before_the_pager_says_is_refused(
+    tmp_path: Path,
+) -> None:
+    site = labelled_site(PAGES, hint=40)
+    c, _ = crawler(site, tmp_path)
+
+    with pytest.raises(CrawlError, match="ends early"):
+        await c.run()
+
+
+async def test_a_list_that_never_ends_is_stopped_by_the_page_cap(tmp_path: Path) -> None:
+    site = FakeFetcher()
+    for number in range(30):
+        site.add(list_url(number), list_html([f"x{number}"], 99))
+    cfg = CrawlConfig(base_url=BASE, retry_wait=0.0, max_list_pages=10)
+    c, _ = crawler(site, tmp_path, cfg)
+
+    with pytest.raises(CrawlError, match="more than 10"):
+        await c.run()
