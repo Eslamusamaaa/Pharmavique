@@ -55,6 +55,7 @@ Per the working agreements, anything unknown is recorded here instead of being a
 | Q-32 | Who supplies the first 100 or more real box, prescription and shelf photos, and who labels them? | Without them there is no honest vision-model choice (`AI_ARCHITECTURE.md` section 9) | Before the vision adapter | The owner collects them, we build the labeling sheet |
 | Q-33 | Which languages and handwriting styles appear on prescriptions (Arabic, English, mixed, printed)? | Sets the evaluation set and the confidence thresholds | Before the vision adapter | Assume all of them |
 | Q-34 | Should the assistant keep conversation history after the session, and for how long? | History can contain health information | Before the assistant | Short expiry, not logged |
+| Q-35 | Which sources may we take product pictures from (an image-search API with its licence terms, manufacturers' own pack shots, other)? Are we allowed to display them, and who clears the rights? | Pictures found on the web are normally copyrighted; scraping search-engine result pages breaks their terms and hits CAPTCHAs | Before any image is downloaded (`AI_ARCHITECTURE.md` section 14) | Download nothing; build the verification and job with fake sources only |
 | Q-8 | License status for commercial use of SFDA data, and status of any data-sharing request? | The brief notes site terms limit use to internal/personal business use. Must be recorded per source in `DATA_SOURCES.md` | Phase 1 launch | Treat as unverified; do not scrape site pages |
 
 ### EG data

@@ -15,7 +15,7 @@ Status: **proposal, nothing built.** It follows the owner's decisions in `docs/F
 | Step | Done by | Never done by |
 |---|---|---|
 | Turn pixels into text lines | OCR / vision model (`VisionReader` port) | the catalog |
-| Decide which product the text means | `search` (exact, then trigram, then optional vector), scored in our code | the vision model guessing a drug from its own knowledge |
+| Decide which product the text means | `search`: hybrid retrieval (fuzzy lexical and semantic signals fused), scored in our code | the vision model guessing a drug from its own knowledge |
 | Confirm the match | the pharmacist or patient, in the UI | any model |
 | Equivalence, price, status | `catalog` and `substitution` | the LLM |
 | Phrase an answer and pick which tool to call | the LLM (`Assistant`) | deciding facts: every fact in an answer must carry a record id |
@@ -96,12 +96,15 @@ Images live in object storage (`ObjectStorage` port), encrypted at rest, keyed b
 
 ## 6. Retrieval ("RAG over the catalog")
 
-The corpus is small and structured (about 9,000 drugs, growing with the other lists), so retrieval is **structured first, semantic second**:
+**Owner decision (2026-11-17): hybrid RAG plus agentic RAG.** Retrieval is hybrid by default, not "semantic as a last resort". Every query runs all the signals and a fusion step ranks the union:
 
-1. Exact: registration number, barcode.
-2. Trigram similarity on normalized names and aliases, Arabic and English (ADR-003, spike 001 passed locally).
-3. Vector search over a short, normalized "product card" text (names, ingredients, strengths, form, company) only for low-confidence or free-text questions. Brand names are poor embedding material, so vectors are never the only signal for identifying a product.
-4. Scores combine in application code with a simple explainable weighting, tuned on an evaluation set (section 9), not by feel.
+1. **Exact** lookups short-circuit when they hit: registration number, barcode.
+2. **Fuzzy lexical**: trigram similarity on normalized names and aliases, Arabic and English (ADR-003, spike 001 passed locally). This is what survives misspellings and OCR errors in brand names.
+3. **Semantic**: vector search over a short, normalized "product card" text (names, ingredients, strengths, form, company). It carries free-text and descriptive questions ("a cough syrup with dextromethorphan"). Brand names are poor embedding material, so the semantic signal alone never identifies a product; it adds candidates and evidence.
+4. **Fusion**: reciprocal rank fusion first (no score calibration needed), a weighted score only if the evaluation set shows it wins. Each result keeps the per-signal ranks so the explanation ("matched by name 0.82, by meaning 0.64") can be shown and tested.
+5. Weights, thresholds and the fusion choice are tuned on the evaluation set (section 9), not by feel.
+
+The agentic layer (section 7) sits on top: the assistant decides *which* retrieval tool to call and how to combine results across several calls (search, then details, then equivalents), but each tool call is this same hybrid retrieval or a deterministic query.
 
 Every assistant answer is assembled **from records the tools returned**. Each claim carries the record's id, source and snapshot (our existing provenance). If a tool returns nothing, the answer says so; there is no fallback to the model's own memory.
 
@@ -177,3 +180,36 @@ Metrics: line-level text accuracy, **top-1 and top-3 product match rate**, share
 | Q-32 | Who supplies the first 100 or more real box and prescription photos, and who labels them? | Without them there is no honest model choice |
 | Q-33 | Which languages and handwriting styles are expected on prescriptions (Arabic, English, mixed)? | Sets the evaluation set and the thresholds |
 | Q-34 | Should the assistant keep conversation history after the session, and for how long? | Health data retention; default is short expiry |
+
+## 14. Product images from the web (owner request, 2026-11-17)
+
+**Not to be confused with section 5.** The images in object storage there are the photos a *user* uploads (a box, a prescription, a shelf) and they are deleted after processing. This section is about *reference pictures of each drug's pack*, found on the internet and kept as catalog content.
+
+The idea: for each drug we crawled, search for pictures by trade name and active ingredient, check that a picture really shows that product, and store it with provenance.
+
+### 14.1 Shape
+
+A new context, `media`, owns the images and their verification; `catalog` stays free of binary content. A job per product runs: **find candidates, download, verify, store**, and publishes `ProductImageVerified` so the UI and search can use it.
+
+Verification reuses the `VisionReader` port (section 8): it transcribes the text on the picture, and our code compares it with the catalog record (trade name, strength, dosage form, manufacturer). Outcomes:
+
+| Status | Meaning |
+|---|---|
+| `verified_by_text` | name and strength both read from the picture and both match the record |
+| `needs_review` | partial match (name only, or low confidence); a person decides |
+| `rejected` | text contradicts the record, or a different product |
+
+Never decided by "the picture looks similar". A rejected or unreviewed picture is never shown as that product. Each stored image carries source page URL, image URL, fetched_at, licence as found (or `unknown`), content hash (duplicates dropped), the verification result, and `trust = unofficial_unverified` until a person confirms.
+
+### 14.2 What blocks the downloading part (not the design)
+
+- **Rights.** A picture on a web page is usually someone's copyrighted work. Showing it in a product people use needs a licence or permission. I have not checked the terms of any source.
+- **How to search.** Scraping the result pages of general search engines is against their terms and runs into CAPTCHAs, which we never bypass (project rule). The legitimate routes are an image-search API used under its terms, sources that publish reusable images, or asking manufacturers and distributors for their pack shots.
+- **SFDA itself has no product images** (800 detail pages were checked).
+
+So the first step is only the port, the verification logic and the job, tested with fake sources. **Nothing is downloaded until the owner decides which sources are allowed (Q-35).**
+
+### 14.3 Scale
+
+About 9,000 drugs and several candidates each means tens of thousands of downloads. They run as throttled jobs on their own worker pool (ADR-002, ADR-004), deduplicated by content hash, resumable, with a per-source politeness limit like the SFDA crawler.
+
