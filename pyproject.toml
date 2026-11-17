@@ -220,7 +220,10 @@ modules = [
     "pharmavique.watchlist",
     "pharmavique.analytics",
 ]
-ignore_imports = []
+ignore_imports = [
+    # sync calls from outbound adapters in infrastructure: ingestion speaks the catalog's contracts
+    "pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping -> pharmavique.catalog.contracts.commands",
+]
 unmatched_ignore_imports_alerting = "error"
 
 [[tool.importlinter.contracts]]
