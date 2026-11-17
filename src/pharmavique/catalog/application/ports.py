@@ -9,6 +9,10 @@ from pharmavique.shared_kernel.events import IntegrationEvent
 from pharmavique.shared_kernel.ports import UnitOfWork
 
 
+class ConcurrentModification(Exception):
+    """Someone else changed the product since this unit of work loaded it. Retry the command."""
+
+
 class ProductRepository(Protocol):
     async def get(self, product_id: ProductId) -> Product | None: ...
 
