@@ -23,6 +23,9 @@ Last updated: 2026-11-17. The three roles (patient, pharmacist, pharma company) 
 - The feature build order was approved by the owner (see "Build order").
 - **Pharmacist shelf scan:** the pharmacist photographs a whole shelf and the system finds each box and reads the name on it, so items are never typed in by hand. The confirmed items become the shelf list used for price and safety alerts. Details under "AI features".
 - The system must be **scalable**; software architecture gets focused attention before feature code (ADR-004, proposed).
+- **More SFDA categories are in scope**: veterinary medicines, medical devices, cosmetics, food and supplements, feed, and products under special access. SFDA publishes 28 official lists (DATA_SOURCES SA-3). Each is added as its own source once its structure is read.
+- **Official sources now exist for features first planned from other data**: an official drug shortage list, a drug companies list, safety labeling updates and alerts, and a licensed pharmacies directory. These are candidates to replace or complement the monthly PDF and the maps provider.
+- **The SFDA public pages contain no product images and no leaflet files** (800 pages checked), so image-based features cannot rely on SFDA.
 
 ## Core features (data we already collect)
 

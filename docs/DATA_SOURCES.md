@@ -59,6 +59,42 @@ Last updated: 2026-11-16.
 
 ---
 
+## SA-3. The other official SFDA lists (catalog found 2026-11-17)
+
+SFDA's "Information Lists" catalog (`https://www.sfda.gov.sa/en/lists-categories`, three pages) shows **28 official lists** across drugs, food, medical devices and cosmetics. Only their titles and categories were read; the **contents, columns, update frequency and terms of each list have not been checked**. Every list has the same unverified reuse status as SA-1.
+
+### Drugs: most valuable for the product
+
+| List (path) | What it may give us | Feature it would feed |
+|---|---|---|
+| Drug Shortage List (`/en/currentlyInShortageList`) | An **official** list of drugs currently in shortage | Shortage alerts from an official source |
+| Drug Companies List (`/en/drug-companies`) | Company master data | Company profiles and name resolution (company role) |
+| Drugs Safety Labeling Updates (`/en/drugs-safety-labeling`), Safety Alert (`/en/safety_alert`), Pharmacovigilance (`/en/pharmacovigilance`), Periodic safety reporting schedule (`/en/periodic_safety`) | Official safety notices | Safety notices on the drug page (replaces or complements the monthly PDF, SA-2) |
+| Marketed Products (`/en/marketed-products`) | Which products are actually marketed | Authorization versus marketing status |
+| Drug Approvals (`/en/new-sfda-drug-approvals`) | New approvals | "New product" radar for companies |
+| Licensed Pharmacies List (`/en/list_registered_pharmacies`) | An official pharmacy directory | Pharmacy finder (to check against the maps provider) |
+| Incentive Project List (`/en/unregistered-pharmaceuticals-lists`) | A list of unregistered pharmaceuticals (title only; its meaning must be read) | Possibly the "special access" products the owner asked about |
+| Released Vaccine, Under Studying List, Drug Clinical Trials List, Saudi Public Assessment Report (`/en/drug-evaluation-reports`) | Vaccines, products under review, trials, assessment reports | Later |
+
+### Other categories the owner asked to add
+
+| Category | List (path) |
+|---|---|
+| Veterinary medicines | Veterinary drugs (`/en/vet-drugs`) |
+| Medical devices | Medical Equipment List (`/en/medical-equipment-list`) |
+| Cosmetics | All Cosmetic List (`/en/AllCosmeticList`), Notification of Marketing for Cosmetic Products (`/en/cosmetics-list`) |
+| Food, supplements and feed | Notification of Marketing for Food Products, Registered (`/en/products`), Feed List (`/en/feed-list`) |
+| Establishments | Licensed Establishments List (`/en/licensed-establishments-list`) |
+| Downloadable lists | Downloadable Information Lists (`/en/information_list`) |
+
+**Not found as separate lists:** a register of herbal or supplement products (they may sit under the food products list) and a register of drugs imported under exceptional permission. Both must be confirmed with SFDA (OPEN_QUESTIONS Q-28).
+
+The 2023 Excel files on the Open Data page (veterinary medicines, low-risk medical devices, cosmetics, energy drinks, feed) are older snapshots of some of these; the live lists above are preferred.
+
+Status: not started. The same crawler design (public pages, polite, resumable, no CAPTCHA) would apply per list once a list's structure has been read.
+
+---
+
 ## EG-1. Egyptian drug data
 
 Not started. Rules from the project brief: the official Egyptian Drug Authority search sits behind a CAPTCHA and **must not be scraped or bypassed**. Plan: a CSV-import adapter for a third-party dataset marked `unofficial_unverified`, and a request to the Egyptian Drug Authority for an official feed. EG prices have no known source (OPEN_QUESTIONS Q-6, Q-7).

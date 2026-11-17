@@ -76,3 +76,18 @@ Later, once the worker from ADR-002 exists, the same command becomes a scheduled
 | 4 | no baseline to update from |
 
 If a run stops with code 3, **do not work around it**. Wait, check the site in a browser, and consider contacting SFDA.
+
+## Known quirk: the list order is unstable
+
+Found 2026-11-17. If you fetch the same list page twice, the site often returns different rows near the edges of the page (about half of the repeat fetches differed). One drug can appear on two pages while another appears on none, so a single pass over the 458 pages misses drugs: the first pass found 8,626 of an expected 9,152 rows, and three targeted repair passes reached 9,026.
+
+What the crawler does about it:
+
+- Fetching a page again is allowed and cheap, and the union of everything seen is kept (stored under `list/pass-02`, `pass-03`, and so on).
+- Passes 2 and 3 refetch the pages that look wrong (a page equal to the one before it, or sharing drugs with another page). Later passes sweep **every** page, because a skipped drug leaves no duplicate to point at.
+- It stops when nothing is missing, after 3 passes in a row that find nothing new, or after 8 passes (`max_list_passes`, `list_patience`).
+- `manifest.json` reports `list_completeness` (`expected`, `unique`, `gap`, `passes`). A run with a gap above zero is `partial`.
+
+The end of the list is read from the pager: past the last page the site returns the last page again, labelled with its real number, so a label lower than the requested page means the list ended.
+
+To close the remaining gap after a run: resume it with the same `--run-id`. The stored pages are reused and only the extra passes and the details of newly found drugs are fetched.
