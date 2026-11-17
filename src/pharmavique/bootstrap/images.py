@@ -15,8 +15,12 @@ import argparse
 import asyncio
 import json
 import logging
+import shutil
+import subprocess
 import sys
-from collections.abc import Sequence
+import tempfile
+from collections import Counter
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -33,6 +37,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records imp
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
 from pharmavique.media.application.page_search import PageImageSearch, PageSearch
 from pharmavique.media.domain.matching import ProductRef, build_queries
+from pharmavique.media.domain.verification import PictureVerdict, verify_picture
 from pharmavique.media.infrastructure.files import (
     FileImageStore,
     JsonlAttemptLog,
@@ -118,6 +123,20 @@ def add_arguments(commands: Any) -> None:
     sync.add_argument("--delay", type=float, default=2.0)
     sync.add_argument("--jitter", type=float, default=1.0)
     sync.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+
+    verify = commands.add_parser(
+        "sfda-images-verify",
+        help="read the text on each stored picture (Windows OCR) and check it is the right drug",
+    )
+    verify.add_argument("--products", default=DEFAULT_PRODUCTS)
+    verify.add_argument("--out", default="data/media")
+    verify.add_argument("--batch-size", type=int, default=100)
+
+    mapping = commands.add_parser(
+        "sfda-images-map", help="write the final drug-to-picture mapping and its summary"
+    )
+    mapping.add_argument("--products", default=DEFAULT_PRODUCTS)
+    mapping.add_argument("--out", default="data/media")
 
     report = commands.add_parser(
         "sfda-images-report", help="how many drugs have a picture; write the list of those without"
@@ -448,3 +467,166 @@ async def sync_images(args: argparse.Namespace) -> int:
             log.info("the crawl is %s: last cycle done", status)
             return EXIT_OK
         await asyncio.sleep(args.interval)
+
+
+OcrReader = Callable[[list[Path]], dict[Path, str | None]]
+_OCR_SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "ocr_windows.ps1"
+
+
+def windows_ocr(paths: list[Path]) -> dict[Path, str | None]:
+    """Read the text of pictures with the OCR engine built into Windows; None when one fails."""
+    shell = shutil.which("powershell.exe")
+    if shell is None:
+        raise RuntimeError("the Windows OCR needs powershell.exe, which was not found")
+    with tempfile.TemporaryDirectory() as folder:
+        listing = Path(folder) / "files.txt"
+        output = Path(folder) / "out.jsonl"
+        listing.write_text("\n".join(str(p.resolve()) for p in paths), encoding="utf-8")
+        subprocess.run(  # noqa: S603 - fixed command, our own script, paths from our own files
+            [
+                shell, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", str(_OCR_SCRIPT), "-List", str(listing), "-Out", str(output),
+            ],
+            check=True,
+            capture_output=True,
+        )  # fmt: skip
+        found: dict[Path, str | None] = {}
+        if output.is_file():
+            for line in output.read_text(encoding="utf-8-sig").splitlines():
+                row = json.loads(line)
+                found[Path(row["file"]).resolve()] = None if row.get("error") else row["text"]
+    return {p: found.get(p.resolve()) for p in paths}
+
+
+def _jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            rows.append(json.loads(line))
+        except ValueError:
+            continue
+    return rows
+
+
+def verify_pictures(
+    products: Path, media: Path, ocr: OcrReader, *, batch_size: int = 100
+) -> Counter[str]:
+    """Read every stored picture not yet verified and judge it against its own drug."""
+    refs = {r.register_number: r for r in load_product_refs(products)}
+    done = {row["storage_key"] for row in _jsonl(media / "verification.jsonl")}
+    pending = [r for r in _jsonl(media / "images.jsonl") if r["storage_key"] not in done]
+    counts: Counter[str] = Counter()
+    log = logging.getLogger("media.verify")
+    with (media / "verification.jsonl").open("a", encoding="utf-8") as handle:
+        for start in range(0, len(pending), batch_size):
+            batch = pending[start : start + batch_size]
+            texts = ocr([media / "images" / row["storage_key"] for row in batch])
+            for row in batch:
+                text = texts.get(media / "images" / row["storage_key"])
+                ref = refs.get(row["register_number"])
+                signals: tuple[str, ...]
+                if text is None or ref is None:
+                    verdict, signals, shown = PictureVerdict.NOT_CONFIRMED, ("ocr_error",), ""
+                else:
+                    check = verify_picture(ref, text)
+                    verdict, signals, shown = check.verdict, check.signals, text[:300]
+                counts[verdict.value] += 1
+                handle.write(
+                    json.dumps(
+                        {
+                            "storage_key": row["storage_key"],
+                            "register_number": row["register_number"],
+                            "verdict": verdict.value,
+                            "signals": list(signals),
+                            "ocr_text": shown,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+            handle.flush()
+            log.info(
+                "%s of %s pictures verified", min(start + batch_size, len(pending)), len(pending)
+            )
+    return counts
+
+
+def run_verify(args: argparse.Namespace) -> int:
+    products = Path(args.products)
+    if not products.is_file() or not _OCR_SCRIPT.is_file():
+        print("needs the products file and scripts/ocr_windows.ps1", file=sys.stderr)
+        return EXIT_NO_INPUT
+    out = Path(args.out)
+    _configure_logging(out)
+    counts = verify_pictures(products, out, windows_ocr, batch_size=args.batch_size)
+    print("verified now: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    return EXIT_OK
+
+
+_CHECK_RANK = {
+    "confirmed": 0,
+    "likely": 1,
+    "unchecked": 2,
+    "not_confirmed": 3,
+    "strength_conflict": 4,
+}
+_STATUS_RANK = {"confirmed": 0, "matched": 1, "needs_review": 2, "rejected": 3}
+
+
+def build_mapping(products: Path, media: Path) -> dict[str, int]:
+    """One row per drug: its names, ingredients and the best picture found, with how it was
+    checked. Drugs with no picture are in the file too (`picture_check` is `no_picture`)."""
+    refs = [r for r in load_product_refs(products) if r.trade_name_en or r.trade_name_ar]
+    checks = {row["storage_key"]: row["verdict"] for row in _jsonl(media / "verification.jsonl")}
+    by_drug: dict[str, list[dict[str, Any]]] = {}
+    for image in _jsonl(media / "images.jsonl"):
+        by_drug.setdefault(image["register_number"], []).append(image)
+
+    def rank(image: dict[str, Any]) -> tuple[int, int, float]:
+        check = checks.get(image["storage_key"], "unchecked")
+        return (_CHECK_RANK[check], _STATUS_RANK.get(image["status"], 9), -image["score"])
+
+    summary = {"drugs": len(refs), "with_picture": 0, "confirmed": 0, "unverified": 0, "missing": 0}
+    with (media / "mapping.jsonl").open("w", encoding="utf-8") as handle:
+        for ref in refs:
+            candidates = by_drug.get(ref.register_number, [])
+            best = min(candidates, key=rank) if candidates else None
+            check = "no_picture" if best is None else checks.get(best["storage_key"], "unchecked")
+            row = {
+                "market": ref.market.value,
+                "register_number": ref.register_number,
+                "trade_name_en": ref.trade_name_en,
+                "trade_name_ar": ref.trade_name_ar,
+                "scientific_names": list(ref.ingredient_names),
+                "strengths": list(ref.strengths),
+                "company": ref.marketing_company,
+                "picture": None if best is None else str(media / "images" / best["storage_key"]),
+                "picture_status": None if best is None else best["status"],
+                "picture_check": check,
+                "source_page": None if best is None else best["page_url"],
+                "source_image_url": None if best is None else best["image_url"],
+                "trust": None if best is None else best["provenance"]["trust"],
+            }
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            if best is None:
+                summary["missing"] += 1
+            else:
+                summary["with_picture"] += 1
+                summary["confirmed" if check == "confirmed" else "unverified"] += 1
+    return summary
+
+
+def run_map(args: argparse.Namespace) -> int:
+    products = Path(args.products)
+    if not products.is_file():
+        print(f"no products file at {products}", file=sys.stderr)
+        return EXIT_NO_INPUT
+    summary = build_mapping(products, Path(args.out))
+    print(
+        f"{summary['drugs']} drugs | with a picture: {summary['with_picture']} "
+        f"(confirmed by the text on the box: {summary['confirmed']}, "
+        f"not confirmed: {summary['unverified']}) | no picture: {summary['missing']}"
+    )
+    return EXIT_OK
