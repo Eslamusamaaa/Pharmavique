@@ -111,3 +111,23 @@ def test_queries_name_the_drug_and_saudi_arabia_in_english_and_arabic() -> None:
 def test_queries_skip_a_missing_name_instead_of_searching_for_nothing() -> None:
     assert build_queries(product(trade_name_en=None, trade_name_ar=None)) == ()
     assert all("None" not in q for q in build_queries(product(trade_name_ar=None)))
+
+
+def test_the_name_in_the_page_address_counts_when_the_title_is_generic() -> None:
+    # seen on a real Saudi shop page: the title said "Product Overview", the address named the drug
+    result = judge(
+        product(),
+        candidate(
+            title="Product Overview",
+            page_url="https://medononline.com.sa/product/panadol-extra-paracetamol-caffeine-24s-5179",
+        ),
+    )
+
+    assert result.verdict is MatchVerdict.MATCHED
+    assert "name" in result.signals
+
+
+def test_the_website_name_alone_is_not_taken_as_the_drug_name() -> None:
+    result = judge(product(), candidate(title="Welcome", page_url="https://panadol-extra.com.sa/"))
+
+    assert result.verdict is MatchVerdict.REJECTED

@@ -17,7 +17,7 @@ different product:
 
 from dataclasses import dataclass
 from enum import StrEnum
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.text import normalize_text, tokenize
@@ -76,8 +76,11 @@ def build_queries(product: ProductRef) -> tuple[str, ...]:
 
 
 def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
-    text_tokens = set(tokenize(f"{candidate.title} {candidate.alt_text}"))
-    host = (urlparse(candidate.page_url).hostname or "").lower()
+    parsed = urlparse(candidate.page_url)
+    host = (parsed.hostname or "").lower()
+    # The address path counts as page text (shops put the product name in it); the host does not,
+    # so a site called after the drug is not mistaken for a page about it.
+    text_tokens = set(tokenize(f"{candidate.title} {candidate.alt_text} {unquote(parsed.path)}"))
 
     signals: list[str] = []
     if _names_appear(product, text_tokens):
