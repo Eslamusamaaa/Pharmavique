@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from pharmavique.shared_kernel.currency import Currency
+from pharmavique.shared_kernel.currency import Currency, CurrencyBasis
 from pharmavique.shared_kernel.errors import InvariantViolation
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.money import Money
@@ -55,3 +55,39 @@ def test_money_equality_is_by_value() -> None:
 
     assert Money(Decimal("5"), usd) == Money(Decimal("5.00"), usd)
     assert Money(Decimal("5"), usd) != Money(Decimal("5"), Currency.unconfirmed())
+
+
+# ---- currency basis: how we know the currency -------------------------------------------------
+
+
+def test_each_currency_says_how_it_is_known() -> None:
+    assert Currency.confirmed("USD").basis is CurrencyBasis.SOURCE_STATED
+    assert Currency.owner_assumed("SAR").basis is CurrencyBasis.OWNER_ASSUMPTION
+    assert Currency.unconfirmed().basis is CurrencyBasis.UNCONFIRMED
+
+
+def test_an_owner_assumed_currency_has_a_code_but_is_not_source_confirmed() -> None:
+    currency = Currency.owner_assumed("SAR")
+
+    assert currency.code == "SAR"
+    assert not currency.is_confirmed
+
+
+@pytest.mark.parametrize("bad", ["", "sa", "SARX", "sar"])
+def test_owner_assumed_currency_rejects_malformed_codes(bad: str) -> None:
+    with pytest.raises(InvariantViolation):
+        Currency.owner_assumed(bad)
+
+
+def test_same_code_with_a_different_basis_is_a_different_currency() -> None:
+    assert Currency.owner_assumed("SAR") != Currency.confirmed("SAR")
+
+
+def test_a_currency_without_a_code_cannot_claim_a_basis() -> None:
+    with pytest.raises(InvariantViolation):
+        Currency(None, CurrencyBasis.OWNER_ASSUMPTION)
+
+
+def test_a_currency_with_a_code_cannot_be_unconfirmed() -> None:
+    with pytest.raises(InvariantViolation):
+        Currency("SAR", CurrencyBasis.UNCONFIRMED)
