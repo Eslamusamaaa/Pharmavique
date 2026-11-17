@@ -145,6 +145,8 @@ containers = [
 id = "presentation-isolation"
 name = "Presentation must not import infrastructure or domain"
 type = "forbidden"
+# only direct imports are forbidden: presentation uses application, which uses the domain
+allow_indirect_imports = true
 source_modules = [
     "pharmavique.catalog.presentation",
     "pharmavique.ingestion.presentation",
@@ -226,6 +228,7 @@ modules = [
 ignore_imports = [
     # sync calls from outbound adapters in infrastructure: ingestion speaks the catalog's contracts
     "pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping -> pharmavique.catalog.contracts.commands",
+    "pharmavique.ingestion.infrastructure.adapters.catalog_writer -> pharmavique.catalog.contracts.commands",
 ]
 unmatched_ignore_imports_alerting = "error"
 
