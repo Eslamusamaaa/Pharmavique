@@ -1,7 +1,6 @@
 """Alembic environment (async). Migrations are written by hand; there is no autogenerate."""
 
 import asyncio
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -14,12 +13,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 if not config.get_main_option("sqlalchemy.url"):
-    url = os.environ.get("PHARMAVIQUE_DATABASE_URL")
-    if not url:
-        raise RuntimeError(
-            "set PHARMAVIQUE_DATABASE_URL (or pass sqlalchemy.url) to run migrations"
-        )
-    config.set_main_option("sqlalchemy.url", url)
+    from pharmavique.bootstrap.settings import Settings
+
+    secret = Settings().database_url  # reads the environment and the git-ignored .env
+    if secret is None:
+        raise RuntimeError("set PHARMAVIQUE_DATABASE_URL in the environment or .env to migrate")
+    config.set_main_option("sqlalchemy.url", secret.get_secret_value().replace("%", "%%"))
 
 target_metadata = None
 

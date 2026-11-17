@@ -19,11 +19,21 @@ from typing import Any
 
 import httpx
 
+from pharmavique.bootstrap.settings import get_settings
+from pharmavique.catalog.application.handlers import (
+    ApplyCatalogChangesHandler,
+    WithdrawProductsHandler,
+)
+from pharmavique.catalog.infrastructure.persistence.unit_of_work import SqlAlchemyCatalogUnitOfWork
+from pharmavique.catalog.presentation.inprocess import InProcessCatalogCommands
 from pharmavique.foundation.clock import SystemClock
+from pharmavique.foundation.db.engine import create_engine, create_session_factory
 from pharmavique.foundation.http.robots import RobotsPolicy
 from pharmavique.foundation.http.throttle import Throttle
+from pharmavique.ingestion.application.load_records import LoadRecordsIntoCatalog
 from pharmavique.ingestion.domain.diff import diff
 from pharmavique.ingestion.domain.records import ChangeSet
+from pharmavique.ingestion.infrastructure.adapters.catalog_writer import CatalogWriter
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.crawler import (
     CrawlConfig,
     CrawlError,
@@ -38,6 +48,12 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
     render_markdown,
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import StoredRecords
+from pharmavique.shared_kernel.currency import Currency
+
+# Owner's decision (2026-11-17): SFDA prices are SAR. The pages do not state a currency, so the
+# basis is recorded as an assumption and shown as such. Change it here if SFDA documents otherwise.
+SA_PRICE_CURRENCY = Currency.owner_assumed("SAR")
 
 DEFAULT_BASE_URL = "https://www.sfda.gov.sa"
 # Generic on purpose: it says what the client is without naming a person or project.
@@ -85,6 +101,14 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("new", help="newer run id")
     compare.add_argument("--out", default="data/sfda")
     compare.add_argument("--limit", type=int, default=200, help="rows per section in the report")
+
+    load = commands.add_parser(
+        "sfda-load", help="load a stored run into the catalog database (safe to repeat)"
+    )
+    load.add_argument("--run-id", required=True, help="the crawl run to load")
+    load.add_argument("--out", default="data/sfda")
+    load.add_argument("--batch-size", type=int, default=200)
+    load.add_argument("--limit", type=int, help="load only the first N drugs (for a trial)")
     return parser
 
 
@@ -259,6 +283,58 @@ def _sfda_diff(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def _sfda_load(args: argparse.Namespace) -> int:
+    secret = get_settings().database_url
+    if secret is None:
+        print(
+            "set PHARMAVIQUE_DATABASE_URL (see .env.example) and run `alembic upgrade head` first",
+            file=sys.stderr,
+        )
+        return EXIT_NO_BASELINE
+    store = SnapshotStore(Path(args.out), args.run_id)
+    if not store.run_dir.exists():
+        print(f"no stored run at {store.run_dir}", file=sys.stderr)
+        return EXIT_NO_BASELINE
+
+    engine = create_engine(secret.get_secret_value())
+    try:
+        session_factory = create_session_factory(engine)
+        clock = SystemClock()
+
+        def unit_of_work() -> SqlAlchemyCatalogUnitOfWork:
+            return SqlAlchemyCatalogUnitOfWork(session_factory)
+
+        commands = InProcessCatalogCommands(
+            ApplyCatalogChangesHandler(unit_of_work, clock),
+            WithdrawProductsHandler(unit_of_work, clock),
+        )
+        writer = CatalogWriter(
+            commands,
+            price_currency=SA_PRICE_CURRENCY,
+            snapshot_id=args.run_id,
+            source_ref=f"{DEFAULT_BASE_URL}/en/drugs-list",
+            fallback_time=clock.now(),
+        )
+        report = await LoadRecordsIntoCatalog(writer, args.batch_size).run(
+            StoredRecords(store), args.limit
+        )
+    finally:
+        await engine.dispose()
+
+    print(
+        f"loaded {report.records} drugs in {report.batches} batches: "
+        f"added={report.added} relisted={report.relisted} details_changed={report.details_changed} "
+        f"price_changed={report.price_changed} unchanged={report.unchanged}"
+    )
+    print(
+        f"skipped (no usable details)={report.skipped} rejected={len(report.rejected)} "
+        f"records with unreadable values kept as text={report.records_with_issues}"
+    )
+    for key, reason in report.rejected[:10]:
+        print(f"  rejected {key}: {reason}")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -270,6 +346,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sfda_update(args))
     if args.command == "sfda-diff":
         return _sfda_diff(args)
+    if args.command == "sfda-load":
+        return asyncio.run(_sfda_load(args))
     raise AssertionError(f"unhandled command {args.command!r}")  # pragma: no cover
 
 

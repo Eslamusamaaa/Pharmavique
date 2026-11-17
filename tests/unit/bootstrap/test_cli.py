@@ -81,3 +81,16 @@ def test_update_uses_the_latest_pointer_to_find_the_baseline(tmp_path: Path) -> 
 
     # the pointed run has no records, so the command must refuse before touching the network
     assert main(["sfda-update", "--out", str(tmp_path)]) == 4
+
+
+def test_load_needs_a_run_id() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["sfda-load"])
+
+
+def test_load_options_are_parsed() -> None:
+    args = build_parser().parse_args(
+        ["sfda-load", "--run-id", "r1", "--batch-size", "50", "--limit", "10"]
+    )
+
+    assert (args.run_id, args.batch_size, args.limit) == ("r1", 50, 10)
