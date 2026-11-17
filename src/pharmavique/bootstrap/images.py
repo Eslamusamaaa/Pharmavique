@@ -331,6 +331,7 @@ async def fetch_images(args: argparse.Namespace) -> int:
             totals.rejected += report.rejected
             totals.download_failed += report.download_failed
             totals.duplicates += report.duplicates
+            totals.generic += report.generic
             totals.stored += report.stored
         blocked = sorted(web.blocked_hosts)
 

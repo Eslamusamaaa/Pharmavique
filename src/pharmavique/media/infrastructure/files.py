@@ -99,6 +99,9 @@ class JsonlImageRepository:
             if image.market is market and image.register_number == register_number
         ]
 
+    async def products_with_hash(self, content_hash: str) -> int:
+        return len({i.register_number for i in self._images if i.content_hash == content_hash})
+
     async def add(self, image: ProductImage) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._path.open("a", encoding="utf-8") as handle:

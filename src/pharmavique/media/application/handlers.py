@@ -26,6 +26,8 @@ SOURCE = "web-image-search"
 MIN_BYTES = 1_000  # smaller than this is an icon or an error body, not a product picture
 MAX_BYTES = 5_000_000
 RESULTS_PER_QUERY = 10
+# A picture four other drugs already carry is a logo or a banner, not the pack of this drug.
+GENERIC_IMAGE_AFTER = 4
 _EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 
 
@@ -36,6 +38,7 @@ class FindImagesReport:
     rejected: int = 0
     download_failed: int = 0
     duplicates: int = 0
+    generic: int = 0
     stored: int = 0
 
 
@@ -138,6 +141,9 @@ class FindProductImagesHandler:
         digest = hashlib.sha256(downloaded.data).hexdigest()
         if digest in known_hashes:
             report.duplicates += 1
+            return None
+        if await self._repository.products_with_hash(digest) >= GENERIC_IMAGE_AFTER:
+            report.generic += 1
             return None
 
         extension = _EXTENSIONS.get(downloaded.content_type, "img")

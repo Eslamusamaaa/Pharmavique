@@ -9,7 +9,7 @@ from pharmavique.media.application.ports import DownloadedImage
 from pharmavique.media.domain.images import ImageStatus, ProductImage
 from pharmavique.media.domain.matching import ImageCandidate, ProductRef
 from pharmavique.shared_kernel.market import Market
-from pharmavique.shared_kernel.provenance import TrustLevel
+from pharmavique.shared_kernel.provenance import Provenance, TrustLevel
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 JPEG = b"\xff\xd8\xff" + b"x" * 2000
@@ -48,9 +48,36 @@ class FakeStore:
         self.saved[key] = data
 
 
+def image_for(number: str, digest: str) -> ProductImage:
+    return ProductImage(
+        market=Market.SA,
+        register_number=number,
+        image_url=f"https://other.example.sa/{number}.jpg",
+        page_url="https://other.example.sa/p",
+        query="q",
+        status=ImageStatus.MATCHED,
+        score=0.9,
+        signals=("name",),
+        content_hash=digest,
+        content_type="image/jpeg",
+        size_bytes=2000,
+        storage_key=f"products/SA/{number}/x.jpg",
+        provenance=Provenance(
+            "web-image-search",
+            "https://other.example.sa/p",
+            NOW,
+            "r",
+            TrustLevel.UNOFFICIAL_UNVERIFIED,
+        ),
+    )
+
+
 class FakeRepository:
     def __init__(self, existing: list[ProductImage] | None = None) -> None:
         self.images = list(existing or [])
+
+    async def products_with_hash(self, content_hash: str) -> int:
+        return len({i.register_number for i in self.images if i.content_hash == content_hash})
 
     async def for_product(self, market: Market, register_number: str) -> list[ProductImage]:
         return [
@@ -246,3 +273,36 @@ async def test_the_number_of_pages_asked_for_per_query_is_configurable() -> None
     report = await handler.handle(PRODUCT)
 
     assert report.candidates == 3
+
+
+async def test_a_picture_already_used_for_many_other_drugs_is_a_site_asset_and_not_stored() -> None:
+    logo = good(9)
+    digest = hashlib.sha256(logo.data).hexdigest()
+    others = [
+        image_for(f"9-{n}", digest)
+        for n in range(4)  # four other drugs already carry this exact picture
+    ]
+    handler, _, repo, _ = rig(
+        {QUERY: [hit(1, "Panadol Extra Saudi Arabia")]},
+        {"https://shop.example.sa/img1.jpg": logo},
+        existing=others,
+    )
+
+    report = await handler.handle(PRODUCT)
+
+    assert report.generic == 1
+    assert len(repo.images) == 4
+
+
+async def test_a_picture_shared_by_only_a_few_drugs_is_still_accepted() -> None:
+    same = good(7)
+    digest = hashlib.sha256(same.data).hexdigest()
+    handler, _, repo, _ = rig(
+        {QUERY: [hit(1, "Panadol Extra Saudi Arabia")]},
+        {"https://shop.example.sa/img1.jpg": same},
+        existing=[image_for("9-1", digest), image_for("9-2", digest)],
+    )
+
+    await handler.handle(PRODUCT)
+
+    assert len(repo.images) == 3
