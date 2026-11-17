@@ -4,8 +4,8 @@ The text comes from an OCR engine, so it is noisy: letters get swapped ("Panadoi
 to words ("BRUFEN@400"), and Arabic-only boxes come out as nothing useful. The rules are built for
 that, and they never guess upward:
 
-- `confirmed`: every word of the registry brand name is on the box (a long word may have a letter
-  or two wrong) and the box does not state only a different strength;
+- `confirmed`: every word of the registry brand name, in English or in Arabic, is on the box (a
+  long word may have a letter or two wrong) and the box does not state only a different strength;
 - `strength_conflict`: the brand is there but the box states strengths and none is the registry's
   (for example "Glucophage XR 750 mg" for the registry's 500 mg tablet);
 - `likely`: the brand is not readable but an ingredient and the registry strength are;
@@ -36,7 +36,7 @@ class PictureVerdict(StrEnum):
 @dataclass(frozen=True, slots=True)
 class PictureCheck:
     verdict: PictureVerdict
-    signals: tuple[str, ...]  # brand, ingredient, strength, strength_conflict, no_text
+    signals: tuple[str, ...]  # brand, brand_ar, ingredient, strength, strength_conflict, no_text
 
 
 def verify_picture(product: ProductRef, ocr_text: str) -> PictureCheck:
@@ -46,14 +46,17 @@ def verify_picture(product: ProductRef, ocr_text: str) -> PictureCheck:
     tokens = normalized.split()
 
     signals: list[str] = []
-    words = brand_words(product.trade_name_en)
-    if words and all(_word_on_box(word, tokens) for word in words):
+    english = brand_words(product.trade_name_en)
+    arabic = brand_words(product.trade_name_ar)
+    if english and all(_word_on_box(word, tokens) for word in english):
         signals.append("brand")
+    if arabic and all(_word_on_box(word, tokens) for word in arabic):
+        signals.append("brand_ar")
     if any(_phrase_on_box(name, tokens) for name in product.ingredient_names):
         signals.append("ingredient")
     signals.extend(strength_signals(product, normalized))
 
-    if "brand" in signals:
+    if "brand" in signals or "brand_ar" in signals:
         verdict = (
             PictureVerdict.STRENGTH_CONFLICT
             if "strength_conflict" in signals

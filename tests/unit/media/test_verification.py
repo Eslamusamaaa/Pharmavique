@@ -91,3 +91,45 @@ def test_a_name_made_only_of_form_words_cannot_confirm_anything() -> None:
     result = verify_picture(product("Tablet", (), ()), "Tablet 24 tablets")
 
     assert result.verdict is PictureVerdict.NOT_CONFIRMED
+
+
+def arabic_product(
+    name_en: str = "GLUCOBAY 100MG TAB", name_ar: str = "جلوكوباى 100 ملجم"
+) -> ProductRef:
+    return ProductRef(Market.SA, "1-1", name_en, name_ar, ("ACARBOSE",), None, ("100 mg",))
+
+
+def test_an_arabic_only_box_is_confirmed_by_the_registry_arabic_name() -> None:
+    # the registry spells the last letter "ى", the box "ي": the normalizer treats them the same
+    result = verify_picture(arabic_product(), "جلوكوباي 100 30 comprimés Bayer")
+
+    assert result.verdict is PictureVerdict.CONFIRMED
+    assert "brand_ar" in result.signals
+
+
+def test_the_arabic_brand_may_have_a_letter_wrong_in_the_ocr() -> None:
+    result = verify_picture(arabic_product(), "جلوكوباي 100 30 comprimes")
+    noisy = verify_picture(arabic_product(), "جلوكوبأي 100")
+
+    assert result.verdict is PictureVerdict.CONFIRMED
+    assert noisy.verdict is PictureVerdict.CONFIRMED
+
+
+def test_another_arabic_brand_does_not_confirm_it() -> None:
+    result = verify_picture(arabic_product(), "كالسيوم - سي 1000 ساندوز بطعم البرتقال NOVARTIS")
+
+    assert result.verdict is PictureVerdict.NOT_CONFIRMED
+
+
+def test_the_arabic_brand_with_a_different_strength_is_a_conflict() -> None:
+    result = verify_picture(arabic_product(), "جلوكوباي 50 ملجم")
+
+    assert result.verdict is PictureVerdict.STRENGTH_CONFLICT
+
+
+def test_an_english_name_equal_to_the_arabic_one_still_works() -> None:
+    result = verify_picture(
+        arabic_product("FORTICEF 500MG CAPSULES", "FORTICEF 500MG CAPSULES"), "Forti cef"
+    )
+
+    assert result.verdict is PictureVerdict.NOT_CONFIRMED  # "Forti cef" is split; stays honest

@@ -55,6 +55,11 @@ _SITE_ASSET_WORDS = (
     "logo", "og-image", "og_image", "placeholder", "no-image", "noimage", "no_image",
     "default-image", "shopby", "option_images", "banner", "favicon", "sprite", "splash",
 )  # fmt: skip
+# Arabic unit words on boxes and pages, read as the Latin units the registry uses
+_ARABIC_UNITS = {
+    "ملجم": "mg", "مجم": "mg", "ملغ": "mg", "ملغم": "mg", "ملجرام": "mg",
+    "ميكروجرام": "mcg", "مل": "ml", "جم": "g", "جرام": "g", "غرام": "g",
+}  # fmt: skip
 _SAUDI_WORDS = frozenset({"saudi", "ksa", "السعوديه", "سعودي", "سعوديه"})
 _WEIGHTS = {"name": 0.4, "ingredient": 0.15, "saudi": 0.2, "company": 0.1, "strength": 0.15}
 # "500 mg", "0.5 ml", "10 iu" after normalization (digits and letters are already separated)
@@ -189,6 +194,7 @@ def strength_signals(product: ProductRef, normalized: str) -> list[str]:
     ours = [s for s in (normalize_text(strength) for strength in product.strengths) if s]
     if not ours:
         return []
+    normalized = " ".join(_ARABIC_UNITS.get(word, word) for word in normalized.split())
     padded = f" {normalized} "
     if any(f" {strength} " in padded for strength in ours):
         return ["strength"]
