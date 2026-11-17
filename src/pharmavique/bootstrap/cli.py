@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -194,11 +194,29 @@ def _write_reports(
 
 
 # ---- network -----------------------------------------------------------------------------------
-async def _load_robots(base_url: str, user_agent: str) -> RobotsPolicy:
+async def _load_robots(
+    base_url: str,
+    user_agent: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    attempts: int = 4,
+) -> RobotsPolicy:
+    """Download robots.txt, retrying connection errors: a crawl must not die on a brief reset."""
     async with httpx.AsyncClient(
-        headers={"User-Agent": user_agent}, timeout=30.0, follow_redirects=True
+        headers={"User-Agent": user_agent},
+        timeout=30.0,
+        follow_redirects=True,
+        transport=transport,
     ) as client:
-        response = await client.get(f"{base_url}/robots.txt")
+        for attempt in range(1, attempts + 1):
+            try:
+                response = await client.get(f"{base_url}/robots.txt")
+                break
+            except httpx.TransportError:
+                if attempt == attempts:
+                    raise
+                await sleep(10.0 * attempt)
     if response.status_code == 404:
         return RobotsPolicy.from_text("", user_agent)
     response.raise_for_status()

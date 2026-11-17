@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
-from pharmavique.bootstrap.cli import DEFAULT_USER_AGENT, build_parser, main
+from pharmavique.bootstrap.cli import DEFAULT_USER_AGENT, _load_robots, build_parser, main
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 
 
@@ -120,3 +121,28 @@ def test_lists_with_an_unknown_name_says_which_names_exist(
     assert main(["sfda-lists", "--lists", "nope"]) == 4
 
     assert "unknown list" in capsys.readouterr().err
+
+
+async def test_robots_download_is_retried_after_a_connection_error() -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise httpx.ConnectError("reset", request=request)
+        return httpx.Response(200, text="User-agent: *\nDisallow: /private\n")
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    policy = await _load_robots(
+        "https://example.test",
+        "agent",
+        transport=httpx.MockTransport(handler),
+        sleep=no_sleep,
+    )
+
+    assert attempts == 3
+    assert policy.allows("https://example.test/public")
+    assert not policy.allows("https://example.test/private")
