@@ -12,6 +12,7 @@ fills, so the search backend can change without touching the rest.
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -32,7 +33,11 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records imp
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
 from pharmavique.media.application.page_search import PageImageSearch, PageSearch
 from pharmavique.media.domain.matching import ProductRef, build_queries
-from pharmavique.media.infrastructure.files import FileImageStore, JsonlImageRepository
+from pharmavique.media.infrastructure.files import (
+    FileImageStore,
+    JsonlAttemptLog,
+    JsonlImageRepository,
+)
 from pharmavique.media.infrastructure.search_file import FilePageSearch
 from pharmavique.media.infrastructure.sitemaps import SitemapCollector, SitemapPageSearch
 from pharmavique.media.infrastructure.web import HttpImageDownloader, PoliteWeb, WebPageReader
@@ -77,6 +82,7 @@ def add_arguments(commands: Any) -> None:
     source = fetch.add_mutually_exclusive_group(required=True)
     source.add_argument("--results", help="JSON file: search phrase -> result pages")
     source.add_argument("--sitemaps", help="folder of collected sitemap files (*.jsonl)")
+    fetch.add_argument("--retry", action="store_true", help="also work products tried before")
     fetch.add_argument("--concurrency", type=int, default=6, help="products worked at once")
     fetch.add_argument("--pages-per-query", type=int, default=3, help="pages read per phrase")
     fetch.add_argument("--out", default="data/media", help="folder for pictures and records")
@@ -96,6 +102,22 @@ def add_arguments(commands: Any) -> None:
     maps.add_argument("--delay", type=float, default=2.0)
     maps.add_argument("--jitter", type=float, default=1.0)
     maps.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+
+    sync = commands.add_parser(
+        "sfda-images-sync",
+        help="keep pictures in step with a running SFDA crawl until the crawl ends",
+    )
+    sync.add_argument("--run-id", required=True, help="the SFDA crawl run to follow")
+    sync.add_argument("--sfda-out", default="data/sfda")
+    sync.add_argument("--sitemaps", required=True, help="folder of collected sitemap files")
+    sync.add_argument("--out", default="data/media")
+    sync.add_argument("--interval", type=int, default=600, help="seconds between cycles")
+    sync.add_argument("--max-images", type=int, default=2)
+    sync.add_argument("--concurrency", type=int, default=6)
+    sync.add_argument("--pages-per-query", type=int, default=3)
+    sync.add_argument("--delay", type=float, default=2.0)
+    sync.add_argument("--jitter", type=float, default=1.0)
+    sync.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
 
     report = commands.add_parser(
         "sfda-images-report", help="how many drugs have a picture; write the list of those without"
@@ -163,35 +185,58 @@ def _existing_file(path: Path) -> Path | None:
     return path if path.is_file() else None
 
 
+def _product_row(snapshot: Any) -> dict[str, Any]:
+    company = snapshot.marketing_company
+    return {
+        "market": snapshot.market.value,
+        "register_number": snapshot.register_number,
+        "trade_name_en": snapshot.trade_name_en,
+        "trade_name_ar": snapshot.trade_name_ar,
+        "ingredients": [
+            {
+                "name": i.name,
+                "strength": str(i.strength) if i.strength else None,
+                "unit": i.unit,
+            }
+            for i in snapshot.ingredients
+        ],
+        "dosage_form_en": snapshot.dosage_form_en,
+        "company": company.name if company else None,
+    }
+
+
+def _known_register_numbers(path: Path) -> set[str]:
+    if not path.is_file():
+        return set()
+    known: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            known.add(json.loads(line)["register_number"])
+        except (ValueError, KeyError):
+            continue
+    return known
+
+
+def export_new_products(store: SnapshotStore, out: Path) -> int:
+    """Append the stored drugs that are not in `out` yet; pages already exported are not read."""
+    known = _known_register_numbers(out)
+    batch = map_records(StoredRecords(store).records(skip=known), Currency.owner_assumed("SAR"))
+    fresh = [s for s in batch.snapshots if s.register_number not in known]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("a", encoding="utf-8") as handle:
+        for snapshot in fresh:
+            handle.write(json.dumps(_product_row(snapshot), ensure_ascii=False) + "\n")
+    return len(fresh)
+
+
 def export_products(args: argparse.Namespace) -> int:
     store = SnapshotStore(Path(args.sfda_out), args.run_id)
     if not store.run_dir.exists():
         print(f"no stored crawl run at {store.run_dir}", file=sys.stderr)
         return EXIT_NO_INPUT
-    batch = map_records(StoredRecords(store).records(), Currency.owner_assumed("SAR"))
     out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", encoding="utf-8") as handle:
-        for snapshot in batch.snapshots:
-            company = snapshot.marketing_company
-            row = {
-                "market": snapshot.market.value,
-                "register_number": snapshot.register_number,
-                "trade_name_en": snapshot.trade_name_en,
-                "trade_name_ar": snapshot.trade_name_ar,
-                "ingredients": [
-                    {
-                        "name": i.name,
-                        "strength": str(i.strength) if i.strength else None,
-                        "unit": i.unit,
-                    }
-                    for i in snapshot.ingredients
-                ],
-                "dosage_form_en": snapshot.dosage_form_en,
-                "company": company.name if company else None,
-            }
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(f"exported {len(batch.snapshots)} products to {out}")
+    added = export_new_products(store, out)
+    print(f"exported {added} new products to {out} ({len(_known_register_numbers(out))} in all)")
     return EXIT_OK
 
 
@@ -251,6 +296,7 @@ async def fetch_images(args: argparse.Namespace) -> int:
     chosen = _slice(refs, args)
     totals = FindImagesReport()
     done = 0
+    attempts = JsonlAttemptLog(out / "attempts.jsonl")
     async with httpx.AsyncClient(timeout=40.0) as client:
         web = PoliteWeb(
             client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
@@ -267,7 +313,13 @@ async def fetch_images(args: argparse.Namespace) -> int:
 
         async def work(ref: ProductRef) -> FindImagesReport:
             nonlocal done
+            if not args.retry and attempts.was_tried(ref.market, ref.register_number):
+                done += 1
+                return FindImagesReport()
             report = await handler.handle(ref, args.max_images)
+            attempts.record(
+                ref.market, ref.register_number, stored=report.stored, at=SystemClock().now()
+            )
             done += 1
             if done % 25 == 0 or done == len(chosen):
                 log.info("%s of %s products worked; last: %s", done, len(chosen), report)
@@ -349,3 +401,49 @@ def report_coverage(args: argparse.Namespace) -> int:
         f"matched: {matched} | only needs_review: {review} | no picture: {len(missing)}"
     )
     return EXIT_OK
+
+
+def _crawl_status(store: SnapshotStore) -> str | None:
+    manifest = store.load_manifest()
+    return None if manifest is None else str(manifest.get("status"))
+
+
+async def sync_images(args: argparse.Namespace) -> int:
+    """Follow a running SFDA crawl: each cycle exports the newly stored drugs and finds pictures
+    for them, until the crawl is no longer running (one last cycle runs after it ends)."""
+    store = SnapshotStore(Path(args.sfda_out), args.run_id)
+    if not store.run_dir.exists():
+        print(f"no stored crawl run at {store.run_dir}", file=sys.stderr)
+        return EXIT_NO_INPUT
+    out = Path(args.out)
+    products = out / "products.jsonl"
+    _configure_logging(out)
+    log = logging.getLogger("media.sync")
+    cycle = 0
+    while True:
+        cycle += 1
+        status = _crawl_status(store)  # read first: the cycle after the crawl ends is the last
+        added = export_new_products(store, products)
+        log.info("cycle %s: crawl is %s, %s new drugs", cycle, status, added)
+        fetch_args = argparse.Namespace(
+            products=str(products),
+            sitemaps=args.sitemaps,
+            results=None,
+            offset=0,
+            limit=1_000_000,
+            out=args.out,
+            run_id=f"sync-{args.run_id}",
+            max_images=args.max_images,
+            retry=False,
+            concurrency=args.concurrency,
+            pages_per_query=args.pages_per_query,
+            delay=args.delay,
+            jitter=args.jitter,
+            user_agent=args.user_agent,
+        )
+        await fetch_images(fetch_args)
+        report_coverage(argparse.Namespace(products=str(products), out=args.out))
+        if status != "running":
+            log.info("the crawl is %s: last cycle done", status)
+            return EXIT_OK
+        await asyncio.sleep(args.interval)

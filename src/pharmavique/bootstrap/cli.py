@@ -462,6 +462,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(images.fetch_images(args))
     if args.command == "sfda-images-sitemaps":
         return asyncio.run(images.collect_sitemaps(args))
+    if args.command == "sfda-images-sync":
+        return asyncio.run(images.sync_images(args))
     if args.command == "sfda-images-report":
         return images.report_coverage(args)
     if args.command == "sfda-diff":

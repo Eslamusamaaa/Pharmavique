@@ -1,12 +1,15 @@
 """The picture commands that need no network: reading products, writing the search phrases."""
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from pharmavique.bootstrap.cli import build_parser, main
-from pharmavique.bootstrap.images import load_product_refs
+from pharmavique.bootstrap.images import export_new_products, load_product_refs
+from pharmavique.ingestion.application.ports import FetchedPage
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 from pharmavique.shared_kernel.market import Market
 
 
@@ -183,3 +186,51 @@ def test_fetching_needs_exactly_one_source_of_pages() -> None:
     with pytest.raises(SystemExit):
         parser.parse_args(["sfda-images", "--results", "r.json", "--sitemaps", "dir"])
     assert parser.parse_args(["sfda-images", "--sitemaps", "dir"]).concurrency >= 1
+
+
+def _details_html(key: str, name: str) -> str:
+    fields = {
+        "Register Number": key,
+        "Trade Name": name,
+        "Scientific Name": "ACMEDRONE",
+        "Strength": "5",
+        "Strength Unit": "mg",
+        "Dosage Form": "Tablet",
+        "Price": "9.5",
+    }
+    rows = "".join(f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in fields.items())
+    return f"<table>{rows}</table>"
+
+
+def _save_details(store: SnapshotStore, key: str, name: str) -> None:
+    page = FetchedPage(
+        f"https://example.test/en/details_data?id={key}",
+        200,
+        _details_html(key, name),
+        datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    store.save_page(store.details_path("en", key), page)
+
+
+def test_new_drugs_are_appended_and_known_ones_are_not_read_again(tmp_path: Path) -> None:
+    store = SnapshotStore(tmp_path / "sfda", "run-1")
+    _save_details(store, "k1", "ALPHA")
+    _save_details(store, "k2", "BETA")
+    out = tmp_path / "media" / "products.jsonl"
+
+    first = export_new_products(store, out)
+    _save_details(store, "k3", "GAMMA")
+    second = export_new_products(store, out)
+    third = export_new_products(store, out)
+
+    names = [json.loads(line)["trade_name_en"] for line in out.read_text("utf-8").splitlines()]
+    assert (first, second, third) == (2, 1, 0)
+    assert names == ["ALPHA", "BETA", "GAMMA"]
+
+
+def test_the_sync_command_waits_between_cycles_and_needs_a_crawl_run() -> None:
+    args = build_parser().parse_args(["sfda-images-sync", "--run-id", "full-1", "--sitemaps", "d"])
+
+    assert args.interval >= 60
+    assert args.run_id == "full-1"
+    assert args.max_images >= 1
