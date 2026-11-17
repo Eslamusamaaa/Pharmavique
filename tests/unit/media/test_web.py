@@ -208,3 +208,108 @@ async def test_a_page_read_twice_is_requested_once() -> None:
 
     assert first == second
     assert site.requests.count("/p/panadol") == 1
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+class RateLimitedSite:
+    """Answers 429 for the first `limited` page requests, then serves the page."""
+
+    def __init__(self, limited: int, retry_after: str | None = None) -> None:
+        self.limited = limited
+        self.retry_after = retry_after
+        self.pages_requested = 0
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        self.pages_requested += 1
+        if self.pages_requested <= self.limited:
+            headers = {"retry-after": self.retry_after} if self.retry_after else {}
+            return httpx.Response(429, headers=headers)
+        return httpx.Response(200, headers={"content-type": "text/html"}, content=PAGE.encode())
+
+
+def limited_web(site: RateLimitedSite, clock: Clock) -> PoliteWeb:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(site))
+    return PoliteWeb(client, lambda: Throttle(0.0), user_agent="test-agent", clock=clock)
+
+
+async def test_a_429_is_a_cool_down_not_a_block_and_the_site_is_asked_again_later() -> None:
+    clock = Clock()
+    site = RateLimitedSite(limited=1)
+    polite = limited_web(site, clock)
+
+    first = await polite.get("https://shop.example.sa/p/a")
+    during = await polite.get("https://shop.example.sa/p/a")  # still cooling: no request is made
+    clock.now += 3600
+    after = await polite.get("https://shop.example.sa/p/a")
+
+    assert first is None
+    assert during is None
+    assert site.pages_requested == 2  # the 429 and the retry; nothing while cooling
+    assert after is not None
+    assert polite.blocked_hosts == set()
+
+
+async def test_retry_after_is_obeyed() -> None:
+    clock = Clock()
+    site = RateLimitedSite(limited=1, retry_after="90")
+    polite = limited_web(site, clock)
+
+    await polite.get("https://shop.example.sa/p/a")
+    clock.now += 60
+    too_early = await polite.get("https://shop.example.sa/p/a")
+    clock.now += 40  # 100 s after the 429: past the 90 s it asked for
+    on_time = await polite.get("https://shop.example.sa/p/a")
+
+    assert too_early is None
+    assert on_time is not None
+
+
+async def test_a_site_that_keeps_saying_429_is_eventually_given_up_for_the_run() -> None:
+    clock = Clock()
+    polite = limited_web(RateLimitedSite(limited=1000), clock)
+
+    for _ in range(10):
+        await polite.get("https://shop.example.sa/p/a")
+        clock.now += 4000
+
+    assert polite.blocked_hosts == {"shop.example.sa"}
+
+
+async def test_an_unreadable_robots_txt_cools_the_site_down_instead_of_blocking_it() -> None:
+    clock = Clock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(500)
+        return httpx.Response(200, headers={"content-type": "text/html"}, content=PAGE.encode())
+
+    polite = PoliteWeb(
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        lambda: Throttle(0.0),
+        user_agent="test-agent",
+        clock=clock,
+    )
+
+    assert await polite.get("https://shop.example.sa/p/a") is None
+    assert polite.blocked_hosts == set()
+    assert polite.incidents >= 1
+
+
+async def test_incidents_count_every_time_a_request_was_not_possible() -> None:
+    clock = Clock()
+    polite = limited_web(RateLimitedSite(limited=1), clock)
+
+    assert polite.incidents == 0
+    await polite.get("https://shop.example.sa/p/a")
+    await polite.get("https://shop.example.sa/p/a")
+
+    assert polite.incidents == 2

@@ -335,10 +335,14 @@ async def fetch_images(args: argparse.Namespace) -> int:
             if not args.retry and attempts.was_tried(ref.market, ref.register_number):
                 done += 1
                 return FindImagesReport()
+            missed_before = web.incidents
             report = await handler.handle(ref, args.max_images)
-            attempts.record(
-                ref.market, ref.register_number, stored=report.stored, at=SystemClock().now()
-            )
+            if report.stored or web.incidents == missed_before:
+                attempts.record(
+                    ref.market, ref.register_number, stored=report.stored, at=SystemClock().now()
+                )
+            # else: a site was blocked or cooling down meanwhile, so "no picture" would be a
+            # guess. The drug stays untried and is worked again on the next cycle.
             done += 1
             if done % 25 == 0 or done == len(chosen):
                 log.info("%s of %s products worked; last: %s", done, len(chosen), report)

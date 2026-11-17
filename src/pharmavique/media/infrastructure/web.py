@@ -3,14 +3,19 @@
 The rules, the same ones the SFDA crawler keeps:
 - robots.txt of the site is read first and obeyed; a page it forbids is never requested;
 - one throttle **per host**, so many sites can be worked in parallel without pressing on any one;
-- a site that answers 401, 403 or 429, or shows a bot check ("Just a moment...", a CAPTCHA), is
+- a site that answers 401 or 403, or shows a bot check ("Just a moment...", a CAPTCHA), is
   marked blocked for the rest of the run and not asked again. Nothing here works around a block;
+- a site that answers 429 ("slow down") is left alone for the time it asks (Retry-After) or a few
+  minutes, longer each time, and only given up for the run after repeated 429s. While a site
+  cools down nothing is requested from it, so `incidents` counts those missed requests and the
+  caller can try the drug again later instead of recording "no picture";
 - a download is accepted only if the bytes really are an image of a sensible size, whatever the
   server claims about the content type.
 """
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from urllib.parse import urljoin, urlparse
 
@@ -23,7 +28,10 @@ from pharmavique.media.application.ports import DownloadedImage
 from pharmavique.media.domain.matching import ImageCandidate
 
 _log = logging.getLogger("media.web")
-_BLOCK_STATUSES = (401, 403, 429)
+_BLOCK_STATUSES = (401, 403)
+_COOLDOWN_SECONDS = 120.0  # first 429 without Retry-After; doubles with every strike
+_MAX_COOLDOWN = 1800.0
+_STRIKES_BEFORE_GIVING_UP = 5
 _BLOCK_MARKERS = ("just a moment", "attention required", "access denied", "captcha")
 _MAX_PAGE_TEXT = 1_500
 _MAX_IMAGE_BYTES = 5_000_000
@@ -48,7 +56,12 @@ class PoliteWeb:
         throttle_factory: Callable[[], Throttle],
         *,
         user_agent: str,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
+        self._clock = clock
+        self._cool_until: dict[str, float] = {}
+        self._strikes: dict[str, int] = {}
+        self.incidents = 0  # requests not made because a site was blocked or cooling down
         self._client = client
         self._throttle_factory = throttle_factory
         self._throttles: dict[str, tuple[Throttle, asyncio.Lock]] = {}
@@ -66,16 +79,25 @@ class PoliteWeb:
         and a refusal of the file itself still marks the host blocked.
         """
         host = urlparse(url).netloc
-        if host in self.blocked_hosts:
+        if host in self.blocked_hosts or self._cooling(host):
+            self.incidents += 1
             return None
         policy = await self._policy_for(url, strict=strict_robots)
-        if policy is None or not policy.allows(url):
+        if policy is None:
+            self.incidents += 1
+            return None
+        if not policy.allows(url):
             return None
         response = await self._request(url)
         if response is None:
             return None
+        if response.status_code == 429:
+            self._cool(host, response.headers.get("retry-after"))
+            self.incidents += 1
+            return None
         if self._is_block(response):
             self._block(host, f"HTTP {response.status_code} or a bot check at {url}")
+            self.incidents += 1
             return None
         return response
 
@@ -88,9 +110,15 @@ class PoliteWeb:
                 self._robots[host] = RobotsPolicy.from_text(response.text, self._user_agent)
             elif response is not None and response.status_code == 404:
                 self._robots[host] = RobotsPolicy.from_text("", self._user_agent)
-            else:
+            elif response is not None and response.status_code in _BLOCK_STATUSES:
                 self._robots[host] = None
                 self._unreadable.add(host)
+            else:  # a network error, a 429 or a server error: ask again later, do not give up
+                if response is not None and response.status_code == 429:
+                    self._cool(host, response.headers.get("retry-after"))
+                else:
+                    self._cool(host, None, strike=False)
+                return None
         policy = self._robots[host]
         if policy is None and host in self._unreadable:
             if strict:
@@ -122,6 +150,29 @@ class PoliteWeb:
         if response.status_code == 200 and content_type.startswith("text/html"):
             return any(marker in response.text[:3000].lower() for marker in _BLOCK_MARKERS)
         return False
+
+    def _cooling(self, host: str) -> bool:
+        return self._clock() < self._cool_until.get(host, 0.0)
+
+    def _cool(self, host: str, retry_after: str | None, *, strike: bool = True) -> None:
+        """Leave a site alone for a while; give it up for the run after repeated strikes."""
+        if strike:
+            self._strikes[host] = self._strikes.get(host, 0) + 1
+        strikes = self._strikes.get(host, 0)
+        if strikes >= _STRIKES_BEFORE_GIVING_UP:
+            self._block(host, f"{strikes} rate-limit answers in a row")
+            return
+        if retry_after and retry_after.strip().isdigit():
+            wait = float(retry_after)  # the site said how long it needs
+        elif strike:
+            wait = _COOLDOWN_SECONDS * (2 ** (strikes - 1))
+        else:
+            wait = _COOLDOWN_SECONDS / 2  # robots.txt could not be read: try again soon
+        wait = min(wait, _MAX_COOLDOWN)
+        self._cool_until[host] = self._clock() + wait
+        _log.warning(
+            "leaving %s alone for %.0f s (rate limit or unreadable robots.txt)", host, wait
+        )
 
     def _block(self, host: str, reason: str) -> None:
         _log.warning("not asking %s again this run: %s", host, reason)
