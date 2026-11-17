@@ -3,7 +3,7 @@
 Having it in plain Python lets ranking be tested, tuned and evaluated without a database, and it
 is the reference the Postgres adapter is checked against (spike 001 measured 0.70 for
 panadol/panadool and 0.50 for the Arabic pair). Input is expected to be normalized text
-(`normalizer.normalize_text`), so words are separated by single spaces.
+(`shared_kernel.text.normalize_text`), so words are separated by single spaces.
 """
 
 

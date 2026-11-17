@@ -6,8 +6,8 @@ published contract translates product cards into it, so nothing here knows the c
 
 from dataclasses import dataclass
 
-from pharmavique.search.domain.normalizer import normalize_text
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.text import normalize_text
 
 
 @dataclass(frozen=True, slots=True)

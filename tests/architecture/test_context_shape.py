@@ -15,6 +15,7 @@ CONTEXTS = {
     "substitution",
     "recognition",
     "knowledge",
+    "media",
     "identity",
     "watchlist",
     "analytics",

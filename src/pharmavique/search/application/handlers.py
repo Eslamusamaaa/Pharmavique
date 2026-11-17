@@ -9,8 +9,8 @@ from pharmavique.search.contracts.queries import (
 )
 from pharmavique.search.domain.documents import build_document
 from pharmavique.search.domain.fusion import SignalHit, fuse
-from pharmavique.search.domain.normalizer import normalize_text
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.text import normalize_text
 
 DEFAULT_MIN_SCORE = 0.2  # a starting point; tuned on the evaluation set, not by feel
 DEFAULT_CANDIDATES = 50  # how many candidates each signal returns before fusion

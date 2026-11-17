@@ -55,7 +55,9 @@ ignore = ["N818"]
 "tests/**" = ["S101"]
 # Arabic and Latin look-alike characters are the point of these tests
 "tests/unit/search/**" = ["RUF001", "RUF003"]
-"src/pharmavique/search/domain/normalizer.py" = ["RUF001"]
+"tests/unit/shared_kernel/test_text.py" = ["RUF001", "RUF003"]
+"tests/unit/media/**" = ["RUF001", "RUF003"]
+"src/pharmavique/shared_kernel/text.py" = ["RUF001"]
 # Alembic files are loaded by path, not imported, so their names may start with a digit
 "**/migrations/versions/*.py" = ["N999"]
 "migrations/env.py" = ["INP001"]
@@ -139,6 +141,7 @@ containers = [
     "pharmavique.substitution",
     "pharmavique.recognition",
     "pharmavique.knowledge",
+    "pharmavique.media",
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
@@ -157,6 +160,7 @@ source_modules = [
     "pharmavique.substitution.presentation",
     "pharmavique.recognition.presentation",
     "pharmavique.knowledge.presentation",
+    "pharmavique.media.presentation",
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
@@ -168,6 +172,7 @@ forbidden_modules = [
     "pharmavique.substitution.infrastructure",
     "pharmavique.recognition.infrastructure",
     "pharmavique.knowledge.infrastructure",
+    "pharmavique.media.infrastructure",
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
@@ -177,6 +182,7 @@ forbidden_modules = [
     "pharmavique.substitution.domain",
     "pharmavique.recognition.domain",
     "pharmavique.knowledge.domain",
+    "pharmavique.media.domain",
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
@@ -193,6 +199,7 @@ source_modules = [
     "pharmavique.substitution.infrastructure",
     "pharmavique.recognition.infrastructure",
     "pharmavique.knowledge.infrastructure",
+    "pharmavique.media.infrastructure",
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
@@ -204,6 +211,7 @@ forbidden_modules = [
     "pharmavique.substitution.presentation",
     "pharmavique.recognition.presentation",
     "pharmavique.knowledge.presentation",
+    "pharmavique.media.presentation",
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
@@ -224,6 +232,7 @@ modules = [
     "pharmavique.substitution",
     "pharmavique.recognition",
     "pharmavique.knowledge",
+    "pharmavique.media",
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
@@ -246,6 +255,7 @@ source_modules = [
     "pharmavique.substitution.domain",
     "pharmavique.recognition.domain",
     "pharmavique.knowledge.domain",
+    "pharmavique.media.domain",
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
@@ -255,6 +265,7 @@ source_modules = [
     "pharmavique.substitution.application",
     "pharmavique.recognition.application",
     "pharmavique.knowledge.application",
+    "pharmavique.media.application",
     "pharmavique.identity.application",
     "pharmavique.watchlist.application",
     "pharmavique.analytics.application",
@@ -286,6 +297,7 @@ source_modules = [
     "pharmavique.substitution.contracts",
     "pharmavique.recognition.contracts",
     "pharmavique.knowledge.contracts",
+    "pharmavique.media.contracts",
     "pharmavique.identity.contracts",
     "pharmavique.watchlist.contracts",
     "pharmavique.analytics.contracts",
@@ -297,6 +309,7 @@ forbidden_modules = [
     "pharmavique.substitution.domain",
     "pharmavique.recognition.domain",
     "pharmavique.knowledge.domain",
+    "pharmavique.media.domain",
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
@@ -306,6 +319,7 @@ forbidden_modules = [
     "pharmavique.substitution.application",
     "pharmavique.recognition.application",
     "pharmavique.knowledge.application",
+    "pharmavique.media.application",
     "pharmavique.identity.application",
     "pharmavique.watchlist.application",
     "pharmavique.analytics.application",
@@ -315,6 +329,7 @@ forbidden_modules = [
     "pharmavique.substitution.infrastructure",
     "pharmavique.recognition.infrastructure",
     "pharmavique.knowledge.infrastructure",
+    "pharmavique.media.infrastructure",
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
@@ -324,6 +339,7 @@ forbidden_modules = [
     "pharmavique.substitution.presentation",
     "pharmavique.recognition.presentation",
     "pharmavique.knowledge.presentation",
+    "pharmavique.media.presentation",
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
@@ -357,6 +373,7 @@ forbidden_modules = [
     "pharmavique.substitution",
     "pharmavique.recognition",
     "pharmavique.knowledge",
+    "pharmavique.media",
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
@@ -374,6 +391,7 @@ source_modules = [
     "pharmavique.substitution",
     "pharmavique.recognition",
     "pharmavique.knowledge",
+    "pharmavique.media",
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",

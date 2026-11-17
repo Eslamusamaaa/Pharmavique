@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from pharmavique.search.domain.normalizer import normalize_text, tokenize
+from pharmavique.shared_kernel.text import normalize_text, tokenize
 
 
 @pytest.mark.parametrize(
