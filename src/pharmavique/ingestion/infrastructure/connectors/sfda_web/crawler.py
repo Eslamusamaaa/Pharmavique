@@ -34,6 +34,7 @@ LANGUAGES = ("en", "ar")
 _T = TypeVar("_T")
 _MAX_RECORDED_ITEMS = 200
 _HINT_TOLERANCE = 5  # the pager's "last page" link has been seen off by a few pages
+_TARGETED_PASSES = 3  # passes 2 and 3 refetch suspect pages only; later passes sweep every page
 
 
 def _suspect_pages(pages: dict[int, tuple[ListRow, ...]]) -> set[int]:
@@ -94,7 +95,8 @@ class CrawlConfig:
     retry_wait: float = 30.0
     max_consecutive_failures: int = 15
     max_list_pages: int = 5000  # hard stop if the list never seems to end
-    max_list_passes: int = 3  # first pass plus repair passes for pages that came back wrong
+    max_list_passes: int = 8  # first pass plus repair passes (the list order is unstable)
+    list_patience: int = 3  # stop after this many repair passes in a row that find nothing new
     user_agent: str = ""  # recorded in the manifest only; the fetcher sends it
 
 
@@ -268,20 +270,32 @@ class SfdaCrawler:
         known: dict[str, tuple[ListRow, int]],
         real_last: int,
     ) -> int:
-        """Fetch pages that look wrong again, up to `max_list_passes`. Returns passes used."""
+        """Fetch pages again and keep the union of everything seen. Returns the passes used.
+
+        The site's list order is unstable: every fetch of a page can show different rows near
+        its edges, so one drug can appear on two pages while another appears on none. Fetching
+        again converges on the full list. Passes 2 and 3 target pages that look wrong; later
+        passes sweep every page, because a skipped drug leaves no duplicate to point at. It stops
+        when nothing is missing, after `list_patience` passes in a row that found nothing new, or
+        at `max_list_passes`.
+        """
         passes = 1
+        idle = 0
         while passes < self._config.max_list_passes:
             if len(known) >= self._expected_total(pages, real_last):
                 break
             suspects = _suspect_pages(pages)
-            if not suspects:
-                break
+            targets = suspects if passes < _TARGETED_PASSES and suspects else set(pages)
             passes += 1
             self._log.info(
-                "repair pass %s: fetching %s suspect list pages again", passes, len(suspects)
+                "repair pass %s: fetching %s list pages again (%s of %s drugs known)",
+                passes,
+                len(targets),
+                len(known),
+                self._expected_total(pages, real_last),
             )
             gained = 0
-            for number in sorted(suspects):
+            for number in sorted(targets):
                 parsed = await self._get_list_page(number, passes)
                 if parsed.current_page is not None and parsed.current_page != number:
                     continue  # the site answered with a different page; ignore it
@@ -290,7 +304,8 @@ class SfdaCrawler:
                     if row.registration_key not in known:
                         known[row.registration_key] = (row, number)
                         gained += 1
-            if gained == 0:
+            idle = idle + 1 if gained == 0 else 0
+            if idle >= self._config.list_patience:
                 break
         return passes
 

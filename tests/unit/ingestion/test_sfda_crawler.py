@@ -480,7 +480,8 @@ async def test_a_gap_that_cannot_be_closed_is_reported_and_does_not_loop(tmp_pat
     assert manifest["list_completeness"]["gap"] == 2
     assert manifest["list_completeness"]["unique"] == 3
     assert manifest["status"] == "partial"
-    assert list_requests(site).count(list_url(1)) <= 3  # the allowed passes, then it stops
+    # the first fetch plus three repair passes with nothing new, then it stops
+    assert list_requests(site).count(list_url(1)) == 4
 
 
 async def test_a_list_that_seems_to_end_far_before_the_pager_says_is_refused(
@@ -502,3 +503,17 @@ async def test_a_list_that_never_ends_is_stopped_by_the_page_cap(tmp_path: Path)
 
     with pytest.raises(CrawlError, match="more than 10"):
         await c.run()
+
+
+async def test_a_page_that_stays_wrong_for_a_few_passes_is_recovered_by_a_later_sweep(
+    tmp_path: Path,
+) -> None:
+    site = labelled_site(PAGES)
+    glitch(site, 1, PAGES, times=3)  # wrong on the first three fetches, right on the fourth
+    c, store = crawler(site, tmp_path)
+
+    manifest = await c.run()
+
+    assert [r["key"] for r in store.read_records()] == ["k1", "k2", "k3", "k4", "k5"]
+    assert manifest["list_completeness"] == {"expected": 5, "unique": 5, "gap": 0, "passes": 4}
+    assert manifest["status"] == "complete"
