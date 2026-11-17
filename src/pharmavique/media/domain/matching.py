@@ -41,6 +41,20 @@ _NAME_NOISE = frozenset(
         "ميكروجرام", "ميكرولتر", "مجم", "ملجم", "مل", "جم",
     }
 )  # fmt: skip
+# Pages that list many products (a brand, a category) are not the page of one drug, and their
+# picture is usually the shop's own logo. Seen live on Saudi shops: "/collections/<brand>" and
+# "/brands/<brand>" answering with the shop logo.
+_LISTING_SEGMENTS = frozenset(
+    {
+        "collections", "collection", "brands", "brand", "category", "categories", "cat",
+        "blog", "blogs", "pages", "search", "tag", "tags",
+    }
+)  # fmt: skip
+# Words in a picture's address that show it belongs to the site, not to a product.
+_SITE_ASSET_WORDS = (
+    "logo", "og-image", "og_image", "placeholder", "no-image", "noimage", "no_image",
+    "default-image", "shopby", "option_images", "banner", "favicon", "sprite", "splash",
+)  # fmt: skip
 _SAUDI_WORDS = frozenset({"saudi", "ksa", "السعوديه", "سعودي", "سعوديه"})
 _WEIGHTS = {"name": 0.4, "ingredient": 0.15, "saudi": 0.2, "company": 0.1, "strength": 0.15}
 # "500 mg", "0.5 ml", "10 iu" after normalization (digits and letters are already separated)
@@ -125,6 +139,11 @@ def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
     )
     text_tokens = set(normalized.split())
 
+    if is_listing_page(parsed.path):
+        return MatchResult(MatchVerdict.REJECTED, 0.0, ("not_a_product_page",))
+    if is_site_asset(candidate.image_url):
+        return MatchResult(MatchVerdict.REJECTED, 0.0, ("site_asset",))
+
     signals: list[str] = []
     if _names_appear(product, text_tokens):
         signals.append("name")
@@ -144,6 +163,16 @@ def judge(product: ProductRef, candidate: ImageCandidate) -> MatchResult:
     else:
         verdict = MatchVerdict.MATCHED
     return MatchResult(verdict=verdict, score=score, signals=tuple(signals))
+
+
+def is_listing_page(path: str) -> bool:
+    segments = {segment.lower() for segment in unquote(path).split("/") if segment}
+    return bool(segments & _LISTING_SEGMENTS)
+
+
+def is_site_asset(image_url: str) -> bool:
+    address = unquote(urlparse(image_url).path).lower()
+    return any(word in address for word in _SITE_ASSET_WORDS)
 
 
 def _strength_signals(product: ProductRef, normalized: str) -> list[str]:

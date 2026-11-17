@@ -215,3 +215,57 @@ def test_queries_use_the_brand_without_form_and_strength_words() -> None:
 
     assert "AUGMENTIN AMOXICILLIN Saudi Arabia" in queries
     assert all("228" not in q for q in queries)
+
+
+def test_a_collection_or_brand_listing_page_is_never_a_product_page() -> None:
+    # seen live: shops answer "/collections/<brand>" and "/brands/<brand>" with their own logo
+    for url in (
+        "https://rafpharmacy.com/collections/panadol",
+        "https://medononline.com/brands/panadol-extra-568",
+        "https://shop.example.sa/category/panadol-extra",
+        "https://shop.example.sa/ar/categories/panadol-extra",
+    ):
+        result = judge(
+            product(),
+            ImageCandidate("https://shop.example.sa/i.jpg", url, "Panadol Extra Saudi Arabia", ""),
+        )
+
+        assert result.verdict is MatchVerdict.REJECTED, url
+        assert "not_a_product_page" in result.signals
+
+
+def test_a_picture_that_is_the_shop_logo_or_a_placeholder_is_rejected() -> None:
+    for image_url in (
+        "https://rafpharmacy.com/cdn/shop/files/raf-logo-01.png?v=1744880341",
+        "https://medononline.com/og-image.png?v=3",
+        "https://shop.example.sa/media/placeholder/default.jpg",
+        "https://shop.example.sa/images/no-image.png",
+        "https://shop.example.sa/media/amasty/shopby/option_images/brand.png",
+        "https://shop.example.sa/banner-ramadan.jpg",
+    ):
+        result = judge(
+            product(),
+            ImageCandidate(
+                image_url,
+                "https://shop.example.sa/products/panadol-extra-24-tablets",
+                "Panadol Extra Saudi Arabia",
+                "",
+            ),
+        )
+
+        assert result.verdict is MatchVerdict.REJECTED, image_url
+        assert "site_asset" in result.signals
+
+
+def test_a_normal_product_page_and_picture_are_unaffected() -> None:
+    result = judge(
+        product(),
+        ImageCandidate(
+            "https://shop.example.sa/media/catalog/product/1/0/102995774_a35401.jpg",
+            "https://shop.example.sa/products/panadol-extra-24-tablets",
+            "Panadol Extra Saudi Arabia",
+            "",
+        ),
+    )
+
+    assert result.verdict is MatchVerdict.MATCHED
