@@ -53,6 +53,7 @@ class ListSpec:
 # Smallest and most valuable first, so a long queue yields useful data early.
 SFDA_LISTS: tuple[ListSpec, ...] = (
     ListSpec("drug-shortage", "/en/currentlyInShortageList", "Drug Shortage List", 72),
+    ListSpec("drug-shortage-resolved", "/en/resolvedShortageList", "Resolved drug shortages", 59),
     ListSpec(
         "safety-labeling",
         "/en/drugs-safety-labeling",

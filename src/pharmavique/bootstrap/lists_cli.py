@@ -28,6 +28,7 @@ PRODUCT_LISTS = (
     "safety-labeling",
     "safety-alert",
     "drug-shortage",
+    "drug-shortage-resolved",
     "drug-approvals",
     "drug-companies",
     "pharmacies",
