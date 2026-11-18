@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from pharmavique.bootstrap import api_drugs, health
 from pharmavique.bootstrap.settings import get_settings
@@ -38,9 +39,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(
-    search: ProductSearch | None = None, catalog: CatalogQueries | None = None
+    search: ProductSearch | None = None,
+    catalog: CatalogQueries | None = None,
+    cors_origins: list[str] | None = None,
 ) -> FastAPI:
-    """`search` and `catalog` are injected by tests; the real ones are built at startup."""
+    """`search`, `catalog` and `cors_origins` are injected by tests; else built from settings."""
     app = FastAPI(
         title="Pharmavique API",
         summary="Drug intelligence platform (SA + EG).",
@@ -52,6 +55,11 @@ def create_app(
     )
     app.state.search = search
     app.state.catalog = catalog
+    origins = get_settings().cors_origins if cors_origins is None else cors_origins
+    if origins:
+        app.add_middleware(
+            CORSMiddleware, allow_origins=origins, allow_methods=["GET"], allow_headers=["*"]
+        )
     app.include_router(health.router)
     app.include_router(api_drugs.router)
     return app

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
 
+    # Browser origins allowed to call the API (the app's web build). JSON list in the environment,
+    # for example PHARMAVIQUE_CORS_ORIGINS='["http://localhost:8081"]'. Native apps need none.
+    cors_origins: list[str] = ["http://localhost:8081", "http://127.0.0.1:8081"]
+
 
 @lru_cache
 def get_settings() -> Settings:
