@@ -24,7 +24,13 @@ $items = @(
     @{ Name = "shortage details";   Path = "data\lists\drug-shortage\lists-1\details.jsonl";          Total = 723 },
     @{ Name = "resolved details";   Path = "data\lists\drug-shortage-resolved\lists-1\details.jsonl"; Total = 593 },
     @{ Name = "alert PDF files";    Path = "data\lists\safety-alert\lists-1\files.jsonl";             Total = 271 },
-    @{ Name = "alert PDF texts";    Path = "data\lists\safety-alert\lists-1\texts.jsonl";             Total = 258 }
+    @{ Name = "alert PDF texts";    Path = "data\lists\safety-alert\lists-1\texts.jsonl";             Total = 258 },
+    @{ Name = "circulars rows";     Path = "data\lists\drugs-circulars\lists-1\records.jsonl";        Total = 150 },
+    @{ Name = "circulars details";  Path = "data\lists\drugs-circulars\lists-1\details.jsonl";        Total = 150 },
+    @{ Name = "rmm rows";           Path = "data\lists\rmm\lists-1\records.jsonl";                    Total = 570 },
+    @{ Name = "rmm details";        Path = "data\lists\rmm\lists-1\details.jsonl";                    Total = 570 },
+    @{ Name = "dhpc rows";          Path = "data\lists\dhpc\lists-1\records.jsonl";                   Total = 100 },
+    @{ Name = "dhpc PDF files";     Path = "data\lists\dhpc\lists-1\files.jsonl";                     Total = 100 }
 )
 
 while ($true) {
