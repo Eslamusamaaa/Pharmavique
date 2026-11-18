@@ -66,3 +66,14 @@ async def test_without_a_model_key_the_assistant_says_it_is_not_configured() -> 
 
     assert response.status_code == 503
     assert "assistant" in response.json()["detail"]
+
+
+async def test_a_general_answer_is_labelled_and_an_emergency_is_flagged() -> None:
+    app = create_app(assistant=AskAssistant(FakeRunner("أيوه، مسكن متاح بدون وصفة.", ())))
+
+    general = (await post(app, {"question": "ينفع آخد بنادول؟"})).json()
+    urgent = (await post(app, {"question": "بلعت علبة بنادول كاملة"})).json()
+
+    assert (general["general"], general["grounded"], general["urgent"]) == (True, False, False)
+    assert urgent["urgent"] is True
+    assert "997" in urgent["answer"]

@@ -31,7 +31,9 @@ class CitationOut(BaseModel):
 class AnswerOut(BaseModel):
     answer: str
     citations: list[CitationOut]
-    grounded: bool
+    grounded: bool  # registry records are cited
+    general: bool  # general information, not from the SFDA registry: shown with that label
+    urgent: bool  # the question looked like an emergency: the reply says to call 997
     refused: bool
     level: Level
     tools_used: list[str]
@@ -73,6 +75,8 @@ async def ask(body: AskIn, assistant: Annotated[AskAssistant, Depends(get_assist
             for n, c in numbered
         ],
         grounded=answer.grounded,
+        general=answer.general,
+        urgent=answer.urgent,
         refused=answer.refused,
         level=answer.level,
         tools_used=list(answer.tools_used),
