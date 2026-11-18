@@ -1,132 +1,166 @@
+// Building blocks that follow pharmavique-wireframes (D2 · Components). Arabic-first, right to left:
+// rows use `row-reverse` so the first child sits on the right, like the wireframes.
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { TextInputProps, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
+import { InfoIcon } from 'phosphor-react-native';
 
-import { colors, DISCLAIMER, radius, shadow } from '@/theme';
+import { cardShadow, DISCLAIMER, fonts, radius, useTheme, type Weight } from '@/theme';
 
-export function Screen({ children }: { children: ReactNode }) {
-  return <View style={styles.screen}>{children}</View>;
-}
+type TProps = {
+  children: ReactNode;
+  size?: number;
+  weight?: Weight;
+  color?: string;
+  latin?: boolean; // Latin drug names and digits use Inter and run left to right
+  align?: 'right' | 'left' | 'center';
+  style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
+};
 
-export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
-  return <View style={[styles.card, style]}>{children}</View>;
-}
-
-export function Title({ children }: { children: ReactNode }) {
-  return <Text style={styles.title}>{children}</Text>;
-}
-
-export function Body({ children, muted }: { children: ReactNode; muted?: boolean }) {
-  return <Text style={[styles.body, muted && { color: colors.ink2 }]}>{children}</Text>;
-}
-
-export function SearchBox(props: TextInputProps) {
+/** Text with the wireframe type scale: Plex Sans Arabic for Arabic, Inter for Latin. */
+export function T({ children, size = 16, weight = 400, color, latin, align, style, numberOfLines }: TProps) {
+  const { c } = useTheme();
   return (
-    <TextInput
-      placeholder="اكتب اسم الدواء بالعربي أو الإنجليزي"
-      placeholderTextColor={colors.ink2}
-      autoCorrect={false}
-      autoCapitalize="none"
-      returnKeyType="search"
-      style={styles.input}
-      {...props}
-    />
+    <Text
+      numberOfLines={numberOfLines}
+      style={[
+        {
+          fontFamily: (latin ? fonts.latin : fonts.ar)[weight],
+          fontSize: size,
+          lineHeight: Math.round(size * (latin ? 1.45 : 1.7)),
+          color: color ?? c.ink,
+          textAlign: align ?? 'right',
+          writingDirection: latin ? 'ltr' : 'rtl',
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Text>
   );
 }
 
-export function Chip({ label, onPress }: { label: string; onPress?: () => void }) {
+/** Row laid out right to left. */
+export function Row({ children, gap = 8, style }: { children: ReactNode; gap?: number; style?: StyleProp<ViewStyle> }) {
+  return <View style={[{ flexDirection: 'row-reverse', alignItems: 'center', gap }, style]}>{children}</View>;
+}
+
+/** The persistent disclaimer bar (wireframe note 1: on every home, search and drug screen). */
+export function DisclaimerBar() {
+  const { c } = useTheme();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, pressed && { opacity: 0.6 }]}>
-      <Text style={styles.chipText}>{label}</Text>
-    </Pressable>
+    <View style={[styles.disclaimer, { backgroundColor: c.prs }]}>
+      <InfoIcon size={16} color={c.pr} weight="fill" style={{ marginTop: 3 }} />
+      <T size={12.5} style={{ flex: 1, lineHeight: 20 }}>
+        {DISCLAIMER}
+      </T>
+    </View>
   );
 }
 
-export function Badge({ label, tone }: { label: string; tone: 'ok' | 'warn' | 'danger' }) {
-  const bg = { ok: colors.okSoft, warn: colors.warnSoft, danger: colors.dangerSoft }[tone];
-  const fg = { ok: colors.ok, warn: colors.warn, danger: colors.danger }[tone];
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { c } = useTheme();
+  return <View style={[styles.card, { backgroundColor: c.sf }, cardShadow, style]}>{children}</View>;
+}
+
+export function H2({ children }: { children: ReactNode }) {
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color: fg }]}>{label}</Text>
+    <T size={18} weight={700}>
+      {children}
+    </T>
+  );
+}
+
+/** Small rounded label; `tone` picks the semantic pair (always icon + label, never color alone). */
+export function Pill({
+  label,
+  icon,
+  tone = 'neutral',
+  radiusSize = radius.pill,
+}: {
+  label: string;
+  icon?: ReactNode;
+  tone?: 'neutral' | 'ok' | 'wn' | 'rd' | 'or' | 'muted';
+  radiusSize?: number;
+}) {
+  const { c } = useTheme();
+  const pair = {
+    neutral: [c.prs, c.pr],
+    ok: [c.oks, c.ok],
+    wn: [c.wns, c.wn],
+    rd: [c.rds, c.rd],
+    or: [c.ors, c.or],
+    muted: [c.bg, c.ink2],
+  }[tone];
+  return (
+    <View style={[styles.pill, { backgroundColor: pair[0], borderRadius: radiusSize }]}>
+      {icon}
+      <T size={12.5} weight={600} color={pair[1]}>
+        {label}
+      </T>
     </View>
   );
 }
 
 export function Loading() {
+  const { c } = useTheme();
   return (
     <View style={styles.center}>
-      <ActivityIndicator color={colors.primary} />
+      <ActivityIndicator color={c.pr} />
     </View>
   );
 }
 
-export function Message({ title, detail }: { title: string; detail?: string }) {
+export function Message({ title, detail, action }: { title: string; detail?: string; action?: ReactNode }) {
+  const { c } = useTheme();
   return (
     <View style={styles.center}>
-      <Text style={styles.title}>{title}</Text>
-      {detail ? <Body muted>{detail}</Body> : null}
+      <T size={18} weight={700} align="center">
+        {title}
+      </T>
+      {detail ? (
+        <T size={14} color={c.ink2} align="center">
+          {detail}
+        </T>
+      ) : null}
+      {action}
     </View>
   );
 }
 
-export function Disclaimer() {
-  return <Text style={styles.disclaimer}>{DISCLAIMER}</Text>;
-}
-
-export function Row({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
+export function PrimaryButton({ label, icon, onPress, outline, style }: {
+  label: string;
+  icon?: ReactNode;
+  onPress?: () => void;
+  outline?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { c } = useTheme();
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        outline
+          ? { borderWidth: 1.5, borderColor: c.pr, backgroundColor: 'transparent' }
+          : { backgroundColor: c.pr },
+        pressed && { opacity: 0.75 },
+        style,
+      ]}
+    >
+      {icon}
+      <T weight={outline ? 600 : 700} color={outline ? c.pr : c.prt}>
+        {label}
+      </T>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, padding: 16, gap: 12 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 14,
-    gap: 6,
-    ...shadow,
-  },
-  title: { fontSize: 18, fontWeight: '700', color: colors.ink, textAlign: 'right' },
-  body: { fontSize: 14, color: colors.ink, textAlign: 'right', lineHeight: 21 },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.control,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.ink,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  chip: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.chip,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipText: { color: colors.primary, fontWeight: '600' },
-  badge: { alignSelf: 'flex-end', borderRadius: radius.chip, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontSize: 12, fontWeight: '700' },
+  disclaimer: { flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 8, paddingVertical: 8, paddingHorizontal: 16 },
+  card: { borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: 16, gap: 6 },
+  pill: { flexDirection: 'row-reverse', alignItems: 'center', gap: 5, paddingVertical: 3, paddingHorizontal: 10, alignSelf: 'flex-end' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
-  disclaimer: {
-    fontSize: 12,
-    color: colors.warn,
-    backgroundColor: colors.warnSoft,
-    borderRadius: radius.control,
-    padding: 10,
-    textAlign: 'right',
-  },
-  row: { flexDirection: 'row-reverse', justifyContent: 'space-between', gap: 12, paddingVertical: 6 },
-  rowLabel: { color: colors.ink2, fontSize: 13, textAlign: 'right' },
-  rowValue: { color: colors.ink, fontSize: 14, flexShrink: 1, textAlign: 'left' },
+  button: { minHeight: 48, borderRadius: radius.md, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12 },
 });
