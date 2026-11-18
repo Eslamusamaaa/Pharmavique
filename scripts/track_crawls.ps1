@@ -37,7 +37,7 @@ while ($true) {
         "{0,-17}{1,4}/{2,-4} {3} {4,3}%" -f $item.Name, $done, $item.Total, $bar, $percent
     }
     $running = Get-CimInstance Win32_Process |
-        Where-Object { $_.CommandLine -match "sfda-list-(details|files)" -and $_.Name -match "python" }
+        Where-Object { $_.CommandLine -match "sfda-list" -and $_.Name -match "python" }
     if ($running) { Write-Host "crawlers running" -ForegroundColor Green }
     else { Write-Host "no crawler running" -ForegroundColor Yellow }
     Start-Sleep -Seconds $Every
