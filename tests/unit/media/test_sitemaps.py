@@ -156,3 +156,20 @@ async def test_a_query_of_only_noise_finds_nothing(tmp_path: Path) -> None:
     write_urls(path, "https://shop.example.sa/en/anything")
 
     assert await SitemapPageSearch([path]).search("Saudi Arabia", 5) == []
+
+
+async def test_listing_pages_never_take_the_place_of_product_pages(tmp_path: Path) -> None:
+    # seen live: "/collections/xarelto" and "/brands/celebrex-568" are the closest addresses to the
+    # name, and with a few pages read per query they used up every slot
+    path = tmp_path / "shop.jsonl"
+    write_urls(
+        path,
+        "https://shop.example.sa/collections/xarelto",
+        "https://shop.example.sa/brands/xarelto-568",
+        "https://shop.example.sa/en/brand/xarelto/",
+        "https://shop.example.sa/products/xarelto-10mg-10tab",
+    )
+
+    found = await SitemapPageSearch([path]).search("XARELTO Saudi Arabia", 1)
+
+    assert [p.url for p in found] == ["https://shop.example.sa/products/xarelto-10mg-10tab"]

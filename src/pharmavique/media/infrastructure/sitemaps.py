@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from pharmavique.media.application.page_search import SearchResultPage
+from pharmavique.media.domain.matching import is_listing_page
 from pharmavique.media.infrastructure.web import PoliteWeb
 from pharmavique.shared_kernel.text import normalize_text
 
@@ -70,8 +71,8 @@ class SitemapPageSearch:
                     url = json.loads(line)["url"]
                 except (ValueError, KeyError):
                     continue
-                if url in seen:
-                    continue
+                if url in seen or is_listing_page(urlparse(url).path):
+                    continue  # a brand or category page is never a drug's page
                 seen.add(url)
                 tokens = _address_tokens(url)
                 index = len(self._urls)
