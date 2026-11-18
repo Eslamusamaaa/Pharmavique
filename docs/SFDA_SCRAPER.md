@@ -132,6 +132,15 @@ The drugs list changes rows between fetches, but the small lists do not: for six
 
 `drug-companies` (37) is not a pure duplicate case: in the stored pages 0 repeats sit on one page, 12 sit across a page border and 24 reappear on a page further away, so it is the sort-order case and the missing rows cannot be reached by paging.
 
+### Closing the ties with a sort (2026-11-18)
+
+Three lists answer `?page=N&order=title&sort=asc|desc` (and safety-labeling also `order=field_trade_name`). It is a plain query on the list page, not the CAPTCHA filter form, and it gives the site a different tie-break, so rows the default order never shows appear. `ListSpec.sort_fields` names the fields; the crawler sweeps every page in each sort only while rows are missing and keeps the union. Result:
+
+- `safety-alert`: 271 -> **276 of 276, complete**.
+- `drug-approvals`: 435 -> **462 of 462, complete**.
+- `safety-labeling`: stays at 241 distinct rows of 261 slots. Sorted by title, 261 rows come back with 18 repeats sitting on the same page, so the list really contains about 20 rows that are identical in every cell. Two more orderings found nothing new. Treat it as complete with identical duplicate rows.
+- `drug-companies` and `drug-shortage` ignore `order`, so there is no second ordering. `drug-shortage`: 3 identical rows (complete). `drug-companies`: 37 rows stay out of reach.
+
 ### Scope decision (2026-11-18)
 
 The owner limited the lists to what the product uses: drugs, safety-labeling, safety-alert, drug-shortage, drug-approvals, drug-companies and pharmacies. Feed, food, medical equipment, cosmetics, vet drugs and unregistered pharmaceuticals are out of scope and are not crawled further (partial data stays on disk). Their gaps are not chased.
