@@ -17,6 +17,7 @@ from pharmavique.shared_kernel.text import normalize_text
 Confidence = Literal["matched", "possible"]
 
 _SPLIT = re.compile(r"[,;+/]")
+_REGISTER_TOKEN = re.compile(r"(?<![0-9-])[0-9]{10}(?![0-9-])")  # registered drugs have 10 digits
 _MIN_TITLE_NAME = 6  # shorter ingredient names are too easy to find inside other words
 # First words that name a salt or a class, not one substance: never enough to link on their own.
 _SALT_WORDS = frozenset(
@@ -101,13 +102,24 @@ class LinkableProduct:
         )
 
 
+def _names_ingredient(name: str, text: str, words: set[str]) -> bool:
+    """The padded, normalized text names this ingredient: in full, or by a first word that is long
+    enough and not a salt or class word."""
+    head = name.split()[0]
+    return f" {name} " in text or (
+        head in words and len(head) >= _MIN_TITLE_NAME and head not in _SALT_WORDS
+    )
+
+
 class ProductLinkIndex:
     def __init__(self, products: Iterable[LinkableProduct]) -> None:
+        self._by_register: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_brand: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_first_word: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_company: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_company_core: dict[str, list[LinkableProduct]] = defaultdict(list)
         for item in products:
+            self._by_register[item.register_number].append(item)
             if item.brand:
                 self._by_brand[item.brand].append(item)
             for name in set(item.ingredients):
@@ -125,6 +137,18 @@ class ProductLinkIndex:
     ) -> tuple[RowLink, ...]:
         if list_name in ("safety-labeling", "drug-approvals"):
             return self._by_brand_and_substance(cells)
+        if list_name == "rmm":
+            return self._by_brand_and_substance(
+                {
+                    "Trade Name": cells.get("Brand name", ""),
+                    "Scientific Name": cells.get("Scientific Name", ""),
+                }
+            )
+        if list_name == "drugs-circulars":
+            body = " ".join(value for label, value in detail if label == "Body")
+            return self._by_recall(cells.get("Trade Name", ""), body)
+        if list_name == "dhpc":
+            return self._by_letter(cells.get("Product", ""))
         if list_name in ("drug-shortage", "drug-shortage-resolved"):
             brands = {
                 normalize_text(core_name(value))
@@ -173,19 +197,80 @@ class ProductLinkIndex:
 
     def _by_title(self, title: str) -> tuple[RowLink, ...]:
         text = f" {normalize_text(title)} "
-        words = set(text.split())
         found: dict[str, RowLink] = {}
+        self._add_named_ingredients(found, text, "title")
+        return tuple(found.values())
+
+    def _add_named_ingredients(self, found: dict[str, RowLink], text: str, where: str) -> None:
+        """Possible links to products one of whose ingredients the (padded, normalized) text names.
+        Links already in `found` are kept."""
+        words = set(text.split())
         for word in words & self._by_first_word.keys():
             for item in self._by_first_word[word]:
                 for name in item.ingredients:
-                    head = name.split()[0]
-                    named = f" {name} " in text or (
-                        head == word and len(head) >= _MIN_TITLE_NAME and head not in _SALT_WORDS
-                    )
-                    if named:
-                        found[item.register_number] = RowLink(
-                            item.register_number, "possible", f"title names {head}"
+                    if _names_ingredient(name, text, words):
+                        found.setdefault(
+                            item.register_number,
+                            RowLink(
+                                item.register_number,
+                                "possible",
+                                f"{where} names {name.split()[0]}",
+                            ),
                         )
+
+    def _brands_named(self, text: str) -> list[LinkableProduct]:
+        """Products whose brand the (padded, normalized) text names, as one to three words."""
+        tokens = text.split()
+        seen: dict[str, LinkableProduct] = {}
+        for size in (1, 2, 3):
+            for start in range(len(tokens) - size + 1):
+                phrase = " ".join(tokens[start : start + size])
+                for item in self._by_brand.get(phrase, []):
+                    seen[item.register_number] = item
+        return list(seen.values())
+
+    def _by_recall(self, trade_name: str, body: str) -> tuple[RowLink, ...]:
+        found: dict[str, RowLink] = {}
+        # a register number written in the circular is strong evidence; batch numbers are shorter
+        for token in set(_REGISTER_TOKEN.findall(body)):
+            for item in self._by_register.get(token, []):
+                found[item.register_number] = RowLink(
+                    item.register_number, "matched", "register number named in the circular"
+                )
+        brand = normalize_text(core_name(trade_name))
+        text = f" {normalize_text(body)} "
+        words = set(text.split())
+        for item in self._by_brand.get(brand, []) if brand else []:
+            if item.register_number in found:
+                continue
+            if item.ingredients and all(
+                _names_ingredient(n, text, words) for n in item.ingredients
+            ):
+                found[item.register_number] = RowLink(
+                    item.register_number, "matched", "brand and substances named in the circular"
+                )
+            else:
+                found[item.register_number] = RowLink(
+                    item.register_number, "possible", "same brand, substance not confirmed"
+                )
+        return tuple(found.values())
+
+    def _by_letter(self, product_text: str) -> tuple[RowLink, ...]:
+        text = f" {normalize_text(product_text)} "
+        words = set(text.split())
+        found: dict[str, RowLink] = {}
+        for item in self._brands_named(text):
+            if item.ingredients and all(
+                _names_ingredient(n, text, words) for n in item.ingredients
+            ):
+                found[item.register_number] = RowLink(
+                    item.register_number, "matched", "brand and substances named in the letter"
+                )
+            else:
+                found[item.register_number] = RowLink(
+                    item.register_number, "possible", "brand named, substances not confirmed"
+                )
+        self._add_named_ingredients(found, text, "letter")
         return tuple(found.values())
 
     def _by_company_name(self, company: str) -> tuple[RowLink, ...]:

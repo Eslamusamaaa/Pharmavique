@@ -122,3 +122,93 @@ def test_a_shortage_row_with_trade_names_matches_only_the_named_brands() -> None
 def test_a_shortage_row_without_trade_names_stays_possible() -> None:
     found = SHORTAGE_INDEX.link("drug-shortage", {"Generic Name": "ADALIMUMAB"})
     assert {link.confidence for link in found} == {"possible"}
+
+
+RECALL_INDEX = ProductLinkIndex(
+    [
+        product("1807245616", "CIPROMAX 750MG TAB", ("CIPROFLOXACIN",)),
+        product("1807245617", "CIPROMAX 500MG TAB", ("CIPROFLOXACIN HYDROCHLORIDE",)),
+        product("1807245618", "DOPRAM 100 MG", ("DOXAPRAM",)),
+        product("1807245619", "PENOPEN 250", ("PENICILLIN V",)),
+    ]
+)
+
+
+def recall_link(trade_name: str, body: str = "") -> dict[str, tuple[str, str]]:
+    detail = (("Body", body),) if body else ()
+    found = RECALL_INDEX.link("drugs-circulars", {"Trade Name": trade_name}, detail)
+    return {link.register_number: (link.confidence, link.reason) for link in found}
+
+
+def test_a_recall_row_with_only_a_brand_is_possible() -> None:
+    assert {k: v[0] for k, v in recall_link("Penopen 250 mg").items()} == {"1807245619": "possible"}
+
+
+def test_a_recall_whose_text_names_the_substances_of_the_brand_is_matched() -> None:
+    found = recall_link("Dopram 100 MG /5ML", "Trade Name Scientific Name Dopram DOXAPRAM")
+    assert found["1807245618"][0] == "matched"
+
+
+def test_a_recall_naming_the_register_number_matches_that_product_only() -> None:
+    found = recall_link("Unrelated", "Register Number 1807245616 Affected batch 1141608")
+    assert found == {"1807245616": ("matched", "register number named in the circular")}
+
+
+def test_a_batch_number_is_not_mistaken_for_a_register_number() -> None:
+    assert recall_link("Unrelated", "Affected batch number 1141608 1141609 160-212-02") == {}
+
+
+def test_a_recall_with_an_unknown_brand_links_to_nothing() -> None:
+    assert recall_link("Nothing at all", "DOXAPRAM") == {}
+
+
+RMM_INDEX = ProductLinkIndex(
+    [
+        product("30", "RINVOQ 15 MG", ("UPADACITINIB",)),
+        product("31", "RINVOQ", ("SOMETHING",)),
+    ]
+)
+
+
+def test_a_risk_minimization_row_links_by_brand_and_scientific_name() -> None:
+    found = RMM_INDEX.link("rmm", {"Scientific Name": "Upadacitinib", "Brand name": "Rinvoq"})
+    assert {link.register_number: link.confidence for link in found} == {
+        "30": "matched",
+        "31": "possible",
+    }
+
+
+DHPC_INDEX = ProductLinkIndex(
+    [
+        product("40", "GILENYA 0.5 MG", ("FINGOLIMOD",)),
+        product("41", "FEGONA", ("FINGOLIMOD",)),
+        product("42", "MEGAMOX", ("AMOXICILLIN", "CLAVULANIC ACID")),
+        product("43", "OTHERDRUG", ("DOMPERIDONE",)),
+    ]
+)
+
+
+def dhpc_link(product_text: str) -> dict[str, str]:
+    found = DHPC_INDEX.link("dhpc", {"Product": product_text})
+    return {link.register_number: link.confidence for link in found}
+
+
+def test_a_letter_naming_a_brand_and_its_substance_matches_that_brand() -> None:
+    assert dhpc_link("Gilenya® - Fingolimod")["40"] == "matched"
+    assert dhpc_link("Megamox (Amoxicillin / Clavulanic acid)")["42"] == "matched"
+
+
+def test_a_letter_naming_only_a_substance_is_possible_for_every_product_with_it() -> None:
+    assert dhpc_link("Fingolimod") == {"40": "possible", "41": "possible"}
+
+
+def test_a_letter_naming_a_brand_without_its_substance_is_possible() -> None:
+    assert dhpc_link("Gilenya®") == {"40": "possible"}
+
+
+def test_a_letter_naming_a_brand_and_only_some_of_its_substances_is_possible() -> None:
+    assert dhpc_link("Megamox (Amoxicillin)")["42"] == "possible"
+
+
+def test_a_letter_that_names_nothing_known_links_to_nothing() -> None:
+    assert dhpc_link("Apixaban, Edoxaban, Dabigatran and Rivaroxaban") == {}
