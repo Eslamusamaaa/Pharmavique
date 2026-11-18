@@ -123,6 +123,15 @@ The end of the list is read from the pager: past the last page the site returns 
 
 To close the remaining gap after a run: resume it with the same `--run-id`. The stored pages are reused and only the extra passes and the details of newly found drugs are fetched.
 
+### The gaps of the small lists (measured 2026-11-18)
+
+The drugs list changes rows between fetches, but the small lists do not: for six lists, 0 of 600+ repeat fetches returned different rows for the same page, so more passes cannot find more rows. The gap (`expected` minus `unique`, where `expected` is only "full pages times 10") has two causes, told apart by where the repeated rows sit:
+
+- **Real duplicate rows**, next to each other on one page. `drug-shortage` (3 rows) is this case: the list is complete, the "gap" is the site repeating identical rows.
+- **Ties in the site's sort order**: a row seen at the end of one page again at the start of the next, so other rows are never returned. `safety-alert` (5 rows), `drug-approvals` (27) and `safety-labeling` (59) are this case. These rows cannot be reached by paging; the Arabic version of a list gives the same pages (checked for `drug-shortage`). Only the filter forms (CAPTCHA, never touched) or an official export from SFDA (OPEN_QUESTIONS Q-29) would close them.
+
+`drug-companies` (37) and `vet-drugs` (2) were not classified yet.
+
 ## Result of the first full crawl (run `full-20261116`, finished 2026-11-18)
 
 - **9,162 unique drugs**, the list complete (`list_completeness.gap = 0`; the pager alone suggested
