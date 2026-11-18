@@ -16,6 +16,7 @@ class AskIn(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION)
     level: Level = Level.PATIENT
     register_number: str | None = Field(default=None, max_length=40)
+    spoken: bool = False  # the answer will be read aloud: written in Saudi dialect
 
 
 class CitationOut(BaseModel):
@@ -51,7 +52,9 @@ def get_assistant(request: Request) -> AskAssistant:
 @router.post("/ask", response_model=AnswerOut, summary="Ask about a drug; cited answers only")
 async def ask(body: AskIn, assistant: Annotated[AskAssistant, Depends(get_assistant)]) -> AnswerOut:
     try:
-        answer = await assistant.ask(body.question, body.level, body.register_number)
+        answer = await assistant.ask(
+            body.question, body.level, body.register_number, spoken=body.spoken
+        )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     # The runner numbers citations 1..n in the order the answer's [n] refer to them.

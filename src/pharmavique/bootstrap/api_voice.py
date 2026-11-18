@@ -1,0 +1,72 @@
+"""Voice endpoints (B5 voice search, B16 listen): speech to text and the Saudi Arabic voice.
+
+Audio is processed in memory and never stored or logged (CLAUDE.md: health data).
+"""
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+
+from pharmavique.voice.application.speak import MAX_AUDIO_BYTES, MAX_TEXT, Speak, Transcribe
+from pharmavique.voice.infrastructure.groq_speech import SpeechError
+
+router = APIRouter(prefix="/v1/voice", tags=["voice"])
+NOT_CONFIGURED = "voice is not configured: set PHARMAVIQUE_GROQ_API_KEY"
+
+
+class TranscriptOut(BaseModel):
+    text: str
+
+
+class SpeakIn(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT)
+
+
+def get_transcribe(request: Request) -> Transcribe:
+    backend: Transcribe | None = request.app.state.transcribe
+    if backend is None:
+        raise HTTPException(status_code=503, detail=NOT_CONFIGURED)
+    return backend
+
+
+def get_speak(request: Request) -> Speak:
+    backend: Speak | None = request.app.state.speak
+    if backend is None:
+        raise HTTPException(status_code=503, detail=NOT_CONFIGURED)
+    return backend
+
+
+@router.post("/transcribe", response_model=TranscriptOut, summary="Speech to text (Arabic)")
+async def transcribe(
+    audio: Annotated[UploadFile, File(description="the recorded question, up to 25 MB")],
+    backend: Annotated[Transcribe, Depends(get_transcribe)],
+    language: str = "ar",
+) -> TranscriptOut:
+    data = await audio.read(MAX_AUDIO_BYTES + 1)
+    try:
+        text = await backend.run(data, audio.filename or "audio", language)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except SpeechError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    finally:
+        del data  # never kept beyond the request
+    return TranscriptOut(text=text)
+
+
+@router.post(
+    "/speak",
+    response_class=Response,
+    responses={200: {"content": {"audio/wav": {}}}},
+    summary="Text to speech in the Saudi Arabic voice (WAV)",
+)
+async def speak(body: SpeakIn, backend: Annotated[Speak, Depends(get_speak)]) -> Response:
+    try:
+        audio = await backend.run(body.text)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except SpeechError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return Response(content=audio, media_type="audio/wav")

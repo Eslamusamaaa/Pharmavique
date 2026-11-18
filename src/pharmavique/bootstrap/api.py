@@ -12,8 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pharmavique.assistant.application.ask import AskAssistant
-from pharmavique.bootstrap import api_assistant, api_drugs, health
-from pharmavique.bootstrap.ai import build_assistant
+from pharmavique.bootstrap import api_assistant, api_drugs, api_voice, health
+from pharmavique.bootstrap.ai import build_assistant, build_voice
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
@@ -24,14 +24,23 @@ from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
 from pharmavique.substitution.application.compare import CompareProductsHandler
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
+from pharmavique.voice.application.speak import Speak, Transcribe
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = None
-    injected = (app.state.search, app.state.catalog, app.state.details, app.state.assistant)
+    injected = (
+        app.state.search,
+        app.state.catalog,
+        app.state.details,
+        app.state.assistant,
+        app.state.speak,
+        app.state.transcribe,
+    )
     if all(backend is None for backend in injected):
         settings = get_settings()
+        app.state.transcribe, app.state.speak = build_voice(settings)
         secret = settings.database_url
         if secret is not None:
             engine = create_engine(secret.get_secret_value())
@@ -61,6 +70,8 @@ def create_app(
     details: CatalogDetails | None = None,
     equivalence: EquivalenceQueries | None = None,
     assistant: AskAssistant | None = None,
+    speak: Speak | None = None,
+    transcribe: Transcribe | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -77,6 +88,8 @@ def create_app(
     app.state.details = details
     app.state.equivalence = equivalence or CompareProductsHandler()
     app.state.assistant = assistant
+    app.state.speak = speak
+    app.state.transcribe = transcribe
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:
         app.add_middleware(
@@ -88,4 +101,5 @@ def create_app(
     app.include_router(health.router)
     app.include_router(api_drugs.router)
     app.include_router(api_assistant.router)
+    app.include_router(api_voice.router)
     return app

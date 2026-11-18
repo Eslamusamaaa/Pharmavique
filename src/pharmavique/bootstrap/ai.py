@@ -18,6 +18,8 @@ from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibl
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
+from pharmavique.voice.application.speak import Speak, Transcribe
+from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -51,6 +53,17 @@ def build_chat_model(settings: Settings) -> Any | None:
         temperature=0,
         timeout=60,
         max_retries=1,
+    )
+
+
+def build_voice(settings: Settings) -> tuple[Transcribe | None, Speak | None]:
+    """Whisper and the Saudi Arabic voice, both through Groq."""
+    if settings.groq_api_key is None:
+        return None, None
+    key = settings.groq_api_key.get_secret_value()
+    return (
+        Transcribe(GroqSpeechToText(key, settings.stt_model)),
+        Speak(GroqTextToSpeech(key, settings.tts_model, settings.tts_voice)),
     )
 
 

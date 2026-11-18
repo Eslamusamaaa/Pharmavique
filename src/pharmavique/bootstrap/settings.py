@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # Speech (through Groq): Whisper for speech to text, Orpheus Arabic (Saudi) for text to speech.
     stt_model: str = "whisper-large-v3-turbo"
     tts_model: str = "canopylabs/orpheus-arabic-saudi"
-    tts_voice: str = ""  # provider default when empty
+    tts_voice: str = "noura"  # Saudi voices: abdullah, fahad, sultan, lulwa, noura, aisha
 
 
 @lru_cache

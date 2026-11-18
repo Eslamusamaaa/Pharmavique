@@ -15,7 +15,9 @@ class FakeRunner:
         self.run_result = AgentRun(text, citations, ("drug_details",))
         self.levels: list[Level] = []
 
-    async def run(self, question: str, level: Level, register_number: str | None) -> AgentRun:
+    async def run(
+        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+    ) -> AgentRun:
         self.levels.append(level)
         return self.run_result
 
