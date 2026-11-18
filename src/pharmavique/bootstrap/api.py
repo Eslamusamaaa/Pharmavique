@@ -12,13 +12,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pharmavique.assistant.application.ask import AskAssistant
-from pharmavique.bootstrap import api_assistant, api_drugs, api_voice, health
-from pharmavique.bootstrap.ai import build_assistant, build_voice
+from pharmavique.bootstrap import api_assistant, api_drugs, api_recognition, api_voice, health
+from pharmavique.bootstrap.ai import build_assistant, build_scanner, build_voice
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.search.application.handlers import SearchProductsHandler
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
@@ -37,6 +38,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.assistant,
         app.state.speak,
         app.state.transcribe,
+        app.state.scanner,
     )
     if all(backend is None for backend in injected):
         settings = get_settings()
@@ -56,6 +58,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 catalog=catalog,
                 equivalence=app.state.equivalence,
             )
+            app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
     try:
         yield
     finally:
@@ -72,6 +75,7 @@ def create_app(
     assistant: AskAssistant | None = None,
     speak: Speak | None = None,
     transcribe: Transcribe | None = None,
+    scanner: ScanImage | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -90,6 +94,7 @@ def create_app(
     app.state.assistant = assistant
     app.state.speak = speak
     app.state.transcribe = transcribe
+    app.state.scanner = scanner
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:
         app.add_middleware(
@@ -102,4 +107,5 @@ def create_app(
     app.include_router(api_drugs.router)
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)
+    app.include_router(api_recognition.router)
     return app

@@ -11,11 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
+from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibleEmbedder
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
+from pharmavique.recognition.application.scan import ScanImage
+from pharmavique.recognition.infrastructure.openai_vision import (
+    FallbackVisionReader,
+    OpenAICompatibleVisionReader,
+)
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
 from pharmavique.voice.application.ports import TextToSpeech
@@ -81,6 +87,19 @@ def build_voice(settings: Settings) -> tuple[Transcribe | None, Speak | None]:
         )
     tts = build_tts(settings)
     return transcribe, (Speak(tts) if tts is not None else None)
+
+
+def build_scanner(
+    settings: Settings, *, search: ProductSearch, catalog: ReadProductCardsHandler
+) -> ScanImage | None:
+    """The vision model (through OpenRouter) and the registry search for its candidates."""
+    if settings.openrouter_api_key is None:
+        return None
+    key = settings.openrouter_api_key.get_secret_value()
+    reader = FallbackVisionReader(
+        [OpenAICompatibleVisionReader(OPENROUTER_BASE_URL, key, m) for m in settings.vision_models]
+    )
+    return ScanImage(reader, SearchCandidateFinder(search, catalog))
 
 
 def build_assistant(

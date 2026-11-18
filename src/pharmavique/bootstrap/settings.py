@@ -37,8 +37,13 @@ class Settings(BaseSettings):
     embedding_base_url: str = "https://openrouter.ai/api/v1"
     embedding_model: str = "baai/bge-m3"
     embedding_dimensions: int = 1024
-    # Vision model that reads boxes and prescriptions (through OpenRouter).
-    vision_model: str = "google/gemma-4-31b-it:free"
+    # Vision models that read boxes and prescriptions (through OpenRouter), tried in order: free
+    # models are often busy. Measured on a box photo 2026-11-19: nemotron 6 s, ling 42 s.
+    vision_models: list[str] = [
+        "nvidia/nemotron-3.5-super-vl:free",
+        "google/gemma-4-31b-it:free",
+        "inclusionai/ling-3.2-flash:free",
+    ]
     # Speech to text: Whisper through Groq.
     stt_model: str = "whisper-large-v3-turbo"
     # Text to speech: ElevenLabs by default (owner, 2026-11-19), Groq Orpheus Arabic Saudi as the
