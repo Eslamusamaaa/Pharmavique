@@ -19,6 +19,10 @@ class ListSpec:
     path: str  # path of the list page on the SFDA site
     title: str
     probed_pages: int  # the pager's last page when probed; a guide, not a rule
+    # True when the list page also answers `?order=title&sort=asc|desc` (checked live 2026-11-18).
+    # It is a plain query on the list page, not the filter form, and it breaks ties in the site's
+    # default order, so a second ordering reaches rows the default order never shows.
+    sortable: bool = False
 
     @property
     def source(self) -> str:
@@ -36,15 +40,22 @@ class ListSpec:
     def max_passes(self, wanted: int) -> int:
         return min(wanted, GIANT_MAX_PASSES) if self.is_giant else wanted
 
-    def url(self, base_url: str, page: int) -> str:
-        return f"{base_url}{self.path}?page={page}"
+    def url(self, base_url: str, page: int, sort: str | None = None) -> str:
+        suffix = f"&order=title&sort={sort}" if sort else ""
+        return f"{base_url}{self.path}?page={page}{suffix}"
 
 
 # Smallest and most valuable first, so a long queue yields useful data early.
 SFDA_LISTS: tuple[ListSpec, ...] = (
     ListSpec("drug-shortage", "/en/currentlyInShortageList", "Drug Shortage List", 72),
-    ListSpec("safety-labeling", "/en/drugs-safety-labeling", "Drugs Safety Labeling Updates", 26),
-    ListSpec("safety-alert", "/en/safety_alert", "Safety Alert", 27),
+    ListSpec(
+        "safety-labeling",
+        "/en/drugs-safety-labeling",
+        "Drugs Safety Labeling Updates",
+        26,
+        sortable=True,
+    ),
+    ListSpec("safety-alert", "/en/safety_alert", "Safety Alert", 27, sortable=True),
     ListSpec(
         "unregistered-pharmaceuticals",
         "/en/unregistered-pharmaceuticals-lists",
@@ -52,7 +63,9 @@ SFDA_LISTS: tuple[ListSpec, ...] = (
         53,
     ),
     ListSpec("pharmacies", "/en/list_registered_pharmacies", "Licensed Pharmacies", 38),
-    ListSpec("drug-approvals", "/en/new-sfda-drug-approvals", "New drug approvals", 46),
+    ListSpec(
+        "drug-approvals", "/en/new-sfda-drug-approvals", "New drug approvals", 46, sortable=True
+    ),
     ListSpec("drug-companies", "/en/drug-companies", "Drug Companies", 616),
     ListSpec("vet-drugs", "/en/vet-drugs", "Veterinary drugs", 136),
     ListSpec("cosmetic-ingredients", "/en/AllCosmeticList", "Cosmetic ingredients", 235),

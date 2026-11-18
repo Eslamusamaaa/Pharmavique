@@ -24,7 +24,10 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.generic_list impor
     GenericRow,
     parse_generic_page,
 )
-from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_walker import ListWalker
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_walker import (
+    ListWalker,
+    WalkResult,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import ListSpec
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.parser import ParseError
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
@@ -32,6 +35,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import Snaps
 from pharmavique.shared_kernel.ports import Clock
 
 _MAX_RECORDED_ITEMS = 200
+_SORT_PASSES = {101: "asc", 102: "desc"}  # pass numbers of the sorted sweeps (see ListSpec)
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +147,7 @@ class ListCrawler:
             log=self._log,
         )
         result = await walker.walk()
+        await self._sorted_sweeps(result)
         manifest["last_page_in_pager"] = result.hint
         manifest["probed_pages"] = self._spec.probed_pages
         manifest["empty_pages"] = result.holes[:_MAX_RECORDED_ITEMS]
@@ -163,6 +168,31 @@ class ListCrawler:
             self._record(key, row, page_no) for key, (row, page_no) in ordered
         )
         manifest["status"] = "partial" if self._partial(manifest) else "complete"
+
+    async def _sorted_sweeps(self, result: WalkResult[GenericRow]) -> None:
+        """Close a gap left by ties in the site's order by reading the list sorted by title.
+
+        Only for lists that answer a sort, only when rows are still missing, and the union of
+        everything seen is kept, as in the repair passes.
+        """
+        if not self._spec.sortable or result.expected is None or result.real_last is None:
+            return
+        for pass_no in _SORT_PASSES:
+            if len(result.known) >= result.expected:
+                return
+            self._log.info(
+                "sorted sweep %s: %s of %s rows known",
+                _SORT_PASSES[pass_no],
+                len(result.known),
+                result.expected,
+            )
+            for number in range(result.real_last + 1):
+                parsed = await self._get_page(number, pass_no)
+                if parsed.current_page is not None and parsed.current_page != number:
+                    continue
+                for row in parsed.rows:
+                    result.known.setdefault(row.content_key, (row, number))
+            result.passes += 1
 
     def _partial(self, manifest: dict[str, Any]) -> bool:
         gap = manifest.get("list_completeness", {}).get("gap", 0)
@@ -192,7 +222,8 @@ class ListCrawler:
                 self._bump("list_pages_reused")
                 return parsed
         page, parsed = await self._polite.fetch_valid(
-            self._spec.url(self._config.base_url, page_no), parse_generic_page
+            self._spec.url(self._config.base_url, page_no, _SORT_PASSES.get(pass_no)),
+            parse_generic_page,
         )
         if worth_storing(parsed, page_no):
             self._store.save_page(path, page)

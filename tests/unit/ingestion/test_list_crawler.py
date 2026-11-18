@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -229,3 +230,67 @@ async def test_a_hole_page_is_recorded_not_stored_and_the_rest_of_the_list_is_ke
     assert manifest["empty_pages"] == [1]
     assert manifest["status"] == "partial"
     assert not store.list_page_path(1).exists()  # not stored: asking again later may succeed
+
+
+class TiedOrderFetcher:
+    """A site whose default order has a tie (B is shown twice, C never) but sorts fine by title."""
+
+    default_pages: ClassVar[list[list[str]]] = [["A", "B"], ["B", "D"]]
+    sorted_pages: ClassVar[dict[str, list[list[str]]]] = {
+        "asc": [["A", "B"], ["C", "D"]],
+        "desc": [["D", "C"], ["B", "A"]],
+    }
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def fetch(self, url: str) -> FetchedPage:
+        self.calls.append(url)
+        query = dict(part.split("=") for part in url.split("?", 1)[1].split("&"))
+        pages = (
+            self.sorted_pages[query["sort"]]
+            if query.get("order") == "title"
+            else self.default_pages
+        )
+        number = int(query["page"])
+        shown = min(number, len(pages) - 1)
+        return FetchedPage(url, 200, page_html(pages[shown], shown, len(pages) - 1), NOW)
+
+
+async def test_a_gap_from_ties_in_the_default_order_is_closed_by_sorting_by_title(
+    tmp_path: Path,
+) -> None:
+    spec = ListSpec("tied", "/en/tied", "Tied", 2, sortable=True)
+    fetcher = TiedOrderFetcher()
+    store = SnapshotStore(tmp_path, "run-1")
+    made = ListCrawler(
+        spec=spec,
+        fetcher=fetcher,
+        store=store,
+        robots=RobotsPolicy.from_text("", "test"),
+        clock=FixedClock(),
+        config=ListCrawlConfig(base_url=BASE, retry_wait=0.0, list_patience=1),
+        sleep=no_sleep,
+    )
+    manifest = await made.run()
+    assert manifest["status"] == "complete"
+    assert manifest["list_completeness"]["gap"] == 0
+    assert manifest["counts"]["unique_rows"] == 4
+    assert any("order=title&sort=asc" in call for call in fetcher.calls)
+
+
+async def test_a_list_that_cannot_be_sorted_is_never_asked_for_a_sort(tmp_path: Path) -> None:
+    fetcher = TiedOrderFetcher()
+    store = SnapshotStore(tmp_path, "run-1")
+    made = ListCrawler(
+        spec=ListSpec("tied", "/en/tied", "Tied", 2),
+        fetcher=fetcher,
+        store=store,
+        robots=RobotsPolicy.from_text("", "test"),
+        clock=FixedClock(),
+        config=ListCrawlConfig(base_url=BASE, retry_wait=0.0, list_patience=1),
+        sleep=no_sleep,
+    )
+    manifest = await made.run()
+    assert manifest["status"] == "partial"
+    assert not any("order=" in call for call in fetcher.calls)
