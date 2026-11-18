@@ -70,3 +70,29 @@ def test_a_company_row_matches_products_of_that_company_ignoring_the_country_suf
 
 def test_lists_without_drug_data_link_to_nothing() -> None:
     assert link("pharmacies", Pharmacy_Name="Topamax Pharmacy") == {}
+
+
+COMPANY_INDEX = ProductLinkIndex(
+    [
+        product("10", "A", ("X",), ("Granules India Limited Unit V",)),
+        product("11", "B", ("Y",), ("Abbott Laboratories",)),
+        product("12", "C", ("Z",), ("KVP Pharma + Veterinär Produkte GmbH",)),
+        product("13", "D", ("W",), ("Hikma Pharmaceuticals PLC",)),
+    ]
+)
+
+
+def company_link(name: str) -> dict[str, str]:
+    result = COMPANY_INDEX.link("drug-companies", {"Company Name": name})
+    return {item.register_number: item.confidence for item in result}
+
+
+def test_a_company_that_differs_only_by_legal_form_or_site_is_possible_not_matched() -> None:
+    assert company_link("GRANULES INDIA LIMITED - INDIA") == {"10": "possible"}
+    assert company_link("ABBOTT LABORATORIES S.A - SPAIN") == {"11": "possible"}
+    assert company_link("Hikma Pharmaceuticals PLC - Jordan") == {"13": "matched"}
+
+
+def test_company_cores_do_not_link_different_companies() -> None:
+    assert company_link("AMNEAL PHARMACEUTICALS LLC - USA") == {}
+    assert company_link("FLEET LABORATORIES LIMITED - UK") == {}

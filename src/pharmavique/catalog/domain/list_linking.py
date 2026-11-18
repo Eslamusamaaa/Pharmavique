@@ -45,12 +45,36 @@ def _company_key(name: str) -> str:
     return normalize_text(name.split(" - ")[0])
 
 
+# Words that name a legal form, not the company: dropped for the looser "core" comparison.
+_LEGAL_WORDS = frozenset(
+    {
+        "llc", "ltd", "limited", "pvt", "private", "plc", "sa", "sl", "sas", "srl", "spa", "gmbh",
+        "co", "company", "inc", "corp", "corporation", "ag", "ab", "bv", "nv", "as", "jsc", "kg",
+        "lp", "llp", "pte", "sdn", "bhd", "the", "and",
+    }
+)  # fmt: skip
+_PAREN = re.compile(r"\([^)]*\)")
+_SITE = re.compile(r"[, ]+unit[ -]*[a-z0-9]+\b.*$")
+_SIDE_OF_COUNTRY = re.compile(r"\s+-|-\s+")
+
+
+def _company_core(name: str) -> str:
+    """The company without legal form, site or country: "Granules India Limited Unit V" and
+    "GRANULES INDIA LIMITED - INDIA" both become "granules india"."""
+    head = _SIDE_OF_COUNTRY.split(name)[0]
+    head = _PAREN.sub(" ", head).lower().replace(".", "")
+    head = _SITE.sub("", head)
+    words = [w for w in normalize_text(head).split() if w not in _LEGAL_WORDS]
+    return " ".join(words)
+
+
 @dataclass(frozen=True, slots=True)
 class LinkableProduct:
     register_number: str
     brand: str
     ingredients: tuple[str, ...]
     companies: frozenset[str]
+    company_cores: frozenset[str] = frozenset()
 
     @classmethod
     def build(
@@ -65,6 +89,7 @@ class LinkableProduct:
             brand=normalize_text(core_name(trade_name)),
             ingredients=tuple(n for n in (normalize_text(i) for i in ingredients) if n),
             companies=frozenset(key for key in (_company_key(c) for c in companies) if key),
+            company_cores=frozenset(core for core in (_company_core(c) for c in companies) if core),
         )
 
     def has_substances(self, wanted: tuple[str, ...]) -> bool:
@@ -81,6 +106,7 @@ class ProductLinkIndex:
         self._by_brand: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_first_word: dict[str, list[LinkableProduct]] = defaultdict(list)
         self._by_company: dict[str, list[LinkableProduct]] = defaultdict(list)
+        self._by_company_core: dict[str, list[LinkableProduct]] = defaultdict(list)
         for item in products:
             if item.brand:
                 self._by_brand[item.brand].append(item)
@@ -88,6 +114,8 @@ class ProductLinkIndex:
                 self._by_first_word[name.split()[0]].append(item)
             for company in item.companies:
                 self._by_company[company].append(item)
+            for core in item.company_cores:
+                self._by_company_core[core].append(item)
 
     def link(self, list_name: str, cells: Mapping[str, str]) -> tuple[RowLink, ...]:
         if list_name in ("safety-labeling", "drug-approvals"):
@@ -145,8 +173,18 @@ class ProductLinkIndex:
         return tuple(found.values())
 
     def _by_company_name(self, company: str) -> tuple[RowLink, ...]:
-        key = _company_key(company)
-        return tuple(
-            RowLink(item.register_number, "matched", "company name agrees")
-            for item in self._by_company.get(key, [])
-        )
+        found: dict[str, RowLink] = {
+            item.register_number: RowLink(item.register_number, "matched", "company name agrees")
+            for item in self._by_company.get(_company_key(company), [])
+        }
+        core = _company_core(company)
+        for item in self._by_company_core.get(core, []) if core else []:
+            found.setdefault(
+                item.register_number,
+                RowLink(
+                    item.register_number,
+                    "possible",
+                    "same company name once legal form and site are dropped",
+                ),
+            )
+        return tuple(found.values())
