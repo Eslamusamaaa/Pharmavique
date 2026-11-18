@@ -163,9 +163,9 @@ Owner decision (2026-11-17): **no agentic layer until retrieval has been tried a
 | 1 | `search`: text normalizer (Arabic and Latin) | done, tested |
 | 2 | `search`: rank fusion (RRF) with reasons | done, tested |
 | 3 | `search`: trigram similarity in pure Python, indexed document, ports, query and rebuild use cases, in-memory index with exact and fuzzy signals | done, tested |
-| 4 | `catalog`: read contract (product cards, paged export) and its Postgres reader | done; the Postgres reader's integration test is written but **not run yet** (Docker was not running) |
-| 5 | `search`: adapter over the catalog's contract, Postgres projection (`pg_trgm`) and migration, `reindex` command | next |
-| 6 | Evaluation set of real names and misspellings from the crawled data, with recall@k and MRR; tune thresholds and weights; decide whether the semantic signal earns its place | after the crawl finishes |
+| 4 | `catalog`: read contract (product cards, paged export) and its Postgres reader | done and tested on Postgres |
+| 5 | `search`: adapter over the catalog's contract, Postgres projection (`pg_trgm`, schema `search`, migration `search_0001`), `search-reindex` and `search` commands | done; 9,145 SFDA drugs indexed; 13 Postgres tests incl. ranking parity with the in-memory reference |
+| 6 | Evaluation of names and misspellings; tune; decide whether the semantic signal earns its place | started: 300 generated misspellings of real names; adding the brand part of the registry name to the searchable terms moved recall@1 from 76% to 96% and recall@10 from 87% to 100%. A fixed, labelled evaluation set (real user typos, OCR errors) is still to be built |
 | 7 | `recognition` with a fake `VisionReader`; the job state machine; image deletion | after 6 |
 | 8 | Photos collected and labelled; real vision adapters chosen by the harness (ADR-005) | needs Q-32 |
 | 9 | Semantic signal (embeddings) only if step 6 shows it helps (ADR-006) | measured |
