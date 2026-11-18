@@ -51,7 +51,7 @@ async def test_the_partial_outbox_index_exists(engine: AsyncEngine) -> None:
 async def test_a_second_upgrade_changes_nothing(
     migrated_url: URL, make_alembic_config: Callable[[URL], Config]
 ) -> None:
-    await asyncio.to_thread(command.upgrade, make_alembic_config(migrated_url), "head")
+    await asyncio.to_thread(command.upgrade, make_alembic_config(migrated_url), "heads")
 
 
 async def test_the_migration_can_be_undone_and_redone(
@@ -60,7 +60,7 @@ async def test_the_migration_can_be_undone_and_redone(
 ) -> None:
     url = await fresh_database("pharmavique_it_migrations")
     config = make_alembic_config(url)
-    await asyncio.to_thread(command.upgrade, config, "head")
+    await asyncio.to_thread(command.upgrade, config, "heads")
     await asyncio.to_thread(command.downgrade, config, "base")
 
     engine = create_async_engine(url.render_as_string(hide_password=False))
@@ -75,4 +75,4 @@ async def test_the_migration_can_be_undone_and_redone(
     finally:
         await engine.dispose()
 
-    await asyncio.to_thread(command.upgrade, config, "head")
+    await asyncio.to_thread(command.upgrade, config, "heads")

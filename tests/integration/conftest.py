@@ -76,7 +76,7 @@ def migrated_url() -> URL:
     base = _configured_url()
     asyncio.run(_recreate(base, TEST_DATABASE))
     url = base.set(database=TEST_DATABASE)
-    command.upgrade(alembic_config(url), "head")
+    command.upgrade(alembic_config(url), "heads")
     return url
 
 

@@ -6,6 +6,7 @@ Commands
     sfda-diff     compare two stored runs offline
     sfda-lists    crawl the other official SFDA lists (shortages, pharmacies, companies, ...)
     sfda-images-export / sfda-images-queries / sfda-images    find and store product pictures
+    search-reindex / search    build the search index from the catalog and look names up
 """
 
 import argparse
@@ -21,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from pharmavique.bootstrap import images
+from pharmavique.bootstrap import images, search_cli
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.handlers import (
     ApplyCatalogChangesHandler,
@@ -129,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     lists.add_argument("--show", action="store_true", help="print the known lists and stop")
 
     images.add_arguments(commands)
+    search_cli.add_arguments(commands)
 
     load = commands.add_parser(
         "sfda-load", help="load a stored run into the catalog database (safe to repeat)"
@@ -395,7 +397,7 @@ async def _sfda_load(args: argparse.Namespace) -> int:
     secret = get_settings().database_url
     if secret is None:
         print(
-            "set PHARMAVIQUE_DATABASE_URL (see .env.example) and run `alembic upgrade head` first",
+            "set PHARMAVIQUE_DATABASE_URL (see .env.example) and run `alembic upgrade heads` first",
             file=sys.stderr,
         )
         return EXIT_NO_BASELINE
@@ -454,6 +456,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(_sfda_update(args))
     if args.command == "sfda-lists":
         return asyncio.run(_sfda_lists(args))
+    if args.command == "search-reindex":
+        return asyncio.run(search_cli.reindex(args))
+    if args.command == "search":
+        return asyncio.run(search_cli.lookup(args))
     if args.command == "sfda-images-export":
         return images.export_products(args)
     if args.command == "sfda-images-queries":
