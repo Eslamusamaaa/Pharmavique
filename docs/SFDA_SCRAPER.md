@@ -130,7 +130,11 @@ The drugs list changes rows between fetches, but the small lists do not: for six
 - **Real duplicate rows**, next to each other on one page. `drug-shortage` (3 rows) is this case: the list is complete, the "gap" is the site repeating identical rows.
 - **Ties in the site's sort order**: a row seen at the end of one page again at the start of the next, so other rows are never returned. `safety-alert` (5 rows), `drug-approvals` (27) and `safety-labeling` (59) are this case. These rows cannot be reached by paging; the Arabic version of a list gives the same pages (checked for `drug-shortage`). Only the filter forms (CAPTCHA, never touched) or an official export from SFDA (OPEN_QUESTIONS Q-29) would close them.
 
-`drug-companies` (37) and `vet-drugs` (2) were not classified yet.
+`drug-companies` (37) is not a pure duplicate case: in the stored pages 0 repeats sit on one page, 12 sit across a page border and 24 reappear on a page further away, so it is the sort-order case and the missing rows cannot be reached by paging.
+
+### Scope decision (2026-11-18)
+
+The owner limited the lists to what the product uses: drugs, safety-labeling, safety-alert, drug-shortage, drug-approvals, drug-companies and pharmacies. Feed, food, medical equipment, cosmetics, vet drugs and unregistered pharmaceuticals are out of scope and are not crawled further (partial data stays on disk). Their gaps are not chased.
 
 ## Result of the first full crawl (run `full-20261116`, finished 2026-11-18)
 
