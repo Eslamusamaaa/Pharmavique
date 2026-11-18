@@ -95,6 +95,7 @@ class SourceListRowRow(Base):
     link: Mapped[str | None] = mapped_column(Text, nullable=True)
     cells: Mapped[list[Any]] = mapped_column(JSONB)
     detail: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    facets: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     list_page: Mapped[int] = mapped_column(Integer)
     provenance_source: Mapped[str] = mapped_column(Text)
     provenance_source_ref: Mapped[str] = mapped_column(Text)

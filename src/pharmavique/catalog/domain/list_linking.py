@@ -125,7 +125,7 @@ class ProductLinkIndex:
     ) -> tuple[RowLink, ...]:
         if list_name in ("safety-labeling", "drug-approvals"):
             return self._by_brand_and_substance(cells)
-        if list_name == "drug-shortage":
+        if list_name in ("drug-shortage", "drug-shortage-resolved"):
             brands = {
                 normalize_text(core_name(value))
                 for label, value in detail

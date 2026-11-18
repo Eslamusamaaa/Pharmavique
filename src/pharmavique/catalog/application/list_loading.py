@@ -4,10 +4,11 @@ Safe to repeat: a list is replaced as a whole, so loading the same rows again ch
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Protocol
 
+from pharmavique.catalog.domain.list_facets import facets_for
 from pharmavique.catalog.domain.list_linking import LinkableProduct, ProductLinkIndex, RowLink
 
 
@@ -24,6 +25,7 @@ class SourceListRow:
     fetched_at: datetime | None
     trust: str
     detail: tuple[tuple[str, str], ...] = ()  # (label, value) from the row's detail page, if any
+    facets: Mapping[str, str] = field(default_factory=dict)  # clean values to filter by
 
 
 class SourceListStore(Protocol):
@@ -52,6 +54,7 @@ class LoadSourceList:
 
     async def run(self, list_name: str, rows: Sequence[SourceListRow]) -> ListLoadReport:
         index = ProductLinkIndex(await self._store.linkable_products())
+        rows = [replace(row, facets=facets_for(list_name, dict(row.cells))) for row in rows]
         links = {row.key: index.link(list_name, dict(row.cells), row.detail) for row in rows}
         await self._store.replace(list_name, rows, links)
         flat = [link for found in links.values() for link in found]
