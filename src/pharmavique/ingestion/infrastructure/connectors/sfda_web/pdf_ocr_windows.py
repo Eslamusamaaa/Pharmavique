@@ -27,6 +27,18 @@ def _powershell(script: Path, *args: str) -> None:
     )
 
 
+def windows_image_ocr(picture: Path) -> str | None:
+    """The text of one picture (jpg, png), or None when Windows could not read the file."""
+    with tempfile.TemporaryDirectory() as folder:
+        out = Path(folder) / "out.jsonl"
+        _powershell(_OCR, "-Files", str(picture.resolve()), "-Out", str(out))
+        lines = [ln for ln in out.read_text(encoding="utf-8-sig").splitlines() if ln.strip()]
+        if not lines:
+            return None
+        item = json.loads(lines[0], strict=False)
+        return None if item.get("error") else str(item["text"])
+
+
 def windows_pdf_ocr(pdf: Path) -> str | None:
     """The text of every page of `pdf`, or None when a page could not be drawn or read."""
     with tempfile.TemporaryDirectory() as folder:

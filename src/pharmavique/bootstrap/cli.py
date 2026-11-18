@@ -63,11 +63,13 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
     get_list,
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_ocr_windows import (
+    windows_image_ocr,
     windows_pdf_ocr,
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import (
     extract_all,
     ocr_empty_texts,
+    ocr_image_texts,
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
@@ -573,7 +575,11 @@ def _sfda_list_ocr(args: argparse.Namespace) -> int:
             )
             continue
         counts = ocr_empty_texts(texts, run_dir / "files", windows_pdf_ocr)
-        print(f"{name}: {counts}")
+        print(f"{name} scanned PDFs: {counts}")
+        index = run_dir / "files.jsonl"
+        if index.exists():
+            pictures = ocr_image_texts(index, run_dir / "files", texts, windows_image_ocr)
+            print(f"{name} pictures: {pictures}")
     return EXIT_OK
 
 
