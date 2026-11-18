@@ -65,6 +65,7 @@ class SqlAlchemySourceListStore:
                 "entity_key": row.entity_key,
                 "link": row.link,
                 "cells": [{"label": label, "value": value} for label, value in row.cells],
+                "detail": [{"label": label, "value": value} for label, value in row.detail],
                 "list_page": row.list_page,
                 "provenance_source": row.source,
                 "provenance_source_ref": row.source_ref,

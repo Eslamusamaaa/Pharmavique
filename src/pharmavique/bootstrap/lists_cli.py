@@ -46,7 +46,20 @@ def add_arguments(commands: Any) -> None:
     load.add_argument("--root", default="data/lists")
 
 
+def read_details(path: Path) -> dict[str, tuple[tuple[str, str], ...]]:
+    """The detail pages stored next to a list's records (empty when none were fetched)."""
+    if not path.exists():
+        return {}
+    found: dict[str, tuple[tuple[str, str], ...]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            record = json.loads(line)
+            found[record["key"]] = tuple((d["label"], d["value"]) for d in record["detail"])
+    return found
+
+
 def read_rows(path: Path) -> list[SourceListRow]:
+    details = read_details(path.with_name("details.jsonl"))
     rows: list[SourceListRow] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -66,6 +79,7 @@ def read_rows(path: Path) -> list[SourceListRow]:
                 snapshot_id=provenance["snapshot_id"],
                 fetched_at=datetime.fromisoformat(fetched) if fetched else None,
                 trust=provenance["trust"],
+                detail=details.get(record["key"], ()),
             )
         )
     return rows

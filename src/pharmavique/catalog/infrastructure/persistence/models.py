@@ -94,6 +94,7 @@ class SourceListRowRow(Base):
     entity_key: Mapped[str] = mapped_column(Text)
     link: Mapped[str | None] = mapped_column(Text, nullable=True)
     cells: Mapped[list[Any]] = mapped_column(JSONB)
+    detail: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     list_page: Mapped[int] = mapped_column(Integer)
     provenance_source: Mapped[str] = mapped_column(Text)
     provenance_source_ref: Mapped[str] = mapped_column(Text)
@@ -131,6 +132,37 @@ class SourceListLinkRow(Base):
     register_number: Mapped[str] = mapped_column(Text, primary_key=True)
     confidence: Mapped[str] = mapped_column(String(16))
     reason: Mapped[str] = mapped_column(Text)
+
+
+class ProductPictureRow(Base):
+    """The picture of a product: a real shop picture, or a generated card that says so.
+
+    `kind` is `real` (found on a Saudi shop page; `verification` says how well the text on the box
+    agrees with the registry) or `generated` (an illustration; never to be shown as the box).
+    """
+
+    __tablename__ = "product_pictures"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["market", "register_number"],
+            [f"{SCHEMA}.products.market", f"{SCHEMA}.products.register_number"],
+            ondelete="CASCADE",
+            name="fk_product_pictures_product",
+        ),
+        CheckConstraint("kind in ('real', 'generated')", name="ck_product_pictures_kind"),
+    )
+
+    market: Mapped[str] = mapped_column(String(2), primary_key=True)
+    register_number: Mapped[str] = mapped_column(Text, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    file_path: Mapped[str] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    verification: Mapped[str] = mapped_column(String(32))
+    form_group: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source_page: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trust: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class OutboxRow(Base):

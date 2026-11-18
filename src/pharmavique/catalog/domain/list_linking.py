@@ -7,7 +7,7 @@ check). Nothing here claims two drugs are the same product when the evidence is 
 
 import re
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -117,11 +117,21 @@ class ProductLinkIndex:
             for core in item.company_cores:
                 self._by_company_core[core].append(item)
 
-    def link(self, list_name: str, cells: Mapping[str, str]) -> tuple[RowLink, ...]:
+    def link(
+        self,
+        list_name: str,
+        cells: Mapping[str, str],
+        detail: Sequence[tuple[str, str]] = (),
+    ) -> tuple[RowLink, ...]:
         if list_name in ("safety-labeling", "drug-approvals"):
             return self._by_brand_and_substance(cells)
         if list_name == "drug-shortage":
-            return self._by_generic_name(cells.get("Generic Name", ""))
+            brands = {
+                normalize_text(core_name(value))
+                for label, value in detail
+                if label.lower() == "trade name" and value
+            }
+            return self._by_generic_name(cells.get("Generic Name", ""), brands)
         if list_name == "safety-alert":
             return self._by_title(cells.get("Title", ""))
         if list_name == "drug-companies":
@@ -141,7 +151,9 @@ class ProductLinkIndex:
                 )
         return tuple(links)
 
-    def _by_generic_name(self, generic: str) -> tuple[RowLink, ...]:
+    def _by_generic_name(
+        self, generic: str, brands: set[str] | frozenset[str] = frozenset()
+    ) -> tuple[RowLink, ...]:
         wanted = _substances(generic)
         if not wanted:
             return ()
@@ -149,11 +161,15 @@ class ProductLinkIndex:
         for word in {w.split()[0] for w in wanted}:
             for item in self._by_first_word.get(word, []):
                 seen[item.register_number] = item
-        return tuple(
-            RowLink(item.register_number, "possible", "generic name only")
-            for item in seen.values()
-            if item.has_substances(wanted)
-        )
+        links = []
+        for item in seen.values():
+            if not item.has_substances(wanted):
+                continue
+            if item.brand and item.brand in brands:
+                links.append(RowLink(item.register_number, "matched", "generic and trade name"))
+            else:
+                links.append(RowLink(item.register_number, "possible", "generic name only"))
+        return tuple(links)
 
     def _by_title(self, title: str) -> tuple[RowLink, ...]:
         text = f" {normalize_text(title)} "

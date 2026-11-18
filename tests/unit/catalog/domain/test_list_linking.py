@@ -96,3 +96,29 @@ def test_a_company_that_differs_only_by_legal_form_or_site_is_possible_not_match
 def test_company_cores_do_not_link_different_companies() -> None:
     assert company_link("AMNEAL PHARMACEUTICALS LLC - USA") == {}
     assert company_link("FLEET LABORATORIES LIMITED - UK") == {}
+
+
+SHORTAGE_INDEX = ProductLinkIndex(
+    [
+        product("20", "HYRIMOZ 40 MG", ("ADALIMUMAB",)),
+        product("21", "HUMIRA", ("ADALIMUMAB",)),
+        product("22", "HYRIMOZ", ("OTHER",)),
+    ]
+)
+
+
+def test_a_shortage_row_with_trade_names_matches_only_the_named_brands() -> None:
+    found = SHORTAGE_INDEX.link(
+        "drug-shortage",
+        {"Generic Name": "ADALIMUMAB"},
+        (("Trade name", "Hyrimoz"), ("Trade name", "Abrilada")),
+    )
+    assert {link.register_number: link.confidence for link in found} == {
+        "20": "matched",
+        "21": "possible",
+    }
+
+
+def test_a_shortage_row_without_trade_names_stays_possible() -> None:
+    found = SHORTAGE_INDEX.link("drug-shortage", {"Generic Name": "ADALIMUMAB"})
+    assert {link.confidence for link in found} == {"possible"}

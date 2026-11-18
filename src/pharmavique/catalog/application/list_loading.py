@@ -23,6 +23,7 @@ class SourceListRow:
     snapshot_id: str
     fetched_at: datetime | None
     trust: str
+    detail: tuple[tuple[str, str], ...] = ()  # (label, value) from the row's detail page, if any
 
 
 class SourceListStore(Protocol):
@@ -51,7 +52,7 @@ class LoadSourceList:
 
     async def run(self, list_name: str, rows: Sequence[SourceListRow]) -> ListLoadReport:
         index = ProductLinkIndex(await self._store.linkable_products())
-        links = {row.key: index.link(list_name, dict(row.cells)) for row in rows}
+        links = {row.key: index.link(list_name, dict(row.cells), row.detail) for row in rows}
         await self._store.replace(list_name, rows, links)
         flat = [link for found in links.values() for link in found]
         return ListLoadReport(
