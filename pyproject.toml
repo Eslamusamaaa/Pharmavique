@@ -286,6 +286,12 @@ forbidden_modules = [
     "alembic",
     "playwright",
     "bs4",
+    "langchain",
+    "langchain_core",
+    "langgraph",
+    "openai",
+    "groq",
+    "sentence_transformers",
     "pharmavique.foundation",
 ]
 allow_indirect_imports = true
