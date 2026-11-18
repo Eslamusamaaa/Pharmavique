@@ -120,3 +120,40 @@ async def test_a_list_that_never_ends_stops_at_the_page_cap() -> None:
 
     with pytest.raises(CrawlError, match="more than 5"):
         await w.walk()
+
+
+async def test_an_empty_page_inside_the_list_is_a_hole_skipped_and_recorded() -> None:
+    # seen live on the feed list: page 119 answers "No Results Found", pages 118 and 120 are full
+    site = Site({0: [["a", "b"]], 1: [[]], 2: [["e", "f"]], 3: [["g"]]}, hint=3)
+
+    result = await walker(site).walk()
+
+    assert sorted(result.known) == ["a", "b", "e", "f", "g"]
+    assert result.holes == [1]
+    assert result.real_last == 3
+
+
+async def test_many_empty_pages_in_a_row_stop_the_walk() -> None:
+    views: dict[int, list[list[str]]] = {
+        0: [["a"]],
+        1: [[]],
+        2: [[]],
+        3: [[]],
+        4: [[]],
+        5: [[]],
+        6: [["z"]],
+    }
+    site = Site(views, hint=6)
+
+    with pytest.raises(CrawlError, match="in a row"):
+        await walker(site).walk()
+
+
+async def test_a_hole_is_asked_for_again_in_the_repair_passes_and_filled_when_it_answers() -> None:
+    # page 1 is empty the first time and has rows afterwards
+    site = Site({0: [["a", "b"]], 1: [[], ["c", "d"]], 2: [["e"]]}, hint=2)
+
+    result = await walker(site).walk()
+
+    assert sorted(result.known) == ["a", "b", "c", "d", "e"]
+    assert result.holes == []

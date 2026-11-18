@@ -267,12 +267,17 @@ async def test_duplicate_rows_keep_the_first_and_are_reported(tmp_path: Path) ->
     assert manifest["duplicates"] == ["k2"]
 
 
-async def test_empty_page_before_the_pager_end_is_an_error(tmp_path: Path) -> None:
+async def test_an_empty_page_before_the_pager_end_is_a_hole_recorded_and_the_run_is_partial(
+    tmp_path: Path,
+) -> None:
     fetcher = make_site([["k1"], [], ["k3"]], last_page=2)
-    c, _ = crawler(fetcher, tmp_path)
+    c, store = crawler(fetcher, tmp_path)
 
-    with pytest.raises(CrawlError, match="empty"):
-        await c.run()
+    manifest = await c.run()
+
+    assert [r["key"] for r in store.read_records()] == ["k1", "k3"]
+    assert manifest["empty_pages"] == [1]
+    assert manifest["status"] == "partial"
 
 
 async def test_page_limit_makes_a_partial_sample(tmp_path: Path) -> None:

@@ -14,11 +14,12 @@ The walker is generic: it only needs a way to get a page, and a key for each row
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.errors import CrawlError
 
 _HINT_TOLERANCE = 5  # the pager's "last page" link has been seen off by a few pages
+_MAX_HOLES_IN_A_ROW = 5  # more empty pages than this in a row means the site is failing
 _TARGETED_PASSES = 3  # passes 2 and 3 refetch suspect pages only; later passes sweep every page
 
 
@@ -43,27 +44,33 @@ class WalkResult[R]:
     duplicates: list[str] = field(default_factory=list)
     total_rows: int = 0
     expected: int | None = None  # rows the list should hold, None when it cannot be known
+    holes: list[int] = field(default_factory=list)  # pages inside the list that stayed empty
 
     @property
     def page_count(self) -> int:
         return (self.real_last + 1) if self.real_last is not None else len(self.pages)
 
 
-def is_end_of_list(page: PageLike[Any], page_no: int, hint: int | None) -> bool:
-    """True when `page` shows the list has ended; raises when it ends where it should not.
+def classify_page(
+    page: PageLike[Any], page_no: int, hint: int | None
+) -> Literal["page", "hole", "end"]:
+    """What `page` is: a page of rows, a hole in the list, or the sign that the list ended.
 
     Past the end the site answers the last page again, with the label of that last page (lower
-    than the page asked for), or a page with no rows. An end far before the pager's last page, or
-    an empty page inside the list, is an error, never a quiet end.
+    than the page asked for), or a page with no rows. An empty page *inside* the list is a hole in
+    the site's own data (seen live: one page of the feed list, between two full ones), not the
+    end. The site answering an earlier page again far before the pager's last page is an error.
     """
     clamped = page.current_page is not None and page.current_page < page_no
     if not (clamped or not page.rows):
-        return False
+        return "page"
     if hint is not None and page_no < hint - _HINT_TOLERANCE:
-        raise CrawlError(f"the list ends early at page {page_no} but the pager says {hint}")
+        if clamped:
+            raise CrawlError(f"the list ends early at page {page_no} but the pager says {hint}")
+        return "hole"
     if not clamped and hint is not None and page_no <= hint:
-        raise CrawlError(f"list page {page_no} is empty but the pager says {hint}")
-    return True
+        return "hole"
+    return "end"
 
 
 class ListWalker[R]:
@@ -90,6 +97,8 @@ class ListWalker[R]:
         pages: dict[int, tuple[R, ...]] = {}
         hint: int | None = None
         real_last: int | None = None
+        holes: list[int] = []
+        holes_in_a_row = 0
         page_no = 0
 
         while self._max_pages is None or page_no < self._max_pages:
@@ -98,9 +107,21 @@ class ListWalker[R]:
             parsed = await self._get_page(page_no, 1)
             if page_no == 0:
                 hint = parsed.last_page
-            if is_end_of_list(parsed, page_no, hint):
+            kind = classify_page(parsed, page_no, hint)
+            if kind == "end":
                 real_last = page_no - 1
                 break
+            if kind == "hole":
+                holes.append(page_no)
+                holes_in_a_row += 1
+                if holes_in_a_row >= _MAX_HOLES_IN_A_ROW:
+                    raise CrawlError(
+                        f"{holes_in_a_row} empty pages in a row at page {page_no}: "
+                        "the site may be failing"
+                    )
+                page_no += 1
+                continue
+            holes_in_a_row = 0
             pages[page_no] = tuple(parsed.rows)
             if page_no % 20 == 0:
                 self._log.info("list page %s of %s", page_no, hint)
@@ -119,7 +140,7 @@ class ListWalker[R]:
         passes = 1
         expected: int | None = None
         if self._max_pages is None and real_last is not None:
-            passes = await self._repair(pages, known, real_last)
+            passes = await self._repair(pages, known, real_last, holes)
             expected = self._expected_total(pages, real_last)
             if len(known) < expected:
                 self._log.warning(
@@ -137,6 +158,7 @@ class ListWalker[R]:
             duplicates=duplicates,
             total_rows=sum(len(page) for page in pages.values()),
             expected=expected,
+            holes=holes,
         )
 
     async def _repair(
@@ -144,6 +166,7 @@ class ListWalker[R]:
         pages: dict[int, tuple[R, ...]],
         known: dict[str, tuple[R, int]],
         real_last: int,
+        holes: list[int],
     ) -> int:
         """Fetch pages again and keep the union of everything seen. Returns the passes used.
 
@@ -157,7 +180,9 @@ class ListWalker[R]:
             if len(known) >= self._expected_total(pages, real_last):
                 break
             suspects = self._suspect_pages(pages)
-            targets = suspects if passes < _TARGETED_PASSES and suspects else set(pages)
+            targets = (suspects if passes < _TARGETED_PASSES and suspects else set(pages)) | set(
+                holes
+            )
             passes += 1
             self._log.info(
                 "repair pass %s: fetching %s list pages again (%s of %s rows known)",
@@ -171,6 +196,10 @@ class ListWalker[R]:
                 parsed = await self._get_page(number, passes)
                 if parsed.current_page is not None and parsed.current_page != number:
                     continue  # the site answered with a different page; ignore it
+                if number in holes:
+                    if not parsed.rows:
+                        continue  # still a hole
+                    holes.remove(number)  # it answers now
                 pages[number] = tuple(parsed.rows)
                 for row in parsed.rows:
                     key = self._key_of(row)

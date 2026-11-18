@@ -45,6 +45,13 @@ class ListCrawlConfig:
     user_agent: str = ""  # recorded in the manifest only; the fetcher sends it
 
 
+def worth_storing(parsed: GenericPage, page_no: int) -> bool:
+    """A page with no rows, or one that answers an earlier page, is not kept on disk: it may be a
+    hole or the end of the list, and asking again later can give a different answer."""
+    clamped = parsed.current_page is not None and parsed.current_page < page_no
+    return bool(parsed.rows) and not clamped
+
+
 def build_record(
     *,
     spec: ListSpec,
@@ -138,6 +145,7 @@ class ListCrawler:
         result = await walker.walk()
         manifest["last_page_in_pager"] = result.hint
         manifest["probed_pages"] = self._spec.probed_pages
+        manifest["empty_pages"] = result.holes[:_MAX_RECORDED_ITEMS]
         manifest["duplicates"] = result.duplicates[:_MAX_RECORDED_ITEMS]
         if result.expected is not None:
             manifest["list_completeness"] = {
@@ -158,7 +166,7 @@ class ListCrawler:
 
     def _partial(self, manifest: dict[str, Any]) -> bool:
         gap = manifest.get("list_completeness", {}).get("gap", 0)
-        return gap > 0 or self._config.max_pages is not None
+        return gap > 0 or bool(manifest.get("empty_pages")) or self._config.max_pages is not None
 
     def _record(self, key: str, row: GenericRow, page_no: int) -> dict[str, Any]:
         return build_record(
@@ -186,7 +194,8 @@ class ListCrawler:
         page, parsed = await self._polite.fetch_valid(
             self._spec.url(self._config.base_url, page_no), parse_generic_page
         )
-        self._store.save_page(path, page)
+        if worth_storing(parsed, page_no):
+            self._store.save_page(path, page)
         self._note_first_seen(parsed, page.fetched_at)
         self._bump("list_pages_fetched")
         return parsed

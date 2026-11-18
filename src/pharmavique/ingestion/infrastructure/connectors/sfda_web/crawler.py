@@ -173,6 +173,7 @@ class SfdaCrawler:
         result = await walker.walk()
         rows = dict(sorted(result.known.items(), key=lambda item: item[1][1]))
         manifest["last_page_in_pager"] = result.hint
+        manifest["empty_pages"] = result.holes[:_MAX_RECORDED_ITEMS]
         manifest["duplicates"] = result.duplicates[:_MAX_RECORDED_ITEMS]
         if result.expected is not None:
             manifest["list_completeness"] = {

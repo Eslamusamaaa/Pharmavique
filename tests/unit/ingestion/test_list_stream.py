@@ -166,3 +166,20 @@ async def test_the_records_file_is_valid_json_lines_after_every_page(tmp_path: P
 
     assert len(lines) == 6
     assert all(json.loads(line)["key"] for line in lines)
+
+
+async def test_a_hole_page_is_skipped_recorded_and_not_stored(tmp_path: Path) -> None:
+    class WithHole(FakeFetcher):
+        async def fetch(self, url: str) -> FetchedPage:
+            if url.endswith("page=1"):
+                return FetchedPage(url, 200, "<html><body>No Results Found</body></html>", NOW)
+            return await super().fetch(url)
+
+    c, store = crawler(WithHole(PAGES), tmp_path)
+
+    manifest = await c.run()
+
+    assert names(store) == ["a", "b", "e", "f", "g"]
+    assert manifest["empty_pages"] == [1]
+    assert manifest["status"] == "partial"
+    assert not store.list_page_path(1).exists()

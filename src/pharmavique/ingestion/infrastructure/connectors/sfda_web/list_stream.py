@@ -34,8 +34,9 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.generic_list impor
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_crawler import (
     ListCrawlConfig,
     build_record,
+    worth_storing,
 )
-from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_walker import is_end_of_list
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_walker import classify_page
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import ListSpec
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.parser import ParseError
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
@@ -43,6 +44,8 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import Snaps
 from pharmavique.shared_kernel.ports import Clock
 
 _CHECKPOINT_EVERY = 100  # pages
+_MAX_HOLES_IN_A_ROW = 5
+_MAX_RECORDED_HOLES = 200
 
 
 def _fingerprint(key: str) -> int:
@@ -75,6 +78,7 @@ class StreamingListCrawler:
         )
         self._fetched = 0  # pages fetched since the last checkpoint
         self._duplicates = 0  # repeated rows seen in this run
+        self._holes: list[int] = []  # empty pages inside the list seen in this run
 
     async def run(self) -> dict[str, Any]:
         manifest = self._store.load_manifest() or self._new_manifest()
@@ -106,6 +110,7 @@ class StreamingListCrawler:
         known, page_no, earlier_duplicates = self._resume(manifest)
         hint: int | None = manifest.get("last_page_in_pager")
         ended = False
+        holes_in_a_row = 0
 
         while self._config.max_pages is None or page_no < self._config.max_pages:
             if page_no >= self._spec.max_list_pages:
@@ -114,10 +119,22 @@ class StreamingListCrawler:
             if page_no == 0:
                 hint = parsed.last_page
                 manifest["last_page_in_pager"] = hint
-            if is_end_of_list(parsed, page_no, hint):
+            kind = classify_page(parsed, page_no, hint)
+            if kind == "end":
                 ended = True
                 manifest["last_page"] = page_no - 1
                 break
+            if kind == "hole":
+                self._holes.append(page_no)
+                holes_in_a_row += 1
+                if holes_in_a_row >= _MAX_HOLES_IN_A_ROW:
+                    raise CrawlError(
+                        f"{holes_in_a_row} empty pages in a row at page {page_no}: "
+                        "the site may be failing"
+                    )
+                page_no += 1
+                continue
+            holes_in_a_row = 0
             self._write_rows(parsed, page_no, fetched_at, known)
             page_no += 1
             if page_no % _CHECKPOINT_EVERY == 0:
@@ -132,7 +149,12 @@ class StreamingListCrawler:
             "repeats": repeats,
             "passes": 1,
         }
-        manifest["status"] = "complete" if ended and self._config.max_pages is None else "partial"
+        earlier_holes = [
+            int(n) for n in manifest.get("empty_pages", []) if int(n) not in self._holes
+        ]
+        manifest["empty_pages"] = sorted(set(earlier_holes + self._holes))[:_MAX_RECORDED_HOLES]
+        complete = ended and self._config.max_pages is None and not manifest["empty_pages"]
+        manifest["status"] = "complete" if complete else "partial"
 
     def _write_rows(
         self, parsed: GenericPage, page_no: int, fetched_at: datetime, known: set[int]
@@ -204,7 +226,8 @@ class StreamingListCrawler:
         page, parsed = await self._polite.fetch_valid(
             self._spec.url(self._config.base_url, page_no), parse_generic_page
         )
-        self._store.save_page(path, page)
+        if worth_storing(parsed, page_no):
+            self._store.save_page(path, page)
         self._fetched += 1
         return parsed, page.fetched_at
 

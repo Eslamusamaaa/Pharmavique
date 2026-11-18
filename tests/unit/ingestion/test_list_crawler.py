@@ -113,7 +113,9 @@ async def test_a_rerun_reads_stored_pages_and_makes_no_requests(tmp_path: Path) 
     again, _ = crawler(fetcher, tmp_path)
     await again.run()
 
-    assert len(fetcher.calls) == made
+    # only the page past the end is asked again: it is never stored, because a page that answers
+    # an earlier page could just as well be a hole, and asking again later can differ
+    assert len(fetcher.calls) == made + 1
     assert store.read_records() == before
 
 
@@ -203,3 +205,27 @@ async def test_rows_that_share_a_link_id_but_differ_are_both_kept(tmp_path: Path
     assert len(records) == 2
     assert {r["entity_key"] for r in records} == {"CARBOPLATIN"}
     assert len({r["key"] for r in records}) == 2
+
+
+async def test_a_hole_page_is_recorded_not_stored_and_the_rest_of_the_list_is_kept(
+    tmp_path: Path,
+) -> None:
+    class WithHole(FakeFetcher):
+        async def fetch(self, url: str) -> FetchedPage:
+            number = int(url.rsplit("=", 1)[1])
+            if number == 1:  # the site's "No Results Found" page
+                return FetchedPage(url, 200, "<html><body>No Results Found</body></html>", NOW)
+            return await super().fetch(url)
+
+    c, store = crawler(WithHole(PAGES), tmp_path)
+
+    manifest = await c.run()
+
+    assert [r["list"][0]["value"] for r in store.read_records()] == [
+        "amoxicillin",
+        "insulin",
+        "warfarin",
+    ]
+    assert manifest["empty_pages"] == [1]
+    assert manifest["status"] == "partial"
+    assert not store.list_page_path(1).exists()  # not stored: asking again later may succeed
