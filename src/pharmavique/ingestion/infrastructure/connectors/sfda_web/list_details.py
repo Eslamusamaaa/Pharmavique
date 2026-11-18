@@ -20,6 +20,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.errors import (
     FetchFailed,
     NotFound,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_files import is_document_link
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.parser import ParseError
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
 
@@ -113,8 +114,17 @@ class ListDetailCrawler:
     async def run(self, records: list[dict[str, Any]], out_path: Path) -> dict[str, int]:
         """Fetch the detail of every record with a link; returns counts. Safe to repeat."""
         done = _stored_keys(out_path)
+        # A link straight to a document (PDF, Word, picture) is not a detail page: opening it
+        # starts a download. The files step downloads and reads those.
+        documents = [r for r in records if is_document_link(r.get("link"))]
         counts = {"stored_before": len(done), "fetched": 0, "failed": 0}
-        pending = [r for r in records if r.get("link") and r["key"] not in done]
+        if documents:
+            counts["documents"] = len(documents)
+        pending = [
+            r
+            for r in records
+            if r.get("link") and r["key"] not in done and not is_document_link(r.get("link"))
+        ]
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("a", encoding="utf-8") as out:
             for index, record in enumerate(pending, start=1):

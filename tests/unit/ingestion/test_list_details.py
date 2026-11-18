@@ -132,3 +132,17 @@ def test_a_page_without_a_table_is_read_from_its_labelled_fields() -> None:
     assert pairs["سبب السحب"] == "Non-compliance with specifications."
     assert pairs["Body"].startswith("Trade Name Scientific Name")
     assert pairs["Attachment"] == "/sites/default/files/2025-11/Dopram.pdf"
+
+
+async def test_links_to_documents_are_left_to_the_files_step(tmp_path: Path) -> None:
+    fetcher = FakeFetcher()
+    rows = [
+        {"key": "A#1", "link": "/sites/default/files/2026-10/Safety%20Signal.pdf"},
+        {"key": "B#2", "link": "/sites/default/files/x.DOCX"},
+        {"key": "C#3", "link": "/en/details_data?id=C"},
+    ]
+
+    counts = await crawler(fetcher).run(rows, tmp_path / "details.jsonl")
+
+    assert fetcher.calls == ["https://sfda.test/en/details_data?id=C"]
+    assert counts == {"stored_before": 0, "fetched": 1, "failed": 0, "documents": 2}
