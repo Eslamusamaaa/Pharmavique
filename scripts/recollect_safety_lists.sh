@@ -3,6 +3,7 @@
 #
 #   bash scripts/recollect_safety_lists.sh            # run id lists-1 (resumes what exists)
 #   RUN_ID=lists-2 bash scripts/recollect_safety_lists.sh
+#   SKIP_LISTS=1 bash scripts/recollect_safety_lists.sh   # lists already crawled: start at details
 #
 # Steps: list pages -> detail pages -> linked documents -> PDF text -> OCR of scanned PDFs
 # (Windows) -> load into the catalog and link to products -> knowledge chunks.
@@ -28,7 +29,9 @@ step() {
     fi
 }
 
-step sfda-lists --run-id "$RUN_ID" --lists "$LISTS"
+if [ "${SKIP_LISTS:-0}" != "1" ]; then
+    step sfda-lists --run-id "$RUN_ID" --lists "$LISTS"
+fi
 step sfda-list-details --run-id "$RUN_ID" --list-run-id "$RUN_ID" --lists "$LISTS"
 step sfda-list-files --run-id "$RUN_ID" --list-run-id "$RUN_ID" --lists "$LISTS"
 step sfda-list-texts --list-run-id "$RUN_ID" --lists "$LISTS"
