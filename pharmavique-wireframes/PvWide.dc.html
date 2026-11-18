@@ -79,7 +79,7 @@
 </div>
 
 <div id="C7" style="display:flex;flex-direction:column;gap:12px;width:1280px">
-<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">C7</b><b>Pharmacist quick lookup · desktop, keyboard first</b></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">C7</b><b>Pharmacist workspace · quick lookup, desktop, keyboard first</b></div>
 <div dir="rtl" style="width:1280px;height:720px;border-radius:16px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;font-size:14px;line-height:1.6">
 <div style="width:96px;flex:none;background:var(--sf);box-shadow:-1px 0 0 var(--ln);display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:6px"><img src="brand/mark.png" alt="Pharmavique" style="width:44px;height:auto;mix-blend-mode:multiply;margin-bottom:16px"><sc-for list="{{ rail2 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="width:76px;min-height:64px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;text-decoration:none;color:{{ t.color }};background:{{ t.bg }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:26px"></i>{{ t.label }}</a></sc-for></div>
 <div style="flex:1;display:flex;flex-direction:column;min-width:0">
@@ -97,8 +97,11 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  rail(a) {
-    return [['الرئيسية', 'house', '#B1'], ['بحث', 'magnifying-glass', '#B19'], ['المسح الضوئي', 'scan', '#B6'], ['حسابي', 'user', '#E1']].map(([label, ic, href], i) => ({ label, href, icon: (i === a ? 'ph-fill ph-' : 'ph ph-') + ic, color: i === a ? 'var(--pr)' : 'var(--ink2)', bg: i === a ? 'var(--prs)' : 'transparent', w: i === a ? 700 : 500 }));
+  rail(a, workspace) {
+    const items = workspace
+      ? [['الرئيسية', 'house', '#B2'], ['بحث متقدم', 'magnifying-glass', '#C7'], ['مقارنة', 'columns', '#B11'], ['روشتة', 'prescription', '#C1'], ['تحديثات السلامة', 'shield-warning', '#B15'], ['التقارير', 'folder-simple', '#C7'], ['حسابي', 'user', '#E1']]
+      : [['الرئيسية', 'house', '#B1'], ['بحث', 'magnifying-glass', '#B19'], ['المسح الضوئي', 'scan', '#B6'], ['حسابي', 'user', '#E1']];
+    return items.map(([label, ic, href], i) => ({ label, href, icon: (i === a ? 'ph-fill ph-' : 'ph ph-') + ic, color: i === a ? 'var(--pr)' : 'var(--ink2)', bg: i === a ? 'var(--prs)' : 'transparent', w: i === a ? 700 : 500 }));
   }
   renderVals() {
     const T = { 1: { t: 'نفس المادة الفعالة والتركيز والشكل', bg: 'var(--prs)', fg: 'var(--pr)', icon: 'ph-fill ph-equals' }, 2: { t: 'محتمل ويحتاج مراجعة الصيدلي', bg: 'var(--wns)', fg: 'var(--wn)', icon: 'ph-fill ph-warning' } };
@@ -106,7 +109,7 @@ class Component extends DCLogic {
     const ac = { s: ['ph-fill ph-file-text', 'var(--wns)', 'var(--wn)'], sh: ['ph-fill ph-package', 'var(--ors)', 'var(--or)'], r: ['ph-fill ph-arrow-u-up-left', 'var(--rds)', 'var(--rd)'] };
     const d = (ar, en, i, s, f, p, a, k, sel) => ({ ar, en, i, s, f, p, show: a ? 'block' : 'none', a, aic: k ? ac[k][0] : '', abg: k ? ac[k][1] : '', afg: k ? ac[k][2] : '', bg: sel ? 'var(--prs)' : 'transparent', ol: sel ? '2px solid var(--pr)' : 'none' });
     return {
-      rail1: this.rail(1), rail2: this.rail(1),
+      rail1: this.rail(1), rail2: this.rail(1, true),
       facts: F,
       factsT: [['الشكل الدوائي', 'قرص مغلف'], ['طريقة الاستخدام', 'عن طريق الفم'], ['العبوة', 'شريط ألمنيوم، 24 قرصًا'], ['رمز ATC', 'N02BE01'], ['الحالة النظامية', 'بدون وصفة طبية'], ['جهة التوزيع', 'صيدلية'], ['مدة الصلاحية', '60 شهرًا'], ['التخزين', 'لا تتجاوز 30 مئوية']].map(([k, v]) => ({ k, v })),
       eq: [
