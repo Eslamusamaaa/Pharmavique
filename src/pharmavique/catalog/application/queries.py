@@ -31,6 +31,7 @@ def card_of(stored: StoredProduct) -> ProductCard:
         listing_status=stored.listing_status.value,
         authorization_status=data.authorization_status.raw if data.authorization_status else None,
         marketing_status=data.marketing_status.raw if data.marketing_status else None,
+        legal_status=data.legal_status.raw if data.legal_status else None,
     )
 
 

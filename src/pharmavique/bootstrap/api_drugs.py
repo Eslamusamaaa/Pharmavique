@@ -49,6 +49,7 @@ class ProductOut(BaseModel):
     dosage_form_ar: str | None
     marketing_company: str | None
     listing_status: str
+    legal_status: str | None = None
 
 
 class SearchHitOut(ProductOut):
@@ -75,6 +76,7 @@ def _product(card: ProductCard) -> ProductOut:
         dosage_form_ar=card.dosage_form_ar,
         marketing_company=card.marketing_company,
         listing_status=card.listing_status,
+        legal_status=card.legal_status,
     )
 
 

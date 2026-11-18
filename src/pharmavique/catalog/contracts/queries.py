@@ -31,6 +31,7 @@ class ProductCard:
     listing_status: str  # "listed" or "withdrawn"; withdrawn products are still exported
     authorization_status: str | None  # as the source wrote it
     marketing_status: str | None  # as the source wrote it
+    legal_status: str | None = None  # as the source wrote it, for example "OTC" or "Prescription"
 
 
 @dataclass(frozen=True, slots=True)

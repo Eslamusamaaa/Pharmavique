@@ -67,6 +67,7 @@ async def test_a_card_carries_the_names_ingredients_and_status_search_needs() ->
         manufacturers=(Party("MAKER LTD"),),
         marketing_status=CodedValue("Marketed", "marketed"),
         authorization_status=CodedValue("Valid", "valid"),
+        legal_status=CodedValue("OTC", "otc"),
     )
     handler = ReadProductCardsHandler(FakeReader(product))
 
@@ -80,6 +81,7 @@ async def test_a_card_carries_the_names_ingredients_and_status_search_needs() ->
     assert card.manufacturers == ("MAKER LTD",)
     assert card.listing_status == "listed"
     assert (card.authorization_status, card.marketing_status) == ("Valid", "Marketed")
+    assert card.legal_status == "OTC"
 
 
 async def test_unknown_register_numbers_are_left_out_not_invented() -> None:
