@@ -95,6 +95,13 @@ def test_load_options_are_parsed() -> None:
     )
 
     assert (args.run_id, args.batch_size, args.limit) == ("r1", 50, 10)
+    assert args.from_records is False
+
+
+def test_load_can_read_the_records_file_instead_of_the_pages() -> None:
+    args = build_parser().parse_args(["sfda-load", "--run-id", "r1", "--from-records"])
+
+    assert args.from_records is True
 
 
 def test_lists_defaults_skip_the_giants_and_stay_polite() -> None:

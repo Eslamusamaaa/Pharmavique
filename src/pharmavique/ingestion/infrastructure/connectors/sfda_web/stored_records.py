@@ -1,5 +1,6 @@
 """Read the pages a crawl has stored on disk as source records, even while the crawl still runs."""
 
+import json
 from collections.abc import Collection, Iterator
 from pathlib import Path
 from typing import Any
@@ -52,3 +53,27 @@ class StoredRecords:
         except (ParseError, OSError, ValueError, KeyError):
             return None  # unreadable or half-written file: skip it, do not stop the load
         return page, [{"label": f.label, "value": f.value} for f in parsed.fields]
+
+
+class JsonlRecords:
+    """Implements the `RecordSource` port over a run's `records.jsonl` (the parsed crawl output).
+
+    Used when the raw pages of a run are not on this machine; the records hold the same parsed
+    fields `StoredRecords` builds from the pages, plus the list row and full provenance.
+    """
+
+    def __init__(self, store: SnapshotStore) -> None:
+        self._store = store
+
+    def records(self, skip: Collection[str] = frozenset()) -> Iterator[dict[str, Any]]:
+        path = self._store.records_path
+        if not path.exists():
+            return
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                record: dict[str, Any] = json.loads(line)
+                if record.get("key") in skip or not record.get("en"):
+                    continue
+                yield record

@@ -80,7 +80,10 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
     render_markdown,
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
-from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import StoredRecords
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import (
+    JsonlRecords,
+    StoredRecords,
+)
 from pharmavique.shared_kernel.currency import Currency
 
 # Owner's decision (2026-11-17): SFDA prices are SAR. The pages do not state a currency, so the
@@ -191,6 +194,11 @@ def build_parser() -> argparse.ArgumentParser:
     load.add_argument("--out", default="data/sfda")
     load.add_argument("--batch-size", type=int, default=200)
     load.add_argument("--limit", type=int, help="load only the first N drugs (for a trial)")
+    load.add_argument(
+        "--from-records",
+        action="store_true",
+        help="read the run's records.jsonl instead of its stored pages (pages not on this machine)",
+    )
     return parser
 
 
@@ -479,7 +487,7 @@ async def _sfda_load(args: argparse.Namespace) -> int:
             fallback_time=clock.now(),
         )
         report = await LoadRecordsIntoCatalog(writer, args.batch_size).run(
-            StoredRecords(store), args.limit
+            JsonlRecords(store) if args.from_records else StoredRecords(store), args.limit
         )
     finally:
         await engine.dispose()
