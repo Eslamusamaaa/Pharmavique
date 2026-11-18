@@ -14,7 +14,7 @@ The walker is generic: it only needs a way to get a page, and a key for each row
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Any, Protocol
 
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.errors import CrawlError
 
@@ -49,6 +49,23 @@ class WalkResult[R]:
         return (self.real_last + 1) if self.real_last is not None else len(self.pages)
 
 
+def is_end_of_list(page: PageLike[Any], page_no: int, hint: int | None) -> bool:
+    """True when `page` shows the list has ended; raises when it ends where it should not.
+
+    Past the end the site answers the last page again, with the label of that last page (lower
+    than the page asked for), or a page with no rows. An end far before the pager's last page, or
+    an empty page inside the list, is an error, never a quiet end.
+    """
+    clamped = page.current_page is not None and page.current_page < page_no
+    if not (clamped or not page.rows):
+        return False
+    if hint is not None and page_no < hint - _HINT_TOLERANCE:
+        raise CrawlError(f"the list ends early at page {page_no} but the pager says {hint}")
+    if not clamped and hint is not None and page_no <= hint:
+        raise CrawlError(f"list page {page_no} is empty but the pager says {hint}")
+    return True
+
+
 class ListWalker[R]:
     def __init__(
         self,
@@ -81,14 +98,7 @@ class ListWalker[R]:
             parsed = await self._get_page(page_no, 1)
             if page_no == 0:
                 hint = parsed.last_page
-            clamped = parsed.current_page is not None and parsed.current_page < page_no
-            if clamped or not parsed.rows:
-                if hint is not None and page_no < hint - _HINT_TOLERANCE:
-                    raise CrawlError(
-                        f"the list ends early at page {page_no} but the pager says {hint}"
-                    )
-                if not clamped and hint is not None and page_no <= hint:
-                    raise CrawlError(f"list page {page_no} is empty but the pager says {hint}")
+            if is_end_of_list(parsed, page_no, hint):
                 real_last = page_no - 1
                 break
             pages[page_no] = tuple(parsed.rows)

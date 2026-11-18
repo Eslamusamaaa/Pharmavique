@@ -45,6 +45,33 @@ class ListCrawlConfig:
     user_agent: str = ""  # recorded in the manifest only; the fetcher sends it
 
 
+def build_record(
+    *,
+    spec: ListSpec,
+    base_url: str,
+    run_id: str,
+    key: str,
+    row: GenericRow,
+    page_no: int,
+    fetched_at: datetime | None,
+) -> dict[str, Any]:
+    """One stored list row with its provenance (shared by the list crawlers)."""
+    return {
+        "key": key,
+        "entity_key": row.key,
+        "list": [{"label": label, "value": value} for label, value in row.cells],
+        "link": row.link,
+        "list_page": page_no,
+        "provenance": {
+            "source": spec.source,
+            "source_ref": spec.url(base_url, page_no),
+            "snapshot_id": run_id,
+            "fetched_at": fetched_at.isoformat() if fetched_at else None,
+            "trust": "official",
+        },
+    }
+
+
 class ListCrawler:
     def __init__(
         self,
@@ -134,21 +161,15 @@ class ListCrawler:
         return gap > 0 or self._config.max_pages is not None
 
     def _record(self, key: str, row: GenericRow, page_no: int) -> dict[str, Any]:
-        fetched_at = self._first_seen_at.get(key)
-        return {
-            "key": key,
-            "entity_key": row.key,
-            "list": [{"label": label, "value": value} for label, value in row.cells],
-            "link": row.link,
-            "list_page": page_no,
-            "provenance": {
-                "source": self._spec.source,
-                "source_ref": self._spec.url(self._config.base_url, page_no),
-                "snapshot_id": self._store.run_id,
-                "fetched_at": fetched_at.isoformat() if fetched_at else None,
-                "trust": "official",
-            },
-        }
+        return build_record(
+            spec=self._spec,
+            base_url=self._config.base_url,
+            run_id=self._store.run_id,
+            key=key,
+            row=row,
+            page_no=page_no,
+            fetched_at=self._first_seen_at.get(key),
+        )
 
     async def _get_page(self, page_no: int, pass_no: int) -> GenericPage:
         path = self._store.list_page_path(page_no, pass_no)

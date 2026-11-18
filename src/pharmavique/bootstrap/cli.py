@@ -48,6 +48,9 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_crawler impor
     ListCrawlConfig,
     ListCrawler,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_stream import (
+    StreamingListCrawler,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
     SFDA_LISTS,
     ListSpec,
@@ -359,7 +362,8 @@ async def _sfda_lists(args: argparse.Namespace) -> int:
                 log.info("%s is already complete in run %s, skipping", spec.name, run_id)
                 continue
             log.info("list %s (run %s, output %s)", spec.name, run_id, store.run_dir)
-            crawler = ListCrawler(
+            crawl_class = StreamingListCrawler if spec.is_giant else ListCrawler
+            crawler = crawl_class(
                 spec=spec, fetcher=fetcher, store=store, robots=robots, clock=clock, config=config
             )
             try:

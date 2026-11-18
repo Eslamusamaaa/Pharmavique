@@ -91,6 +91,16 @@ class SnapshotStore:
         self._atomic_write(self.records_path, ("\n".join(lines) + "\n").encode("utf-8"))
         return count
 
+    def append_records(self, records: Iterable[Mapping[str, Any]]) -> int:
+        """Add records to the end of `records.jsonl` (one write per call, flushed)."""
+        lines = [json.dumps(r, ensure_ascii=False, sort_keys=True) + "\n" for r in records]
+        if not lines:
+            return 0
+        self.records_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.records_path.open("a", encoding="utf-8") as handle:
+            handle.write("".join(lines))
+        return len(lines)
+
     def read_records(self) -> list[dict[str, Any]]:
         if not self.records_path.exists():
             return []
