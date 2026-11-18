@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wireframes",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "pharmavique-wireframes"],
+      "port": 8765
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "-X", "utf8", "-m", "uvicorn", "pharmavique.bootstrap.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"],
+      "port": 8000,
+      "url": "http://127.0.0.1:8000"
+    },
+    {
+      "name": "app-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["mobile/node_modules/expo/bin/cli", "start", "mobile", "--web", "--port", "8081"],
+      "port": 8081
+    }
+  ]
+}
