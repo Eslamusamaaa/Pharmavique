@@ -114,7 +114,15 @@ Existing screens: A1-A5, B1-B19, C1-C7, D0-D1, E1-E5. Changes:
 | Q-9 hosted providers | **Allowed**, including free tiers, for photos, voice and medication lists | Recorded as the owner's accepted privacy risk; free-tier terms and limits are checked when keys arrive; uploads are still deleted after processing and never logged |
 | Q-31 local embeddings | **No local install**: embeddings through an external API | `Embedder` adapter over HTTP (BGE-M3 or an alternative, as the provider offers); key and model id from the environment |
 
-Still open: Q-38 (public label source), Q-39 (pharmacy prices and stock).
+### Owner decisions (2026-11-19)
+
+| Question | Decision | Consequence |
+|---|---|---|
+| Q-37 interactions and contraindications | **Deferred again** | Safety check stays: duplicate active ingredient, ingredient allergy, SFDA alerts and recalls |
+| Dose-related warnings | **Quote only**: the dosing section of an official leaflet may be shown verbatim with its source and date; the system never computes, adapts or recommends a dose | Needs a leaflet source (Q-24, Q-38); until one exists nothing is shown. Prescription doses stay "غير واضح" for the pharmacist |
+| Q-39 pharmacy prices and availability | **Both**: (1) the SFDA registered price and its history from our snapshots; (2) the price and "in stock" label read from the online pharmacy pages we already index (sitemaps of 9 Saudi shops), stored as `unofficial_unverified` | Shop data is the shop's web listing, never the stock of a physical pharmacy; shown apart from the SFDA price with its shop, URL and fetch date; polite fetching rules of `docs/MEDIA_PIPELINE.md` apply |
+
+Still open: Q-38 (public label source), Q-39 is answered above.
 
 ## 9. Questions only the owner can answer (original list)
 
