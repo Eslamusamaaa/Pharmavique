@@ -169,3 +169,12 @@ The owner limited the lists to what the product uses: drugs, safety-labeling, sa
 - pharmacies: no drug link (they feed the nearby-pharmacy map).
 
 First load (lists-1): safety-labeling 241 rows, 113 linked; safety-alert 276, 221 linked (4,448 possible links, noisy by design); drug-shortage 723, 708 linked; drug-approvals 462, 448 linked; drug-companies 6,135, 2,045 linked; pharmacies 385, none. Strength is not compared yet, so a link means "this brand or substance", not "this exact pack".
+
+### Added lists, documents and OCR (2026-11-18)
+
+The owner added three lists to the ones the product uses: `drugs-circulars` (recalls and withdrawals), `rmm` (risk minimization materials) and `dhpc` (letters to health professionals), loaded with `sfda-lists-load` next to the six above.
+
+- **Linking**: a recall links by register number when the circular text names one (`matched`), by brand plus its substances named in the text (`matched`), by brand alone (`possible`). `rmm` links like safety-labeling (brand and scientific name). A DHPC letter links by brand and its substances (`matched`) or by a named substance alone (`possible`, so one letter can link to many products by design).
+- **Loaded (lists-1)**: rmm 578 rows (complete); drugs-circulars 146; dhpc 105.
+- **Documents**: `sfda-list-files` downloads the PDFs, Word files and pictures the rows link to; `sfda-list-texts` reads the text layer of PDFs and the XML of `.docx`; `sfda-list-ocr` reads what has none with the Windows OCR (`scripts/pdf_pages_windows.ps1` draws the pages, `scripts/ocr_windows.ps1` reads them; nothing leaves the PC). OCR text is marked `ocr: true` in `texts.jsonl` and surfaces as `Document text source = ocr` on the loaded row. It can hold misread characters (a "≥ 0.8" came back as "2 0.8"), so it must never be shown as exact.
+- **Site gaps** (not ours to fix): three July 2026 safety-alert PDFs answer HTTP 404, one safety-alert picture (`DEFIROX.jpg`) times out, and `Diphenhydramine.docx` returns the SFDA homepage with a document content type (the crawler now rejects an HTML page sent under a document type). safety-labeling is 20 rows short, drug-shortage 3, resolved shortages 7, all hidden by the site.
