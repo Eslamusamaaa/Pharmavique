@@ -1,0 +1,74 @@
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8507 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8507
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8507", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8512 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8512
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/8512", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17460 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17460
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17460", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17850 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17850
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drugs_circulars_withdrawal/17850", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15259 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15259
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15259", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/en/node/15259 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15259
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15259", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /en/node/15259#fdcb3594: https://www.sfda.gov.sa/en/node/15259: Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15259
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15259", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15260 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15260
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15260", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15277 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15277
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15277", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/en/node/15277 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15277
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15277", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /en/node/15277#59e3d445: https://www.sfda.gov.sa/en/node/15277: Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15277
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15277", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15278 (Page.goto: Navigation to "https://www.sfda.gov.sa/en/node/15278" is interrupted by another navigation to "chrome-error://chromewebdata/"
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15278", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15154 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15154
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15154", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/en/node/15154 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15154
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15154", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /en/node/15154#05c3da03: https://www.sfda.gov.sa/en/node/15154: Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15154
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15154", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15155 (Page.goto: net::ERR_ABORTED at https://www.sfda.gov.sa/en/node/15155
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15155", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/en/node/15155 (Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15155", waiting until "domcontentloaded"
+); waiting 60 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15133 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/node/15133
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/node/15133", waiting until "domcontentloaded"
+); waiting 30 s
+drugs-circulars: {'stored_before': 0, 'fetched': 146, 'failed': 0}
+rmm: {'stored_before': 0, 'fetched': 532, 'failed': 3}

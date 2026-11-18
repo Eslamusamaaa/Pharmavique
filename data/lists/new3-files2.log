@@ -1,0 +1,2 @@
+dhpc: {'stored_before': 93, 'downloaded': 1, 'failed': 0}
+dhpc: {'stored_before': 93, 'extracted': 0, 'empty': 1, 'unreadable': 0, 'skipped': 0}

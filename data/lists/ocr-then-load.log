@@ -1,0 +1,8 @@
+ocr finished: dhpc: {'candidates': 53, 'read': 53, 'still_empty': 0, 'failed': 0}
+dhpc: {'stored_before': 93, 'extracted': 0, 'empty': 1, 'unreadable': 0, 'skipped': 0}
+dhpc: {'candidates': 1, 'read': 1, 'still_empty': 0, 'failed': 0}
+rmm: 578 rows, 352 linked to drugs (matched links 721, possible links 42)
+drugs-circulars: 146 rows, 61 linked to drugs (matched links 129, possible links 5)
+dhpc: 105 rows, 103 linked to drugs (matched links 127, possible links 2092)
+dhpc texts 94 with text 94 by ocr 54
+DONE

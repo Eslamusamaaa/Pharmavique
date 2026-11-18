@@ -1,0 +1,25 @@
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drug-approvals-use/18563 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/drug-approvals-use/18563
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drug-approvals-use/18563", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/drug-approvals-use/18307 (Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/drug-approvals-use/18307", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=ARIPIPRAZOLE&page=5 (no table on the detail page); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=ARIPIPRAZOLE&page=5 (no table on the detail page); waiting 60 s
+no detail for ARIPIPRAZOLE#e296d1c1: https://www.sfda.gov.sa/en/details_data?nid=17594&id=ARIPIPRAZOLE&page=5: no table on the detail page
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=CLARITHROMYCIN&page=16 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/details_data?nid=17594&id=CLARITHROMYCIN&page=16
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/details_data?nid=17594&id=CLARITHROMYCIN&page=16", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=COLISTIMETHATE%20SODIUM&page=17 (Page.goto: Timeout 45000ms exceeded.
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/details_data?nid=17594&id=COLISTIMETHATE%20SODIUM&page=17", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=DULAGLUTIDE&page=22 (Page.goto: net::ERR_CONNECTION_RESET at https://www.sfda.gov.sa/en/details_data?nid=17594&id=DULAGLUTIDE&page=22
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/details_data?nid=17594&id=DULAGLUTIDE&page=22", waiting until "domcontentloaded"
+); waiting 30 s
+drug-approvals: {'stored_before': 0, 'fetched': 462, 'failed': 0}
+drug-shortage: {'stored_before': 0, 'fetched': 722, 'failed': 1}

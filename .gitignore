@@ -21,9 +21,10 @@ htmlcov/
 .env.*
 !.env.example
 
-# Local data and uploads
-/data/
+# Uploads stay local (health data). The SFDA dataset under data/ is versioned (owner's decision,
+# 2026-11-19) so every machine has the same data; keep each file under GitHub's 100 MB limit.
 /uploads/
+/data/lists-trial/
 
 # Editors / OS
 .idea/

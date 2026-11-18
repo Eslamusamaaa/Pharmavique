@@ -1,0 +1,16 @@
+INFO:     127.0.0.1:54515 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54523 - "GET /v1/search?q=panadool+extra&limit=3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54528 - "GET /v1/search?q=%3F%3F%3F%3F%3F%3F%3F%3F&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54531 - "GET /v1/products/0206257530 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54533 - "GET /v1/products/0000 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54534 - "GET /v1/search?q= HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:54541 - "GET /v1/search?q=%D8%A7%D9%88%D8%AC%D9%85%D9%86%D8%AA%D9%8A%D9%86&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54542 - "GET /v1/search?q=%D8%A8%D9%86%D8%A7%D8%AF%D9%88%D9%84+%D8%A7%D9%83%D8%B3%D8%AA%D8%B1%D8%A7&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54543 - "GET /v1/search?q=%D9%86%D9%8A%D9%83%D8%B3%D9%8A%D9%88%D9%85&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55125 - "GET / HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55125 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60265 - "GET / HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60264 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60264 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61473 - "GET /v1/search?q=panadol&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61474 - "GET /v1/products/2303257130 HTTP/1.1" 200 OK
