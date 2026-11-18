@@ -17,7 +17,8 @@ Only `confirmed` counts as verified. The others wait for a person.
 from dataclasses import dataclass
 from enum import StrEnum
 
-from pharmavique.media.domain.matching import ProductRef, brand_words, strength_signals
+from pharmavique.media.domain.matching import ProductRef, strength_signals
+from pharmavique.shared_kernel.names import brand_words
 from pharmavique.shared_kernel.text import normalize_text
 from pharmavique.shared_kernel.trigrams import similarity
 

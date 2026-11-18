@@ -10,10 +10,10 @@ from pharmavique.media.domain.matching import (
     MatchVerdict,
     ProductRef,
     build_queries,
-    core_name,
     judge,
 )
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.names import core_name
 
 
 def product(**overrides: object) -> ProductRef:

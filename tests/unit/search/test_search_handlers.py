@@ -148,3 +148,16 @@ async def test_rebuild_indexes_every_page_and_can_be_repeated() -> None:
     assert first == second == len(CATALOG)
     assert source.page_sizes == [3, 3]
     assert len(index) == len(CATALOG)
+
+
+async def test_a_misspelled_brand_finds_a_product_whose_registry_name_has_extra_words() -> None:
+    catalog = (
+        product("2-1", "GLUCOPHAGE 500 mg tablet", "جلوكوفاج 500 ملجم", ("METFORMIN",)),
+        product("2-2", "GLUCOVANCE 2.5 mg/500 mg film-coated tablet", None, ("GLIBENCLAMIDE",)),
+        product("2-3", "GLUCENTRA", None, ("SEMAGLUTIDE",)),
+    )
+    handler = SearchProductsHandler(await index_of(*catalog))
+
+    result = await handler.search(query("glucofage"))
+
+    assert result.matches[0].register_number == "2-1"
