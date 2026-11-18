@@ -65,7 +65,12 @@ def read_details(run_dir: Path) -> dict[str, tuple[tuple[str, str], ...]]:
         for line in texts.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 record = json.loads(line)
-                pairs = (("Document text", record["text"]), ("Document", record["source_ref"]))
+                pairs: tuple[tuple[str, str], ...] = (
+                    ("Document text", record["text"]),
+                    ("Document", record["source_ref"]),
+                )
+                if record.get("ocr"):  # read from a scan: may hold misread characters
+                    pairs += (("Document text source", "ocr"),)
                 found[record["key"]] = found.get(record["key"], ()) + pairs
     return found
 
