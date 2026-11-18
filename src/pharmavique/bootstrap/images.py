@@ -13,6 +13,7 @@ fills, so the search backend can change without touching the rest.
 
 import argparse
 import asyncio
+import csv
 import json
 import logging
 import shutil
@@ -606,6 +607,7 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
         "missing": 0,
         "placeholders": 0,
     }
+    all_rows: list[dict[str, Any]] = []
     with (media / "mapping.jsonl").open("w", encoding="utf-8") as handle:
         for ref in refs:
             candidates = by_drug.get(ref.register_number, [])
@@ -634,13 +636,33 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
                 "trust": None if best is None else best["provenance"]["trust"],
             }
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            all_rows.append(row)
             if best is None:
                 summary["missing"] += 1
                 summary["placeholders"] += 1
             else:
                 summary["with_picture"] += 1
                 summary["confirmed" if check == "confirmed" else "unverified"] += 1
+    _write_mapping_csv(media / "mapping.csv", all_rows)
     return summary
+
+
+_CSV_COLUMNS = (
+    "register_number", "trade_name_en", "trade_name_ar", "scientific_names", "strengths",
+    "company", "picture_kind", "picture_check", "picture", "source_page",
+)  # fmt: skip
+
+
+def _write_mapping_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    """The same mapping for people: UTF-8 with a BOM so Excel shows the Arabic names right."""
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            flat = dict(row)
+            flat["scientific_names"] = "; ".join(row["scientific_names"])
+            flat["strengths"] = "; ".join(row["strengths"])
+            writer.writerow(flat)
 
 
 def run_map(args: argparse.Namespace) -> int:

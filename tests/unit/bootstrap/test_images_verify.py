@@ -149,3 +149,25 @@ def test_the_mapping_gives_every_drug_its_best_picture_and_lists_the_rest_as_mis
     assert (placeholder.parent.name, placeholder.name) == ("placeholders", "injection.svg")
     assert (media / "placeholders" / "injection.svg").read_text("utf-8").startswith("<svg")
     assert mapping["3"]["source_page"] is None
+
+
+def test_the_mapping_is_also_written_as_a_csv_that_excel_opens_with_arabic_intact(
+    tmp_path: Path,
+) -> None:
+    import csv
+
+    products, media = setup_media(tmp_path)
+    verify_pictures(products, media, FakeOcr({"aa.jpg": "Panadol Extra"}), batch_size=10)
+
+    build_mapping(products, media)
+
+    raw = (media / "mapping.csv").read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf")  # a BOM, so Excel reads it as UTF-8
+    with (media / "mapping.csv").open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 3
+    first = next(r for r in rows if r["register_number"] == "1")
+    assert first["trade_name_ar"] == "بنادول اكسترا"
+    assert first["scientific_names"] == "PARACETAMOL"
+    assert first["picture_kind"] == "real"
+    assert next(r for r in rows if r["register_number"] == "3")["picture_kind"] == "placeholder"
