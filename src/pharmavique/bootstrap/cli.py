@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from pharmavique.bootstrap import images, lists_cli, pictures_cli, search_cli
+from pharmavique.bootstrap import images, knowledge_cli, lists_cli, pictures_cli, search_cli
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.handlers import (
     ApplyCatalogChangesHandler,
@@ -181,6 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
     lists_cli.add_arguments(commands)
+    knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
 
     load = commands.add_parser(
@@ -628,6 +629,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(pictures_cli.load(args))
     if args.command == "sfda-lists-load":
         return asyncio.run(lists_cli.load(args))
+    if args.command == "knowledge-build":
+        return asyncio.run(knowledge_cli.build(args))
     if args.command == "sfda-load":
         return asyncio.run(_sfda_load(args))
     raise AssertionError(f"unhandled command {args.command!r}")  # pragma: no cover
