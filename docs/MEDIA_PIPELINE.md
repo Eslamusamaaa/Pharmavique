@@ -100,3 +100,7 @@ shop (Aljawaher) was cooling down at the end; `sfda-images --retry` works them a
 - **Drugs whose SFDA details page is empty** (18 of 9,162; the page exists but its table is empty)
   are built from the list data alone: no Arabic name, no strength unit.
 - **Rights**: shop pictures belong to the shops. Do not show them to users before Q-35 is settled.
+
+## Hand-fed search results: read all pages of a phrase (2026-11-18)
+
+`sfda-images --results` reads only `--pages-per-query` pages per phrase (default 3) and works only the first `--limit` products (default 50). For a results file pass `--pages-per-query 10 --limit 100000 --retry`. With the defaults a brand that has several strength pages loses most of them: a second batch of 15 brands stored 3 pictures with the defaults and 7 with ten pages per phrase. Restricting the web search to the Saudi shops (`allowed_domains`: nahdionline.com, medononline.com, adamonline.com, unitedpharmacy.sa, myaster.com, theoutlet.sa, almujtamapharmacy.com) returns shop pages instead of papers and patents. Even so, about half of the brands searched had no Saudi shop page at all.
