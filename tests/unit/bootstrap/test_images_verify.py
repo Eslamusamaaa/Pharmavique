@@ -141,12 +141,13 @@ def test_the_mapping_gives_every_drug_its_best_picture_and_lists_the_rest_as_mis
     assert mapping["1"]["scientific_names"] == ["PARACETAMOL"]
     assert mapping["1"]["trade_name_ar"] == "بنادول اكسترا"
     assert mapping["2"]["picture_kind"] == "real"
-    # a drug with no real picture gets its dosage form's stand-in, marked as one
-    assert mapping["3"]["picture_kind"] == "placeholder"
+    # a drug with no real picture gets a generated card, marked as one
+    assert mapping["3"]["picture_kind"] == "generated"
     assert mapping["3"]["picture_check"] == "no_picture"
     assert mapping["3"]["placeholder_form"] == "injection"
-    placeholder = Path(mapping["3"]["picture"])
-    assert (placeholder.parent.name, placeholder.name) == ("placeholders", "injection.svg")
+    card = Path(mapping["3"]["picture"])
+    assert (card.parent.name, card.name) == ("generated", "3.svg")
+    assert card.read_text("utf-8").startswith("<svg")
     assert (media / "placeholders" / "injection.svg").read_text("utf-8").startswith("<svg")
     assert mapping["3"]["source_page"] is None
 
@@ -170,4 +171,4 @@ def test_the_mapping_is_also_written_as_a_csv_that_excel_opens_with_arabic_intac
     assert first["trade_name_ar"] == "بنادول اكسترا"
     assert first["scientific_names"] == "PARACETAMOL"
     assert first["picture_kind"] == "real"
-    assert next(r for r in rows if r["register_number"] == "3")["picture_kind"] == "placeholder"
+    assert next(r for r in rows if r["register_number"] == "3")["picture_kind"] == "generated"

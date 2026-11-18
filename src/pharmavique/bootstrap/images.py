@@ -38,7 +38,12 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records imp
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
 from pharmavique.media.application.page_search import PageImageSearch, PageSearch
 from pharmavique.media.domain.matching import ProductRef, build_queries
-from pharmavique.media.domain.placeholders import FORMS, form_group, placeholder_svg
+from pharmavique.media.domain.placeholders import (
+    FORMS,
+    drug_card_svg,
+    form_group,
+    placeholder_svg,
+)
 from pharmavique.media.domain.verification import PictureVerdict, verify_picture
 from pharmavique.media.infrastructure.files import (
     FileImageStore,
@@ -588,6 +593,11 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
     forms = {row["register_number"]: row.get("dosage_form_en") for row in _jsonl(products)}
     placeholders = media / "placeholders"
     placeholders.mkdir(parents=True, exist_ok=True)
+    cards = media / "generated"
+    cards.mkdir(parents=True, exist_ok=True)
+    form_names = {
+        row["register_number"]: row.get("dosage_form_en") or "" for row in _jsonl(products)
+    }
     for group in FORMS:
         (placeholders / f"{group}.svg").write_text(placeholder_svg(group), encoding="utf-8")
     checks = {row["storage_key"]: row["verdict"] for row in _jsonl(media / "verification.jsonl")}
@@ -623,11 +633,11 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
                 "strengths": list(ref.strengths),
                 "company": ref.marketing_company,
                 "picture": (
-                    str(placeholders / f"{group}.svg")
+                    _write_card(cards, ref, group, form_names.get(ref.register_number, ""))
                     if best is None
                     else str(media / "images" / best["storage_key"])
                 ),
-                "picture_kind": "placeholder" if best is None else "real",
+                "picture_kind": "generated" if best is None else "real",
                 "placeholder_form": group if best is None else None,
                 "picture_status": None if best is None else best["status"],
                 "picture_check": check,
@@ -645,6 +655,23 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
                 summary["confirmed" if check == "confirmed" else "unverified"] += 1
     _write_mapping_csv(media / "mapping.csv", all_rows)
     return summary
+
+
+def _write_card(folder: Path, ref: ProductRef, group: str, form: str) -> str:
+    """The generated card of a drug with no real picture; returns its path."""
+    path = folder / f"{ref.register_number}.svg"
+    path.write_text(
+        drug_card_svg(
+            group=group,
+            name_en=ref.trade_name_en or "",
+            name_ar=ref.trade_name_ar or "",
+            strength=", ".join(ref.strengths[:2]),
+            form=form,
+            company=ref.marketing_company or "",
+        ),
+        encoding="utf-8",
+    )
+    return str(path)
 
 
 _CSV_COLUMNS = (
@@ -674,7 +701,7 @@ def run_map(args: argparse.Namespace) -> int:
     print(
         f"{summary['drugs']} drugs | with a picture: {summary['with_picture']} "
         f"(confirmed by the text on the box: {summary['confirmed']}, "
-        f"not confirmed: {summary['unverified']}) | no real picture, form placeholder: "
+        f"not confirmed: {summary['unverified']}) | no real picture, generated card: "
         f"{summary['missing']}"
     )
     return EXIT_OK

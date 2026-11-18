@@ -84,3 +84,49 @@ def form_group(dosage_form: str | None) -> str:
 
 def placeholder_svg(group: str) -> str:
     return f"{_SVG_HEAD}{_BACKGROUND}{_SHAPES[group]}</svg>"
+
+
+_CARD_NAME_LIMIT = 34  # characters of a name that fit on one line of the card
+_CARD_NOTE = "Illustration - not a photo of the pack"
+
+
+def _short(text: str, limit: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def drug_card_svg(
+    *,
+    group: str,
+    name_en: str,
+    name_ar: str,
+    strength: str,
+    form: str,
+    company: str,
+) -> str:
+    """A card for a drug that no shop shows: its dosage-form picture, its names, strength, form and
+    company, and a line that says it is an illustration and not the pack. Shown by an app as a
+    stand-in, never as the drug's box (`picture_kind` is `generated`)."""
+    from xml.sax.saxutils import escape
+
+    def line(y: int, size: int, weight: str, color: str, text: str, extra: str = "") -> str:
+        if not text:
+            return ""
+        return (
+            f'<text x="200" y="{y}" font-family="Segoe UI, Arial, sans-serif" font-size="{size}" '
+            f'font-weight="{weight}" fill="{color}" text-anchor="middle"{extra}>'
+            f"{escape(text)}</text>"
+        )
+
+    details = " · ".join(part for part in (strength, form) if part)
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">'
+        '<rect width="400" height="400" rx="32" fill="#f1f5f9"/>'
+        f'<g transform="translate(100 24)">{_SHAPES[group]}</g>'
+        + line(250, 24, "700", "#0f172a", _short(name_en, _CARD_NAME_LIMIT))
+        + line(284, 22, "600", "#0f172a", _short(name_ar, _CARD_NAME_LIMIT), ' direction="rtl"')
+        + line(314, 17, "500", "#334155", _short(details, 44))
+        + line(340, 15, "400", "#475569", _short(company, 44))
+        + line(378, 12, "400", "#64748b", _CARD_NOTE)
+        + "</svg>"
+    )

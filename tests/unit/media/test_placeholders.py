@@ -52,3 +52,34 @@ def test_every_group_has_a_picture_and_it_is_a_valid_small_vector_image() -> Non
         assert svg.rstrip().endswith("</svg>")
         assert len(svg) < 4000
         assert "<script" not in svg
+
+
+def test_a_drug_card_shows_the_names_and_strength_and_says_it_is_not_the_real_pack() -> None:
+    from xml.etree import ElementTree
+
+    from pharmavique.media.domain.placeholders import drug_card_svg
+
+    svg = drug_card_svg(
+        group="capsule",
+        name_en="AMLOR <5> & CO",
+        name_ar="املور",
+        strength="5 mg",
+        form="Capsule",
+        company="Pfizer",
+    )
+    root = ElementTree.fromstring(svg)  # noqa: S314  (our own output; checks well-formedness)
+    text = " ".join(root.itertext())
+    assert "AMLOR <5> & CO" in text
+    assert "املور" in text
+    assert "5 mg" in text
+    assert "Pfizer" in text
+    assert "not a photo" in text.lower()
+
+
+def test_a_very_long_name_is_shortened_so_it_stays_inside_the_card() -> None:
+    from pharmavique.media.domain.placeholders import drug_card_svg
+
+    svg = drug_card_svg(
+        group="other", name_en="X" * 200, name_ar="", strength="", form="", company=""
+    )
+    assert "X" * 60 not in svg
