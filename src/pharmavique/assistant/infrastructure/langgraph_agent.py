@@ -123,12 +123,14 @@ class LangGraphAgentRunner:
         self._model = model
         self._facts = facts
 
-    async def run(self, question: str, level: Level, register_number: str | None) -> AgentRun:
+    async def run(
+        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+    ) -> AgentRun:
         citations = _Citations()
         used: list[str] = []
         tools = build_tools(self._facts, citations, used)
         bound = self._model.bind_tools(tools)
-        prompt = SystemMessage(system_prompt(level, register_number))
+        prompt = SystemMessage(system_prompt(level, register_number, spoken=spoken))
 
         async def call_model(state: MessagesState) -> dict[str, list[BaseMessage]]:
             return {"messages": [await bound.ainvoke([prompt, *state["messages"]])]}

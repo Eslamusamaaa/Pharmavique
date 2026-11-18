@@ -44,10 +44,18 @@ given), then read what the question needs (drug_details, same_ingredient, search
 answer briefly with citations. {context}"""
 
 
-def system_prompt(level: Level, register_number: str | None) -> str:
+SPOKEN = (
+    " The answer will be read aloud by a Saudi Arabic voice: write it in everyday Saudi dialect "
+    "(اللهجة السعودية البيضاء), in short spoken sentences, no lists or tables, at most 5 "
+    "sentences, Latin letters only for drug names. Keep the [n] citations; they are not spoken."
+)
+
+
+def system_prompt(level: Level, register_number: str | None, *, spoken: bool = False) -> str:
     context = (
         f"The user is looking at the product with register number {register_number}."
         if register_number
         else ""
     )
-    return SYSTEM_PROMPT.format(level=_LEVELS[level], context=context)
+    level_text = _LEVELS[level] + (SPOKEN if spoken else "")
+    return SYSTEM_PROMPT.format(level=level_text, context=context)

@@ -18,11 +18,14 @@ class AskAssistant:
     def __init__(self, runner: AgentRunner) -> None:
         self._runner = runner
 
-    async def ask(self, question: str, level: Level, register_number: str | None) -> Answer:
+    async def ask(
+        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+    ) -> Answer:
+        """`spoken`: the answer will be read aloud, so it is written in Saudi dialect."""
         question = question.strip()
         if not question or len(question) > MAX_QUESTION:
             raise ValueError(f"a question must be 1 to {MAX_QUESTION} characters")
-        run = await self._runner.run(question, level, register_number)
+        run = await self._runner.run(question, level, register_number, spoken=spoken)
         if not run.citations:
             return Answer(NOT_IN_SOURCES, (), level, grounded=False, tools_used=run.tools_used)
         if breaks_rules(run.text):

@@ -1,5 +1,7 @@
 """The assistant's rules: answers only from cited sources, no dosing, never "stop" or "switch"."""
 
+from typing import ClassVar
+
 import pytest
 
 from pharmavique.assistant.application.ask import AskAssistant
@@ -20,7 +22,9 @@ class FakeRunner:
         self.result = AgentRun(text, citations, ("drug_details",))
         self.seen: list[tuple[str, Level, str | None]] = []
 
-    async def run(self, question: str, level: Level, register_number: str | None) -> AgentRun:
+    async def run(
+        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+    ) -> AgentRun:
         self.seen.append((question, level, register_number))
         return self.result
 
@@ -85,3 +89,20 @@ async def test_an_empty_question_is_refused_before_any_model_call() -> None:
     with pytest.raises(ValueError, match="question"):
         await AskAssistant(runner).ask("   ", Level.PATIENT, None)
     assert runner.seen == []
+
+
+async def test_the_spoken_choice_reaches_the_runner() -> None:
+    class Recording(FakeRunner):
+        spoken: ClassVar[list[bool]] = []
+
+        async def run(
+            self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+        ) -> AgentRun:
+            self.spoken.append(spoken)
+            return self.result
+
+    runner = Recording("الباراسيتامول [1].")
+
+    await AskAssistant(runner).ask("سؤال", Level.PATIENT, None, spoken=True)
+
+    assert runner.spoken == [True]

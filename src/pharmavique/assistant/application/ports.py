@@ -19,7 +19,9 @@ class AgentRun:
 
 
 class AgentRunner(Protocol):
-    async def run(self, question: str, level: Level, register_number: str | None) -> AgentRun: ...
+    async def run(
+        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+    ) -> AgentRun: ...
 
 
 class DrugFacts(Protocol):

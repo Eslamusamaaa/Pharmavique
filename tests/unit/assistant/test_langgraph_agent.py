@@ -115,3 +115,11 @@ async def test_a_model_that_stays_silent_ends_with_an_empty_answer() -> None:
     run = await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PATIENT, None)
 
     assert run.text == ""
+
+
+async def test_a_spoken_answer_is_asked_for_in_saudi_dialect() -> None:
+    model = ScriptedModel(AIMessage("x"))
+
+    await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PATIENT, None, spoken=True)
+
+    assert "Saudi dialect" in model.seen[0][0].content
