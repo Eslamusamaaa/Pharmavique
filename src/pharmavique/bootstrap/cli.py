@@ -51,6 +51,9 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_crawler impor
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_details import (
     ListDetailCrawler,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_files import (
+    ListFileCrawler,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_stream import (
     StreamingListCrawler,
 )
@@ -142,6 +145,14 @@ def build_parser() -> argparse.ArgumentParser:
     _add_fetch_options(details, default_out="data/lists")
     details.add_argument("--lists", default="drug-approvals,drug-shortage")
     details.add_argument("--list-run-id", default="lists-1", help="the list run to read links from")
+
+    files = commands.add_parser(
+        "sfda-list-files",
+        help="download the documents (PDFs) that list rows link to, e.g. the safety alerts",
+    )
+    _add_fetch_options(files, default_out="data/lists")
+    files.add_argument("--lists", default="safety-alert")
+    files.add_argument("--list-run-id", default="lists-1", help="the list run to read links from")
 
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
@@ -490,6 +501,34 @@ async def _sfda_list_details(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def _sfda_list_files(args: argparse.Namespace) -> int:
+    log = logging.getLogger("sfda.cli")
+    robots = await _load_robots(args.base_url, args.user_agent)
+    async with httpx.AsyncClient(
+        headers={"User-Agent": args.user_agent}, timeout=60.0, follow_redirects=True
+    ) as client:
+        crawler = ListFileCrawler(
+            client=client,
+            robots=robots,
+            throttle=Throttle(args.delay, args.jitter),
+            base_url=args.base_url,
+        )
+        for name in args.lists.split(","):
+            run_dir = Path(args.out) / name / args.list_run_id
+            records = SnapshotStore(Path(args.out) / name, args.list_run_id).read_records()
+            if not records:
+                print(f"{name}: no stored records in {run_dir}", file=sys.stderr)
+                continue
+            try:
+                counts = await crawler.run(records, run_dir / "files", run_dir / "files.jsonl")
+            except SourceBlocked as exc:
+                log.error("files of %s stopped: %s", name, exc)
+                return EXIT_STOPPED
+            log.info("files of %s: %s", name, counts)
+            print(f"{name}: {counts}")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -523,6 +562,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return images.report_coverage(args)
     if args.command == "sfda-diff":
         return _sfda_diff(args)
+    if args.command == "sfda-list-files":
+        return asyncio.run(_sfda_list_files(args))
     if args.command == "sfda-list-details":
         return asyncio.run(_sfda_list_details(args))
     if args.command == "sfda-pictures-load":
