@@ -150,6 +150,26 @@ def _manufacturers(lines: list[str]) -> tuple[PartyDto, ...]:
     return tuple(parties)
 
 
+# The ATC field sometimes carries the code and its description together ("N02C-ANTIMIGRAINE ...").
+_ATC_SHAPE = re.compile(r"[A-Z](?:\d{2}(?:[A-Z](?:[A-Z](?:\d{2})?)?)?)?")
+_LEADING_WORD = re.compile(r"[A-Za-z0-9]+")
+
+
+def _atc_codes(values: Iterable[str | None], issues: list[str]) -> tuple[str, ...]:
+    """The code in front of each ATC value. A value with no code in it is left out and reported."""
+    codes: list[str] = []
+    for value in values:
+        if not value:
+            continue
+        leading = _LEADING_WORD.match(value.strip())
+        code = leading.group(0).upper() if leading else ""
+        if _ATC_SHAPE.fullmatch(code):
+            codes.append(code)
+        else:
+            issues.append(f"ATC value has no readable code: {value!r}")
+    return tuple(codes)
+
+
 def to_product_snapshot(
     record: Mapping[str, Any], price_currency: Currency
 ) -> MappedProduct | None:
@@ -200,7 +220,7 @@ def to_product_snapshot(
         distribution_site=_text(en, _SITE),
         authorization_status=_text(en, _AUTHORIZATION),
         marketing_status=_text(en, _MARKETING_STATUS),
-        atc_codes=tuple(code for code in (_text(en, _ATC_1), _text(en, _ATC_2)) if code),
+        atc_codes=_atc_codes((_text(en, _ATC_1), _text(en, _ATC_2)), issues),
         shelf_life=_text(en, _SHELF_LIFE),
         storage_conditions_en=_text(en, _STORAGE),
         storage_conditions_ar=_text(ar, _AR_STORAGE),

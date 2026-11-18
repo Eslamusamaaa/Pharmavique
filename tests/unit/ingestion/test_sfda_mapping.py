@@ -177,6 +177,21 @@ def test_both_atc_codes_are_kept_and_blank_ones_dropped() -> None:
     assert mapped({"ATC Code 1": "", "ATC Code 2": ""}).snapshot.atc_codes == ()
 
 
+def test_an_atc_value_that_carries_its_description_gives_the_code_in_front() -> None:
+    # seen live: "N02C-ANTIMIGRAINE PREPARATIONS" in the ATC field
+    result = mapped({"ATC Code 1": "N02C-ANTIMIGRAINE PREPARATIONS", "ATC Code 2": ""})
+
+    assert result.snapshot.atc_codes == ("N02C",)
+    assert result.issues == ()
+
+
+def test_an_atc_value_that_is_not_a_code_is_left_out_and_reported_never_guessed() -> None:
+    result = mapped({"ATC Code 1": "UNCLASSIFIED PRODUCTS", "ATC Code 2": "A07CA"})
+
+    assert result.snapshot.atc_codes == ("A07CA",)
+    assert any("ATC" in issue and "UNCLASSIFIED PRODUCTS" in issue for issue in result.issues)
+
+
 def test_without_the_arabic_page_the_arabic_fields_are_none() -> None:
     snapshot = mapped(ar=None).snapshot
 
