@@ -147,3 +147,23 @@ def test_the_no_results_page_past_the_end_of_a_list_is_an_empty_page() -> None:
 def test_a_block_page_is_still_not_mistaken_for_the_end_of_a_list() -> None:
     with pytest.raises(ParseError):
         parse_generic_page("<html><body>Please verify you are human</body></html>")
+
+
+def test_a_page_with_the_sites_pager_but_no_table_is_an_empty_page_of_the_list() -> None:
+    # seen live on drugs-safety-labeling?page=27 and new-sfda-drug-approvals?page=47: the page
+    # after the last one has the pager and no table, and no "No Results Found" text
+    html = (
+        "<html><body><main><ul>"
+        '<li class="page-item active"><span class="page-link">27</span></li>'
+        '<li><a href="?page=25">26</a></li></ul></main></body></html>'
+    )
+
+    page = parse_generic_page(html)
+
+    assert page.rows == ()
+    assert page.current_page == 26
+
+
+def test_a_page_with_neither_a_table_nor_the_pager_is_still_refused() -> None:
+    with pytest.raises(ParseError):
+        parse_generic_page("<html><body>Please verify you are human</body></html>")

@@ -88,6 +88,15 @@ def parse_generic_page(html: str) -> GenericPage:
         )
     if _is_no_results_page(soup):
         return GenericPage(headers=(), rows=(), last_page=None, current_page=None)
+    if soup.select_one("li.page-item.active") is not None:
+        # The page after the last one: the site's pager but no table (seen on two lists). A block
+        # or bot-check page has no such pager, so it still raises below.
+        return GenericPage(
+            headers=(),
+            rows=(),
+            last_page=last_page_of(soup),
+            current_page=current_page_of(soup),
+        )
     raise ParseError("no table with a header row was found")
 
 
