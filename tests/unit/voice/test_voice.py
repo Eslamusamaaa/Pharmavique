@@ -38,6 +38,9 @@ def test_a_sentence_longer_than_the_limit_is_cut_between_words() -> None:
 
 
 class FakeTTS:
+    max_segment = 200
+    media_type = "audio/wav"
+
     def __init__(self) -> None:
         self.calls: list[list[str]] = []
 
@@ -56,7 +59,8 @@ async def test_speak_sends_clean_segments_and_returns_one_audio() -> None:
 
     audio = await Speak(tts).run("هلا [1]. البنادول مسكن.")
 
-    assert audio == b"RIFF-joined"
+    assert audio.content == b"RIFF-joined"
+    assert audio.media_type == "audio/wav"
     assert tts.calls == [["هلا. البنادول مسكن."]]
 
 
@@ -69,3 +73,15 @@ async def test_transcribe_defaults_to_arabic_and_refuses_empty_audio() -> None:
     assert await Transcribe(FakeSTT()).run(b"abc", "a.m4a") == "ar:3"
     with pytest.raises(ValueError, match="audio"):
         await Transcribe(FakeSTT()).run(b"", "a.m4a")
+
+
+async def test_segments_follow_the_provider_limit() -> None:
+    class LongTTS(FakeTTS):
+        max_segment = 1000
+
+    tts = LongTTS()
+    sentence = "البنادول فيه مادة الباراسيتامول وهي مسكنة للألم وخافضة للحرارة حسب النشرة. "
+
+    await Speak(tts).run(sentence * 6)
+
+    assert len(tts.calls[0]) == 1

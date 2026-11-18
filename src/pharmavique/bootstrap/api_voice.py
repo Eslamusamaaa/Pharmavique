@@ -59,8 +59,8 @@ async def transcribe(
 @router.post(
     "/speak",
     response_class=Response,
-    responses={200: {"content": {"audio/wav": {}}}},
-    summary="Text to speech in the Saudi Arabic voice (WAV)",
+    responses={200: {"content": {"audio/mpeg": {}, "audio/wav": {}}}},
+    summary="Text to speech in the Saudi Arabic voice (MP3 or WAV, per provider)",
 )
 async def speak(body: SpeakIn, backend: Annotated[Speak, Depends(get_speak)]) -> Response:
     try:
@@ -69,4 +69,4 @@ async def speak(body: SpeakIn, backend: Annotated[Speak, Depends(get_speak)]) ->
         raise HTTPException(status_code=422, detail=str(error)) from error
     except SpeechError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
-    return Response(content=audio, media_type="audio/wav")
+    return Response(content=audio.content, media_type=audio.media_type)

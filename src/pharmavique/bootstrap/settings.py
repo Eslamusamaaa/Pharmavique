@@ -39,8 +39,13 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1024
     # Vision model that reads boxes and prescriptions (through OpenRouter).
     vision_model: str = "google/gemma-4-31b-it:free"
-    # Speech (through Groq): Whisper for speech to text, Orpheus Arabic (Saudi) for text to speech.
+    # Speech to text: Whisper through Groq.
     stt_model: str = "whisper-large-v3-turbo"
+    # Text to speech: ElevenLabs by default (owner, 2026-11-19), Groq Orpheus Arabic Saudi as the
+    # alternative. Set ELEVENLABS_VOICE_ID to a Saudi voice from the ElevenLabs voice library.
+    tts_provider: Literal["elevenlabs", "groq"] = "elevenlabs"
+    elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
+    elevenlabs_model: str = "eleven_v3"
     tts_model: str = "canopylabs/orpheus-arabic-saudi"
     tts_voice: str = "noura"  # Saudi voices: abdullah, fahad, sultan, lulwa, noura, aisha
 

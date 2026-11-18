@@ -10,6 +10,14 @@ class SpeechToText(Protocol):
 
 
 class TextToSpeech(Protocol):
+    """A voice provider. Each declares how much text one request takes and what it returns."""
+
+    @property
+    def max_segment(self) -> int: ...
+
+    @property
+    def media_type(self) -> str: ...
+
     async def synthesize(self, segments: Sequence[str]) -> bytes:
-        """One audio file (WAV) speaking every segment in order."""
+        """One audio file speaking every segment in order."""
         ...

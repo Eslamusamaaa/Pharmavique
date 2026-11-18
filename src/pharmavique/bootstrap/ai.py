@@ -18,7 +18,9 @@ from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibl
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
+from pharmavique.voice.application.ports import TextToSpeech
 from pharmavique.voice.application.speak import Speak, Transcribe
+from pharmavique.voice.infrastructure.elevenlabs_speech import ElevenLabsTextToSpeech
 from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
@@ -56,15 +58,29 @@ def build_chat_model(settings: Settings) -> Any | None:
     )
 
 
+def build_tts(settings: Settings) -> TextToSpeech | None:
+    if settings.tts_provider == "elevenlabs" and settings.elevenlabs_api_key is not None:
+        return ElevenLabsTextToSpeech(
+            settings.elevenlabs_api_key.get_secret_value(),
+            settings.elevenlabs_voice_id,
+            settings.elevenlabs_model,
+        )
+    if settings.groq_api_key is not None:
+        return GroqTextToSpeech(
+            settings.groq_api_key.get_secret_value(), settings.tts_model, settings.tts_voice
+        )
+    return None
+
+
 def build_voice(settings: Settings) -> tuple[Transcribe | None, Speak | None]:
-    """Whisper and the Saudi Arabic voice, both through Groq."""
-    if settings.groq_api_key is None:
-        return None, None
-    key = settings.groq_api_key.get_secret_value()
-    return (
-        Transcribe(GroqSpeechToText(key, settings.stt_model)),
-        Speak(GroqTextToSpeech(key, settings.tts_model, settings.tts_voice)),
-    )
+    """Whisper through Groq for listening; ElevenLabs (or Groq) for the Saudi Arabic voice."""
+    transcribe = None
+    if settings.groq_api_key is not None:
+        transcribe = Transcribe(
+            GroqSpeechToText(settings.groq_api_key.get_secret_value(), settings.stt_model)
+        )
+    tts = build_tts(settings)
+    return transcribe, (Speak(tts) if tts is not None else None)
 
 
 def build_assistant(

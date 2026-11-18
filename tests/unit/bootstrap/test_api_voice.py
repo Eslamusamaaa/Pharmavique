@@ -14,6 +14,9 @@ class FakeSTT:
 
 
 class FakeTTS:
+    max_segment = 200
+    media_type = "audio/mpeg"
+
     def __init__(self) -> None:
         self.segments: list[str] = []
 
@@ -45,7 +48,7 @@ async def test_a_text_is_spoken_as_wav_without_its_citation_marks() -> None:
         response = await c.post("/v1/voice/speak", json={"text": "البنادول مسكن [1]."})
 
     assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/wav"
+    assert response.headers["content-type"] == "audio/mpeg"
     assert response.content == b"RIFF....WAVE"
     assert tts.segments == ["البنادول مسكن."]
 

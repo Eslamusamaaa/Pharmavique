@@ -67,6 +67,9 @@ class GroqSpeechToText:
 
 
 class GroqTextToSpeech:
+    max_segment = 200  # Orpheus takes at most 200 characters per request
+    media_type = "audio/wav"
+
     def __init__(
         self, api_key: str, model: str, voice: str, client: httpx.AsyncClient | None = None
     ) -> None:

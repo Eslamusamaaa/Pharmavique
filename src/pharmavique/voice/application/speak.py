@@ -1,21 +1,30 @@
 """Use cases: speak a text in the Saudi Arabic voice, and transcribe a voice question."""
 
+from dataclasses import dataclass
+
 from pharmavique.voice.application.ports import SpeechToText, TextToSpeech
 from pharmavique.voice.domain.speech import speakable, split_for_speech
 
-MAX_TEXT = 4000  # about 20 segments; longer answers are shortened before they reach here
+MAX_TEXT = 4000  # a few spoken paragraphs; assistant answers are much shorter
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # the provider's free-tier upload limit
+
+
+@dataclass(frozen=True, slots=True)
+class SpokenAudio:
+    content: bytes
+    media_type: str  # for example "audio/mpeg" or "audio/wav"
 
 
 class Speak:
     def __init__(self, tts: TextToSpeech) -> None:
         self._tts = tts
 
-    async def run(self, text: str) -> bytes:
+    async def run(self, text: str) -> SpokenAudio:
         clean = speakable(text)[:MAX_TEXT]
         if not clean:
             raise ValueError("nothing to say")
-        return await self._tts.synthesize(split_for_speech(clean))
+        segments = split_for_speech(clean, self._tts.max_segment)
+        return SpokenAudio(await self._tts.synthesize(segments), self._tts.media_type)
 
 
 class Transcribe:
