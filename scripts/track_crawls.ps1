@@ -55,7 +55,7 @@ function Show($name, $done, $total, $gap) {
     "{0,-16}{1,4}/{2,-4} {3} {4,3}%{5}" -f $name, $done, $total, $bar, $percent, $note
 }
 
-$lists = "drug-approvals", "drug-shortage", "drug-shortage-resolved", "safety-alert", "drugs-circulars", "rmm", "dhpc"
+$lists = "drug-approvals", "drug-shortage", "drug-shortage-resolved", "safety-alert", "safety-labeling", "drugs-circulars", "rmm", "dhpc"
 
 while ($true) {
     Clear-Host
