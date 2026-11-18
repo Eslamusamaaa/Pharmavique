@@ -155,8 +155,8 @@ Started from the owner's machine in the background (hidden windows):
 
 | What | How to see it | If it died |
 |---|---|---|
-| Lists queue (`run_lists_crawl.ps1 -RunId lists-1`) restarts itself every 10 min until it exits 0 | `data/lists/watchdog-lists-1.log`, `data/lists/*/lists-1/manifest.json` | rerun the script |
-| Giants chain (waits for the line `finished` in `watchdog-lists-1.log`, then runs `run_lists_crawl.ps1 -RunId giants-1 -Lists medical-equipment,food-products,cosmetic-products`) | `data/lists/watchdog-giants-1.log` | start the script by hand |
+| Lists queue `lists-1`: **stopped on purpose at 11:42** (a list that stays partial makes the queue exit 2 forever, so the watchdog never reaches `finished`). The small lists are final: complete ones are done, the partial ones keep a recorded gap | manifests in `data/lists/*/lists-1/manifest.json` | to retry the gaps: `run_lists_crawl.ps1 -RunId lists-1` (one pass is enough) |
+| Giants `giants-1`, started directly at 11:42 (`run_lists_crawl.ps1 -RunId giants-1 -Lists medical-equipment,food-products,cosmetic-products`), restarts itself every 10 min until it exits 0 | `data/lists/watchdog-giants-1.log` | start the script by hand |
 | Retry picture pass (`sfda-images ... --retry`, then `sfda-images-verify`, then `sfda-images-map`) | `data/media/run.log` | rerun the three commands |
 | API (uvicorn) on http://127.0.0.1:8000 (`/docs`, `/v1/search`, `/v1/products/{n}`) | `curl http://127.0.0.1:8000/health` | `python -m uvicorn pharmavique.bootstrap.api:create_app --factory --port 8000` |
 
