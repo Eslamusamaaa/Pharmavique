@@ -82,6 +82,21 @@ Output: `data/lists/<list>/<run-id>/` with `manifest.json`, `records.jsonl` (one
 
 **The three giant lists** (medical equipment about 160,000 rows, food products about 1.5 million, cosmetic products about 3 million) are crawled only with `--include-giant`. At the default pace they take roughly 9 hours, 3.5 days and 7 days of list pages. They get only the two cheap targeted repair passes (not the full sweeps), so a small gap may remain; `manifest.json` reports it in `list_completeness`. Their pages are stored in sub-folders of 1,000 pages. The three giant lists use a **streaming crawler** (`list_stream.py`): each page's rows go to `records.jsonl` as soon as the page is read, only a 64-bit fingerprint per row is kept in memory (to drop repeats), and a stopped crawl continues at its last page. It makes a single pass (no repair passes), so a few rows may be missed or repeated because the list order is unstable; `manifest.json` reports `rows_read`, `unique` and `repeats`.
 
+### Quirks found while crawling the other lists
+
+- **What "past the end" looks like differs per list.** The drugs list repeats its last page with that
+  page's number; some lists answer a page with the text "No Results Found"; others answer a page
+  with the pager and no table. All three mean "the list ended"; a page with neither a table nor the
+  pager is refused (it may be a block page).
+- **Holes.** An empty page *inside* a list happens (page 119 of the feed list is empty, pages 118
+  and 120 are full). It is skipped, recorded in the manifest (`empty_pages`) and the run is
+  `partial`; five empty pages in a row stop the crawl because the site is probably failing. Empty
+  pages are not stored on disk, so a later run asks for them again.
+- **The cosmetic ingredients list (`AllCosmeticList`) has a pager that does not work with plain
+  requests**: page 0 shows 10 rows, every other page answers "No Results Found". The list is driven
+  by a filter form, which has a CAPTCHA that is never touched. Only its first 10 rows are readable;
+  the rest needs an official export (OPEN_QUESTIONS Q-29).
+
 ## Exit codes
 
 | Code | Meaning |
