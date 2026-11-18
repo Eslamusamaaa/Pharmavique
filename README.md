@@ -17,6 +17,20 @@ uv run uvicorn pharmavique.bootstrap.api:create_app --factory --reload
 # http://127.0.0.1:8000/health   and   http://127.0.0.1:8000/docs
 ```
 
+## Load the SFDA data and try the search
+
+```bash
+uv run alembic upgrade heads                                  # create the schemas
+uv run pharmavique sfda-scrape --run-id full-1                # crawl the SFDA drug list (hours; resumable)
+uv run pharmavique sfda-load --run-id full-1                  # load it into the catalog (Postgres)
+uv run pharmavique search-reindex                             # build the search index from the catalog
+uv run pharmavique search "panadool extra"                    # try it from the terminal
+# the same over HTTP: http://127.0.0.1:8000/v1/search?q=panadool%20extra  (see /docs)
+```
+
+More: [docs/SFDA_SCRAPER.md](docs/SFDA_SCRAPER.md) (crawling), [docs/MEDIA_PIPELINE.md](docs/MEDIA_PIPELINE.md)
+(product pictures), [docs/AI_ARCHITECTURE.md](docs/AI_ARCHITECTURE.md) (search, OCR and assistant plan).
+
 > The project folder is inside OneDrive. Keep the virtualenv outside it to avoid syncing thousands
 > of files, for example: `UV_PROJECT_ENVIRONMENT=$HOME/.venvs/pharmavique uv sync`.
 
