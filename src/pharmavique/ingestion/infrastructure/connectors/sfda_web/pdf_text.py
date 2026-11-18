@@ -1,12 +1,16 @@
-"""Read the text of the PDFs downloaded for a list (the safety alerts).
+"""Read the text of the PDFs downloaded for a list (the safety alerts, the DHPC letters).
 
-Only text PDFs are read: a scanned page has no text layer, so it comes back empty and is recorded
-as such (no OCR here). The text is kept with the file it came from, so every sentence can be
-traced to its source document.
+`extract_all` reads the text layer. A scanned page has none, so it comes back empty and is recorded
+as such. `ocr_empty_texts` then reads those PDFs with an OCR reader handed in by the caller and
+marks the record `ocr: true`, because OCR text can hold misread characters and must never be shown
+as exact. The text is kept with the file it came from, so every sentence can be traced to its source
+document.
 """
 
 import json
 import logging
+import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +58,46 @@ def extract_all(files_index: Path, folder: Path, out_path: Path) -> dict[str, in
                 "text": text,
             }
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return counts
+
+
+PdfOcr = Callable[[Path], str | None]  # text of a whole PDF, None when it could not be read
+
+
+def ocr_empty_texts(texts_path: Path, folder: Path, read: PdfOcr) -> dict[str, int]:
+    """Fill the records of `texts_path` that have no text by reading their PDF with `read`.
+
+    Safe to repeat: a record that has text (from the text layer or an earlier OCR) is not read
+    again. A PDF that fails or yields nothing keeps its record as it was.
+    """
+    records = [
+        json.loads(line)
+        for line in texts_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    counts = {"candidates": 0, "read": 0, "still_empty": 0, "failed": 0}
+    for record in records:
+        if record.get("text", "").strip() or not record["file"].lower().endswith(".pdf"):
+            continue
+        counts["candidates"] += 1
+        try:
+            text = read(folder / record["file"])
+        except Exception as exc:  # one bad file must not stop the others
+            _log.warning("cannot OCR %s: %s", record["file"], exc)
+            text = None
+        if text is None:
+            counts["failed"] += 1
+        elif not text.strip():
+            counts["still_empty"] += 1
+        else:
+            record.update(text=text.strip(), chars=len(text.strip()), ocr=True)
+            counts["read"] += 1
+    staged = texts_path.with_suffix(texts_path.suffix + ".tmp")
+    staged.write_text(
+        "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records),
+        encoding="utf-8",
+    )
+    os.replace(staged, texts_path)
     return counts
 
 
