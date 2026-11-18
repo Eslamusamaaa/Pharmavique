@@ -62,6 +62,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
     ListSpec,
     get_list,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import extract_all
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
 )
@@ -153,6 +154,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_fetch_options(files, default_out="data/lists")
     files.add_argument("--lists", default="safety-alert")
     files.add_argument("--list-run-id", default="lists-1", help="the list run to read links from")
+
+    texts = commands.add_parser(
+        "sfda-list-texts", help="read the text of the downloaded PDFs of a list (no network)"
+    )
+    texts.add_argument("--out", default="data/lists")
+    texts.add_argument("--lists", default="safety-alert")
+    texts.add_argument("--list-run-id", default="lists-1")
 
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
@@ -529,6 +537,18 @@ async def _sfda_list_files(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _sfda_list_texts(args: argparse.Namespace) -> int:
+    for name in args.lists.split(","):
+        run_dir = Path(args.out) / name / args.list_run_id
+        index = run_dir / "files.jsonl"
+        if not index.exists():
+            print(f"{name}: no downloaded files at {index}", file=sys.stderr)
+            continue
+        counts = extract_all(index, run_dir / "files", run_dir / "texts.jsonl")
+        print(f"{name}: {counts}")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -562,6 +582,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return images.report_coverage(args)
     if args.command == "sfda-diff":
         return _sfda_diff(args)
+    if args.command == "sfda-list-texts":
+        return _sfda_list_texts(args)
     if args.command == "sfda-list-files":
         return asyncio.run(_sfda_list_files(args))
     if args.command == "sfda-list-details":
