@@ -35,7 +35,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import Snaps
 from pharmavique.shared_kernel.ports import Clock
 
 _MAX_RECORDED_ITEMS = 200
-_SORT_PASSES = {101: "asc", 102: "desc"}  # pass numbers of the sorted sweeps (see ListSpec)
+_SORT_PASS_BASE = 101  # pass numbers of the sorted sweeps start here (see ListSpec.sort_fields)
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +169,10 @@ class ListCrawler:
         )
         manifest["status"] = "partial" if self._partial(manifest) else "complete"
 
+    def _sorts(self) -> dict[int, tuple[str, str]]:
+        orders = [(field, way) for field in self._spec.sort_fields for way in ("asc", "desc")]
+        return {_SORT_PASS_BASE + index: order for index, order in enumerate(orders)}
+
     async def _sorted_sweeps(self, result: WalkResult[GenericRow]) -> None:
         """Close a gap left by ties in the site's order by reading the list sorted by title.
 
@@ -177,12 +181,12 @@ class ListCrawler:
         """
         if not self._spec.sortable or result.expected is None or result.real_last is None:
             return
-        for pass_no in _SORT_PASSES:
+        for pass_no, sort in self._sorts().items():
             if len(result.known) >= result.expected:
                 return
             self._log.info(
                 "sorted sweep %s: %s of %s rows known",
-                _SORT_PASSES[pass_no],
+                sort,
                 len(result.known),
                 result.expected,
             )
@@ -222,7 +226,7 @@ class ListCrawler:
                 self._bump("list_pages_reused")
                 return parsed
         page, parsed = await self._polite.fetch_valid(
-            self._spec.url(self._config.base_url, page_no, _SORT_PASSES.get(pass_no)),
+            self._spec.url(self._config.base_url, page_no, self._sorts().get(pass_no)),
             parse_generic_page,
         )
         if worth_storing(parsed, page_no):

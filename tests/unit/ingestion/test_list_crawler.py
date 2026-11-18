@@ -260,7 +260,7 @@ class TiedOrderFetcher:
 async def test_a_gap_from_ties_in_the_default_order_is_closed_by_sorting_by_title(
     tmp_path: Path,
 ) -> None:
-    spec = ListSpec("tied", "/en/tied", "Tied", 2, sortable=True)
+    spec = ListSpec("tied", "/en/tied", "Tied", 2, sort_fields=("title",))
     fetcher = TiedOrderFetcher()
     store = SnapshotStore(tmp_path, "run-1")
     made = ListCrawler(

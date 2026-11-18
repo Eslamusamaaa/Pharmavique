@@ -19,10 +19,10 @@ class ListSpec:
     path: str  # path of the list page on the SFDA site
     title: str
     probed_pages: int  # the pager's last page when probed; a guide, not a rule
-    # True when the list page also answers `?order=title&sort=asc|desc` (checked live 2026-11-18).
+    # Fields the list page answers in `?order=<field>&sort=asc|desc` (checked live 2026-11-18).
     # It is a plain query on the list page, not the filter form, and it breaks ties in the site's
-    # default order, so a second ordering reaches rows the default order never shows.
-    sortable: bool = False
+    # default order, so another ordering reaches rows the default order never shows.
+    sort_fields: tuple[str, ...] = ()
 
     @property
     def source(self) -> str:
@@ -40,8 +40,13 @@ class ListSpec:
     def max_passes(self, wanted: int) -> int:
         return min(wanted, GIANT_MAX_PASSES) if self.is_giant else wanted
 
-    def url(self, base_url: str, page: int, sort: str | None = None) -> str:
-        suffix = f"&order=title&sort={sort}" if sort else ""
+    @property
+    def sortable(self) -> bool:
+        return bool(self.sort_fields)
+
+    def url(self, base_url: str, page: int, sort: tuple[str, str] | None = None) -> str:
+        """The list page; `sort` is (field, "asc"|"desc") and must be one of `sort_fields`."""
+        suffix = f"&order={sort[0]}&sort={sort[1]}" if sort else ""
         return f"{base_url}{self.path}?page={page}{suffix}"
 
 
@@ -53,9 +58,9 @@ SFDA_LISTS: tuple[ListSpec, ...] = (
         "/en/drugs-safety-labeling",
         "Drugs Safety Labeling Updates",
         26,
-        sortable=True,
+        sort_fields=("title", "field_trade_name"),
     ),
-    ListSpec("safety-alert", "/en/safety_alert", "Safety Alert", 27, sortable=True),
+    ListSpec("safety-alert", "/en/safety_alert", "Safety Alert", 27, sort_fields=("title",)),
     ListSpec(
         "unregistered-pharmaceuticals",
         "/en/unregistered-pharmaceuticals-lists",
@@ -64,7 +69,11 @@ SFDA_LISTS: tuple[ListSpec, ...] = (
     ),
     ListSpec("pharmacies", "/en/list_registered_pharmacies", "Licensed Pharmacies", 38),
     ListSpec(
-        "drug-approvals", "/en/new-sfda-drug-approvals", "New drug approvals", 46, sortable=True
+        "drug-approvals",
+        "/en/new-sfda-drug-approvals",
+        "New drug approvals",
+        46,
+        sort_fields=("title",),
     ),
     ListSpec("drug-companies", "/en/drug-companies", "Drug Companies", 616),
     ListSpec("vet-drugs", "/en/vet-drugs", "Veterinary drugs", 136),
