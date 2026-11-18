@@ -1,4 +1,9 @@
-"""The assistant's rules: answers only from cited sources, no dosing, never "stop" or "switch"."""
+"""The assistant's response policy (owner, 2026-11-19): helpful by default, firm only on danger.
+
+- Registry facts come from tools with citations; general information is allowed and labelled.
+- Hard limits: no personal dose numbers, no telling someone to stop or switch a medicine on their
+  own (consulting a doctor first is fine), emergencies get an immediate "call 997" reply.
+"""
 
 from typing import ClassVar
 
@@ -7,11 +12,13 @@ import pytest
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.application.ports import AgentRun
 from pharmavique.assistant.domain.answers import (
+    EMERGENCY_REPLY,
     NOT_IN_SOURCES,
     RULE_REFUSAL,
     Citation,
     Level,
     breaks_rules,
+    is_emergency,
 )
 
 CITE = Citation("catalog:1-1", "بانادول 500 ملجم", "https://www.sfda.gov.sa/x", "catalog", None)
@@ -40,19 +47,61 @@ async def test_a_grounded_answer_is_returned_with_its_citations() -> None:
     assert runner.seen == [("ايه المادة الفعالة؟", Level.PATIENT, "1-1")]
 
 
-async def test_an_answer_without_any_source_says_so_instead_of_guessing() -> None:
-    answer = await AskAssistant(FakeRunner("It treats headaches.", ())).ask(
-        "what is it for?", Level.PATIENT, None
-    )
+async def test_a_general_answer_without_a_source_is_kept_and_labelled_general() -> None:
+    text = "أيوه، البنادول مسكن متاح بدون وصفة، ولو عندك مشكلة في الكبد اسأل الصيدلي."
+
+    answer = await AskAssistant(FakeRunner(text, ())).ask("ينفع آخد بنادول؟", Level.PATIENT, None)
+
+    assert answer.text == text
+    assert answer.grounded is False
+    assert answer.general is True
+
+
+async def test_an_empty_model_answer_says_it_found_nothing() -> None:
+    answer = await AskAssistant(FakeRunner("  ", ())).ask("x", Level.PATIENT, None)
 
     assert answer.text == NOT_IN_SOURCES
-    assert answer.grounded is False
+    assert answer.general is False
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "بلعت علبة بنادول كاملة",
+        "ابني بلع شريط بنادول كامل",
+        "بنتي شربت نص زجاجة الشراب",
+        "ابني شرب الشراب كله بالغلط",
+        "عندي ضيق تنفس وتورم في وشي بعد الدوا",
+        "I took an overdose of my pills",
+        "عايز أموت",
+    ],
+)
+def test_emergencies_are_recognised(question: str) -> None:
+    assert is_emergency(question)
+
+
+@pytest.mark.parametrize(
+    "question", ["ينفع آخد بنادول؟", "ايه الفرق بين بنادول وبنادول اكسترا؟", "سعره كام؟"]
+)
+def test_ordinary_questions_are_not_emergencies(question: str) -> None:
+    assert not is_emergency(question)
+
+
+async def test_an_emergency_gets_the_emergency_reply_without_a_model_call() -> None:
+    runner = FakeRunner("x")
+
+    answer = await AskAssistant(runner).ask("بلعت علبة بنادول كاملة", Level.PATIENT, None)
+
+    assert answer.text == EMERGENCY_REPLY
+    assert answer.urgent is True
+    assert "997" in answer.text
+    assert runner.seen == []
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "توقف عن تناول الدواء فورًا",
+        "توقف عن تناول دواء الضغط فورًا",
         "استبدله ببانادول",
         "خذ قرصين 3 مرات يوميا",
         "Take 500 mg twice a day",
@@ -68,6 +117,10 @@ def test_dosing_stop_and_switch_instructions_break_the_rules(text: str) -> None:
     "text",
     [
         "المادة الفعالة هي الباراسيتامول بتركيز 500 ملجم.",
+        "متوقفش عن أي دواء موصوف لك قبل ما تسأل دكتورك.",
+        "لو حصل لك طفح جلدي شديد، توقف عن تناوله واتصل بالطبيب فورًا.",
+        "Ask your doctor before you stop taking it.",
+        "مفيش موانع عامة، بس لو عندك مرض مزمن اسأل الصيدلي.",
         "يوجد منتجات بنفس المادة الفعالة؛ الصيدلي يقرر إن كانت مناسبة لك.",
         "The registered strength is 500 mg.",
     ],

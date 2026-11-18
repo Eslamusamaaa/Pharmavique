@@ -80,7 +80,8 @@ async def test_the_system_prompt_carries_the_level_and_the_product() -> None:
     system = model.seen[0][0].content
     assert "pharmacist" in system
     assert "1-1" in system
-    assert "Never give a dose" in system
+    assert "Never give a personal dose" in system
+    assert "997" in system
     assert run.citations == ()
 
 
