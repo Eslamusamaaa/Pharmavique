@@ -62,7 +62,13 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
     ListSpec,
     get_list,
 )
-from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import extract_all
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_ocr_windows import (
+    windows_pdf_ocr,
+)
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import (
+    extract_all,
+    ocr_empty_texts,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
 )
@@ -161,6 +167,14 @@ def build_parser() -> argparse.ArgumentParser:
     texts.add_argument("--out", default="data/lists")
     texts.add_argument("--lists", default="safety-alert")
     texts.add_argument("--list-run-id", default="lists-1")
+
+    ocr = commands.add_parser(
+        "sfda-list-ocr",
+        help="read scanned PDFs (no text layer) with the Windows OCR; no network, safe to repeat",
+    )
+    ocr.add_argument("--out", default="data/lists")
+    ocr.add_argument("--lists", default="dhpc")
+    ocr.add_argument("--list-run-id", default="lists-1")
 
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
@@ -549,6 +563,20 @@ def _sfda_list_texts(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _sfda_list_ocr(args: argparse.Namespace) -> int:
+    for name in args.lists.split(","):
+        run_dir = Path(args.out) / name / args.list_run_id
+        texts = run_dir / "texts.jsonl"
+        if not texts.exists():
+            print(
+                f"{name}: no extracted texts at {texts}; run sfda-list-texts first", file=sys.stderr
+            )
+            continue
+        counts = ocr_empty_texts(texts, run_dir / "files", windows_pdf_ocr)
+        print(f"{name}: {counts}")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -584,6 +612,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sfda_diff(args)
     if args.command == "sfda-list-texts":
         return _sfda_list_texts(args)
+    if args.command == "sfda-list-ocr":
+        return _sfda_list_ocr(args)
     if args.command == "sfda-list-files":
         return asyncio.run(_sfda_list_files(args))
     if args.command == "sfda-list-details":
