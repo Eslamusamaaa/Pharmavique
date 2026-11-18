@@ -84,6 +84,55 @@ class PricePointRow(Base):
     provenance_trust: Mapped[str] = mapped_column(String(32))
 
 
+class SourceListRowRow(Base):
+    """One row of an official SFDA list, as the site showed it, with its provenance."""
+
+    __tablename__ = "source_list_rows"
+
+    list_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    row_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    entity_key: Mapped[str] = mapped_column(Text)
+    link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cells: Mapped[list[Any]] = mapped_column(JSONB)
+    list_page: Mapped[int] = mapped_column(Integer)
+    provenance_source: Mapped[str] = mapped_column(Text)
+    provenance_source_ref: Mapped[str] = mapped_column(Text)
+    provenance_fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    provenance_snapshot_id: Mapped[str] = mapped_column(Text)
+    provenance_trust: Mapped[str] = mapped_column(String(32))
+
+
+class SourceListLinkRow(Base):
+    """A list row linked to a product, with how sure the link is (`matched` or `possible`)."""
+
+    __tablename__ = "source_list_links"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["list_name", "row_key"],
+            [f"{SCHEMA}.source_list_rows.list_name", f"{SCHEMA}.source_list_rows.row_key"],
+            ondelete="CASCADE",
+            name="fk_source_list_links_row",
+        ),
+        ForeignKeyConstraint(
+            ["market", "register_number"],
+            [f"{SCHEMA}.products.market", f"{SCHEMA}.products.register_number"],
+            ondelete="CASCADE",
+            name="fk_source_list_links_product",
+        ),
+        CheckConstraint("confidence in ('matched', 'possible')", name="ck_source_list_links"),
+        Index("ix_source_list_links_product", "market", "register_number"),
+    )
+
+    list_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    row_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    market: Mapped[str] = mapped_column(String(2), primary_key=True)
+    register_number: Mapped[str] = mapped_column(Text, primary_key=True)
+    confidence: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(Text)
+
+
 class OutboxRow(Base):
     """Integration events waiting to be delivered, written in the same transaction as the change."""
 

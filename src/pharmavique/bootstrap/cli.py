@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from pharmavique.bootstrap import images, search_cli
+from pharmavique.bootstrap import images, lists_cli, search_cli
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.handlers import (
     ApplyCatalogChangesHandler,
@@ -134,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
+    lists_cli.add_arguments(commands)
 
     load = commands.add_parser(
         "sfda-load", help="load a stored run into the catalog database (safe to repeat)"
@@ -482,6 +483,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return images.report_coverage(args)
     if args.command == "sfda-diff":
         return _sfda_diff(args)
+    if args.command == "sfda-lists-load":
+        return asyncio.run(lists_cli.load(args))
     if args.command == "sfda-load":
         return asyncio.run(_sfda_load(args))
     raise AssertionError(f"unhandled command {args.command!r}")  # pragma: no cover
