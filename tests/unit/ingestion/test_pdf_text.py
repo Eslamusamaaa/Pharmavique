@@ -1,12 +1,14 @@
 """Text of downloaded PDFs, on a tiny PDF built in the test."""
 
 import json
+import zipfile
 from pathlib import Path
 
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import (
     extract_all,
     extract_pdf_text,
     ocr_empty_texts,
+    ocr_image_texts,
 )
 
 
@@ -165,3 +167,87 @@ def test_repeating_the_ocr_does_not_read_the_same_pdf_again(tmp_path: Path) -> N
     ocr_empty_texts(out, folder, reader)
 
     assert calls == ["b.pdf"]
+
+
+def tiny_docx(*paragraphs: str) -> bytes:
+    import io
+
+    body = "".join(f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>" for text in paragraphs)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{body}</w:body></w:document>"
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("word/document.xml", xml)
+    return buffer.getvalue()
+
+
+def _index(path: Path, rows: list[tuple[str, str]]) -> None:
+    path.write_text(
+        "".join(
+            json.dumps({"key": key, "file": name, "source_ref": f"https://x/{name}"}) + "\n"
+            for key, name in rows
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_a_word_file_is_read_paragraph_by_paragraph(tmp_path: Path) -> None:
+    folder = tmp_path / "files"
+    folder.mkdir()
+    (folder / "a.docx").write_bytes(tiny_docx("Safety signal", "Recommendations"))
+    index = tmp_path / "files.jsonl"
+    _index(index, [("A#1", "a.docx")])
+    out = tmp_path / "texts.jsonl"
+
+    counts = extract_all(index, folder, out)
+
+    assert counts["extracted"] == 1
+    assert _read(out)[0]["text"] == "Safety signal\n\nRecommendations"
+    assert "ocr" not in _read(out)[0]
+
+
+def test_a_picture_gets_its_text_from_ocr_once_and_is_marked_as_ocr(tmp_path: Path) -> None:
+    folder = tmp_path / "files"
+    folder.mkdir()
+    index = tmp_path / "files.jsonl"
+    _index(index, [("A#1", "a.pdf"), ("B#2", "b.jpg"), ("C#3", "c.png"), ("D#4", "d.jpg")])
+    out = tmp_path / "texts.jsonl"
+    _texts(
+        out,
+        [{"key": "A#1", "file": "a.pdf", "source_ref": "u", "pages": 1, "chars": 1, "text": "x"}],
+    )
+    asked: list[str] = []
+
+    def reader(path: Path) -> str | None:
+        asked.append(path.name)
+        return None if path.name == "d.jpg" else f"text of {path.name}"
+
+    counts = ocr_image_texts(index, folder, out, reader)
+
+    assert asked == ["b.jpg", "c.png", "d.jpg"]  # the PDF is not a picture
+    assert counts == {"candidates": 3, "read": 2, "still_empty": 0, "failed": 1}
+    rows = {row["key"]: row for row in _read(out)}
+    assert rows["B#2"]["text"] == "text of b.jpg"
+    assert rows["B#2"]["ocr"] is True
+    assert rows["B#2"]["source_ref"] == "https://x/b.jpg"
+    assert "D#4" not in rows  # a failed picture is retried next time, not stored as empty
+
+    asked.clear()
+    ocr_image_texts(index, folder, out, reader)
+    assert asked == ["d.jpg"]
+
+
+def test_a_picture_with_no_readable_text_is_not_stored(tmp_path: Path) -> None:
+    folder = tmp_path / "files"
+    folder.mkdir()
+    index = tmp_path / "files.jsonl"
+    _index(index, [("B#2", "b.jpg")])
+    out = tmp_path / "texts.jsonl"
+
+    counts = ocr_image_texts(index, folder, out, lambda path: "  ")
+
+    assert counts == {"candidates": 1, "read": 0, "still_empty": 1, "failed": 0}
+    assert not out.exists() or _read(out) == []
