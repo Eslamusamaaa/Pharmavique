@@ -46,20 +46,28 @@ def add_arguments(commands: Any) -> None:
     load.add_argument("--root", default="data/lists")
 
 
-def read_details(path: Path) -> dict[str, tuple[tuple[str, str], ...]]:
-    """The detail pages stored next to a list's records (empty when none were fetched)."""
-    if not path.exists():
-        return {}
+def read_details(run_dir: Path) -> dict[str, tuple[tuple[str, str], ...]]:
+    """What was fetched behind a list's rows: detail pages (`details.jsonl`) and the text of
+    downloaded documents (`texts.jsonl`, as a `Document text` pair). Empty when nothing was."""
     found: dict[str, tuple[tuple[str, str], ...]] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            record = json.loads(line)
-            found[record["key"]] = tuple((d["label"], d["value"]) for d in record["detail"])
+    details = run_dir / "details.jsonl"
+    if details.exists():
+        for line in details.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                record = json.loads(line)
+                found[record["key"]] = tuple((d["label"], d["value"]) for d in record["detail"])
+    texts = run_dir / "texts.jsonl"
+    if texts.exists():
+        for line in texts.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                record = json.loads(line)
+                pairs = (("Document text", record["text"]), ("Document", record["source_ref"]))
+                found[record["key"]] = found.get(record["key"], ()) + pairs
     return found
 
 
 def read_rows(path: Path) -> list[SourceListRow]:
-    details = read_details(path.with_name("details.jsonl"))
+    details = read_details(path.parent)
     rows: list[SourceListRow] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
