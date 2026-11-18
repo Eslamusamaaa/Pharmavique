@@ -1,4 +1,4 @@
-"""Ports of the knowledge application layer. Adapters live in `infrastructure` (ADR-005, ADR-006)."""
+"""Ports of the knowledge application layer; adapters live in `infrastructure` (ADR-005, 006)."""
 
 from collections.abc import Sequence
 from typing import Protocol

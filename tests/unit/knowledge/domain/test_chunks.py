@@ -1,5 +1,7 @@
 """Chunks of official documents: deterministic, never mixing documents, always with provenance."""
 
+import itertools
+
 from pharmavique.knowledge.domain.chunks import SourceDocument, chunk_document
 
 
@@ -53,7 +55,7 @@ def test_a_long_document_is_cut_into_bounded_overlapping_chunks() -> None:
     assert len(chunks) > 3
     assert all(len(c.text) <= 500 for c in chunks)
     assert [c.position for c in chunks] == list(range(len(chunks)))
-    for left, right in zip(chunks, chunks[1:], strict=False):
+    for left, right in itertools.pairwise(chunks):
         assert left.text.split()[-1] in right.text  # the end of one chunk opens the next
     words = set(text.split())
     assert words <= {w for c in chunks for w in c.text.split()}  # nothing is lost
@@ -76,4 +78,5 @@ def test_chunk_ids_are_stable_and_change_with_text_or_document() -> None:
 def test_ocr_text_is_marked_on_every_chunk() -> None:
     text = "\n\n".join(paragraph("x", 80) for _ in range(4))
     chunks = chunk_document(doc(text, ocr=True), size=400, overlap=50)
-    assert chunks and all(c.ocr for c in chunks)
+    assert chunks
+    assert all(c.ocr for c in chunks)

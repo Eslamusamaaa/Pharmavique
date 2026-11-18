@@ -12,7 +12,7 @@ from dataclasses import dataclass
 DEFAULT_SIZE = 1200
 DEFAULT_OVERLAP = 200
 
-_SPACES = re.compile(r"[ \t ]+")
+_SPACES = re.compile("[ \\t\\u00a0]+")  # spaces, tabs and no-break spaces
 _BLANK_LINES = re.compile(r"\n\s*\n+")
 
 
