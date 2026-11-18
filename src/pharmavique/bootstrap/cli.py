@@ -48,6 +48,9 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_crawler impor
     ListCrawlConfig,
     ListCrawler,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_details import (
+    ListDetailCrawler,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_stream import (
     StreamingListCrawler,
 )
@@ -131,6 +134,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lists.add_argument("--max-pages", type=int, help="only crawl this many pages per list (sample)")
     lists.add_argument("--show", action="store_true", help="print the known lists and stop")
+
+    details = commands.add_parser(
+        "sfda-list-details",
+        help="fetch the detail pages of list rows that link to one (approvals, shortages)",
+    )
+    _add_fetch_options(details, default_out="data/lists")
+    details.add_argument("--lists", default="drug-approvals,drug-shortage")
+    details.add_argument("--list-run-id", default="lists-1", help="the list run to read links from")
 
     images.add_arguments(commands)
     search_cli.add_arguments(commands)
@@ -450,6 +461,34 @@ async def _sfda_load(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def _sfda_list_details(args: argparse.Namespace) -> int:
+    log = logging.getLogger("sfda.cli")
+    robots = await _load_robots(args.base_url, args.user_agent)
+    clock = SystemClock()
+    async with PlaywrightPageFetcher(
+        user_agent=args.user_agent,
+        throttle=Throttle(args.delay, args.jitter),
+        clock=clock,
+        java_script=args.enable_js,
+        headless=not args.headed,
+    ) as fetcher:
+        crawler = ListDetailCrawler(fetcher=fetcher, robots=robots, base_url=args.base_url)
+        for name in args.lists.split(","):
+            run_dir = Path(args.out) / name / args.list_run_id
+            records = SnapshotStore(Path(args.out) / name, args.list_run_id).read_records()
+            if not records:
+                print(f"{name}: no stored records in {run_dir}", file=sys.stderr)
+                continue
+            try:
+                counts = await crawler.run(records, run_dir / "details.jsonl")
+            except SourceBlocked as exc:
+                log.error("details of %s stopped: %s", name, exc)
+                return EXIT_STOPPED
+            log.info("details of %s: %s", name, counts)
+            print(f"{name}: {counts}")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -483,6 +522,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return images.report_coverage(args)
     if args.command == "sfda-diff":
         return _sfda_diff(args)
+    if args.command == "sfda-list-details":
+        return asyncio.run(_sfda_list_details(args))
     if args.command == "sfda-lists-load":
         return asyncio.run(lists_cli.load(args))
     if args.command == "sfda-load":
