@@ -158,3 +158,14 @@ The owner limited the lists to what the product uses: drugs, safety-labeling, sa
   retries and the restart script (`scripts/resume_sfda_scrape.ps1`) absorbed.
 - A resume stops after 15 failing pages in a row, so with the 18 empty pages in the list it will not
   finish by itself; that is expected.
+
+## Loading the lists into the catalog and linking them to drugs (2026-11-18)
+
+`pharmavique sfda-lists-load` replaces each of the six product lists (safety-labeling, safety-alert, drug-shortage, drug-approvals, drug-companies, pharmacies) in `catalog.source_list_rows` and writes `catalog.source_list_links` (migration `catalog_0002`, reversible). Rows keep their provenance and trust. A link is `matched` (evidence agrees) or `possible` (needs a person or a pharmacist), never a claim of identity on thin evidence:
+
+- safety-labeling, drug-approvals: same brand and same set of substances is `matched`; same brand with a different substance set is `possible`; an unknown brand never links, even if the substance is known;
+- drug-shortage (generic name only) and safety-alert (a title that names an ingredient): always `possible`;
+- drug-companies: `matched` when the company name (country suffix dropped) equals a manufacturer, marketing company or agent of a product;
+- pharmacies: no drug link (they feed the nearby-pharmacy map).
+
+First load (lists-1): safety-labeling 241 rows, 113 linked; safety-alert 276, 221 linked (4,448 possible links, noisy by design); drug-shortage 723, 708 linked; drug-approvals 462, 448 linked; drug-companies 6,135, 2,045 linked; pharmacies 385, none. Strength is not compared yet, so a link means "this brand or substance", not "this exact pack".
