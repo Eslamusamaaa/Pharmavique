@@ -18,6 +18,10 @@ Last updated: 2026-11-17. The three roles (patient, pharmacist, pharma company) 
 | 2026-11-17 | **Look-alike sound-alike (LASA) name warnings** are an early feature | Computed from the catalog names (about 9,000) with string and phonetic similarity, in Arabic and English. Informational only: "a similar name exists, double-check". Also lowers OCR confidence for confusable names |
 | 2026-11-17 | **SFDA safety bulletins linked to the drug page** is the first extra data source | The monthly "Recalls, Market Withdrawals & Safety Alerts" PDF. Product matching is reviewed by a person. We show what SFDA published, with a link, and no advice. Same unverified SFDA reuse status (DATA_SOURCES SA-2) |
 
+| 2026-11-18 | Phase 2 scope: safety engine, explainer, prescription scanner, comparison, price and recall intelligence, Arabic intelligence, pharmacist workspace | Details and limits in `docs/PHASE_2_PLAN.md` |
+| 2026-11-18 | App in **React Native with Expo**; LangGraph and LangChain for the assistant (infrastructure only); pgvector in our Postgres | |
+| 2026-11-18 | **Interaction and contraindication checking deferred**; hosted model providers (free tiers included) allowed for photos, voice and lists; embeddings by external API, no local model | Privacy risk accepted by the owner |
+
 ### Later decisions (2026-11-17)
 
 - The feature build order was approved by the owner (see "Build order").
