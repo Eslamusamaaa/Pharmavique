@@ -74,10 +74,27 @@ uv run pharmavique sfda-images-report                             # coverage and
   `picture_check`, source page and image address.
 - `media/placeholders/*.svg`: the dosage-form stand-ins.
 
+## Result of the first full run (2026-11-18)
+
+9,162 drugs, one mapping row each:
+
+| | Drugs |
+|---|---|
+| Real picture from a Saudi pharmacy | **2,754** (30%) |
+| of which the text on the box confirms the brand (`confirmed`) | 1,377 |
+| of which `likely` (ingredient and strength read, brand not) | 90 |
+| of which the box shows another strength of the same brand (`strength_conflict`) | 359 |
+| of which not confirmed (text not readable or different) | 928 |
+| No real picture: a marked dosage-form placeholder | **6,408** (70%) |
+
+The placeholders are tablets 2,591, injections 2,300, capsules 586, liquids 461, topical 194,
+drops 112, inhalers 99, suppositories 49 and other 16. About 165 drugs were not tried because a
+shop (Aljawaher) was cooling down at the end; `sfda-images --retry` works them again.
+
 ## Known limits
 
-- **Coverage is bounded by what shops sell.** About a quarter of the drugs have a real picture
-  from the pharmacies in the list; the rest wait for another source (manufacturers or distributors
+- **Coverage is bounded by what shops sell.** 30% of the drugs have a real picture from the
+  pharmacies in the list; the rest wait for another source (manufacturers or distributors
   supplying their pack shots) or keep the placeholder.
 - **The OCR cannot read everything**: tiny pictures, decorative lettering and some Arabic packs.
 - **Drugs whose SFDA details page is empty** (18 of 9,162; the page exists but its table is empty)
