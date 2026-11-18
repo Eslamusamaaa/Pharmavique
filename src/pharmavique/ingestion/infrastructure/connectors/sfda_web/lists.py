@@ -63,6 +63,11 @@ SFDA_LISTS: tuple[ListSpec, ...] = (
     ),
     ListSpec("safety-alert", "/en/safety_alert", "Safety Alert", 27, sort_fields=("title",)),
     ListSpec(
+        "drugs-circulars", "/en/drugs_circulars_withdrawal", "Drug circulars and withdrawals", 16
+    ),
+    ListSpec("rmm", "/en/RMM", "Risk minimization measures", 57),
+    ListSpec("dhpc", "/en/pharmacovigilance", "Pharmacovigilance letters (DHPC)", 10),
+    ListSpec(
         "unregistered-pharmaceuticals",
         "/en/unregistered-pharmaceuticals-lists",
         "Unregistered pharmaceuticals (Incentive Project List)",
