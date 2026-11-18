@@ -54,6 +54,11 @@ class FakeReader:
         ]
         return rows[:limit]
 
+    async def with_ingredient_set(
+        self, market: Market, names: Sequence[str], limit: int
+    ) -> list[StoredProduct]:
+        return []
+
 
 async def test_a_card_carries_the_names_ingredients_and_status_search_needs() -> None:
     product = stored(

@@ -9,6 +9,7 @@ from pharmavique.catalog.domain.values import ProductId
 from pharmavique.shared_kernel.events import IntegrationEvent
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.ports import UnitOfWork
+from pharmavique.shared_kernel.provenance import Provenance
 
 
 class ConcurrentModification(Exception):
@@ -30,6 +31,7 @@ class StoredProduct:
     id: ProductId
     data: ProductData
     listing_status: ListingStatus
+    provenance: Provenance | None = None  # filled by readers that load it (the detail view)
 
 
 class ProductReader(Protocol):
@@ -41,6 +43,12 @@ class ProductReader(Protocol):
 
     async def page(self, market: Market, after: str | None, limit: int) -> list[StoredProduct]:
         """Products of the market with a register number above `after`, in order."""
+        ...
+
+    async def with_ingredient_set(
+        self, market: Market, names: Sequence[str], limit: int
+    ) -> list[StoredProduct]:
+        """Products whose ingredient names, compared case-insensitively, are exactly `names`."""
         ...
 
 

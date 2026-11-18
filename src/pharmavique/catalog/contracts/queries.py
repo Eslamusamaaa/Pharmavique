@@ -7,6 +7,8 @@ projection from cards and can rebuild it at any time from `export_cards`.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Protocol
 
 from pharmavique.shared_kernel.market import Market
@@ -32,6 +34,53 @@ class ProductCard:
 
 
 @dataclass(frozen=True, slots=True)
+class IngredientDetail:
+    name: str
+    strength: str | None  # as a plain decimal string; None when the source gives none
+    unit: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PriceDetail:
+    amount: Decimal
+    currency_code: str | None
+    currency_basis: str  # "source_stated", "owner_assumption" or "unconfirmed"; always shown
+
+
+@dataclass(frozen=True, slots=True)
+class Maker:
+    name: str
+    country: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ProductDetails:
+    """Everything the drug page shows about one product, with its provenance.
+
+    Values are as the source states them; `None` means "not stated", never a default.
+    """
+
+    card: ProductCard
+    ingredients: tuple[IngredientDetail, ...]
+    route_en: str | None
+    route_ar: str | None
+    package_type: str | None
+    package_size: int | None
+    legal_status: str | None
+    distribution_site: str | None
+    shelf_life: str | None  # the source states no unit
+    storage_en: str | None
+    storage_ar: str | None
+    marketing_company_country: str | None
+    manufacturers: tuple[Maker, ...]
+    price: PriceDetail | None
+    source: str | None
+    source_ref: str | None
+    fetched_at: datetime | None
+    trust: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class CardPage:
     cards: tuple[ProductCard, ...]
     next_after: str | None  # pass as `after` to get the next page; None after the last page
@@ -46,4 +95,21 @@ class CatalogQueries(Protocol):
 
     async def export_cards(self, market: Market, after: str | None, limit: int) -> CardPage:
         """Every product of the market in register-number order, `limit` at a time."""
+        ...
+
+
+class CatalogDetails(Protocol):
+    """The drug page's read side: one product in full, and products with its ingredients."""
+
+    async def get_details(self, market: Market, register_number: str) -> ProductDetails | None:
+        """The full detail view of one product, or None when it is not in the catalog."""
+        ...
+
+    async def same_ingredients(
+        self, market: Market, register_number: str, limit: int
+    ) -> tuple[ProductDetails, ...]:
+        """Other products with exactly the same set of active ingredient names.
+
+        Same names only: whether they are interchangeable is decided by `substitution`.
+        """
         ...
