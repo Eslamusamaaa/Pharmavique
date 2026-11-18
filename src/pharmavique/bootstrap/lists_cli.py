@@ -27,6 +27,9 @@ EXIT_NO_DATABASE = 4
 PRODUCT_LISTS = (
     "safety-labeling",
     "safety-alert",
+    "drugs-circulars",
+    "rmm",
+    "dhpc",
     "drug-shortage",
     "drug-shortage-resolved",
     "drug-approvals",
@@ -41,7 +44,7 @@ def add_arguments(commands: Any) -> None:
         help="load stored SFDA lists into the catalog and link them to drugs (safe to repeat)",
     )
     load.add_argument(
-        "--lists", help="comma separated list names (default: the six the product uses)"
+        "--lists", help="comma separated list names (default: the lists the product uses)"
     )
     load.add_argument("--run-id", default="lists-1")
     load.add_argument("--root", default="data/lists")
