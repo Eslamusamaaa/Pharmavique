@@ -41,7 +41,7 @@ class ProductOut(BaseModel):
 
 
 class SearchHitOut(ProductOut):
-    score: float
+    score: float  # the best similarity any signal found, 0 to 1; the list is ordered by rank
     exact: bool
     reasons: list[ReasonOut]
 
@@ -105,7 +105,7 @@ async def search(
     hits = [
         SearchHitOut(
             **_product(by_number[m.register_number]).model_dump(),
-            score=m.score,
+            score=max(r.score for r in m.reasons),
             exact=m.exact,
             reasons=[ReasonOut(signal=r.signal, rank=r.rank, score=r.score) for r in m.reasons],
         )

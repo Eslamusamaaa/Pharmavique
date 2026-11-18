@@ -90,6 +90,9 @@ async def test_a_misspelled_name_returns_the_drug_with_its_card_and_why(
     assert top["ingredients"] == ["PARACETAMOL"]
     assert top["reasons"][0]["signal"] == "fuzzy"
     assert top["exact"] is False
+    # the score a person can read: the best similarity any signal found, from 0 to 1
+    assert 0.3 < top["score"] <= 1.0
+    assert top["score"] == max(r["score"] for r in top["reasons"])
     assert "not medical advice" in body["disclaimer"].lower()
 
 
@@ -98,6 +101,7 @@ async def test_a_register_number_is_an_exact_match(client: httpx.AsyncClient) ->
 
     assert body["results"][0]["register_number"] == "1-200"
     assert body["results"][0]["exact"] is True
+    assert body["results"][0]["score"] == 1.0
 
 
 async def test_arabic_queries_work(client: httpx.AsyncClient) -> None:
