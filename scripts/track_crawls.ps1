@@ -76,6 +76,12 @@ while ($true) {
             $files = Distinct-Keys "$run\files.jsonl"
             Show "  files" $files.Count (Rows-With-Link $records '\.(pdf|docx?|jpe?g|png)(\?|$)') 0
             Show "  texts" (Distinct-Keys "$run\texts.jsonl").Count $files.Count 0
+            # how many of those texts were read by OCR (they can hold misread characters)
+            $ocr = 0
+            if (Test-Path "$run\texts.jsonl") {
+                foreach ($line in Read-Lines "$run\texts.jsonl") { if ($line -match '"ocr": true') { $ocr++ } }
+            }
+            "{0,-16}{1,4} read by OCR" -f "  ocr", $ocr
         }
     }
     $running = Get-CimInstance Win32_Process |
