@@ -13,7 +13,8 @@ function Count-Keys($path) {
     $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
     try {
         while ($null -ne ($line = $reader.ReadLine())) {
-            if ($line -match '^\{"key": "((?:[^"\\]|\\.)*)"') { $keys[$Matches[1]] = 1 }
+            # records.jsonl starts with "entity_key", the other files with "key": match either
+            if ($line -match '"key": "((?:[^"\\]|\\.)*)"') { $keys[$Matches[1]] = 1 }
         }
     } finally { $reader.Dispose() }
     return $keys.Count
