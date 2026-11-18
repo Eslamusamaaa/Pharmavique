@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>body{margin:0;font-family:Inter,'IBM Plex Sans Arabic',sans-serif}a{color:#0D4450}a:hover{color:#0A3540}</style>
+</helmet>
+<div style="--bg:#F5F9F8;--sf:#FFFFFF;--ink:#0F2427;--ink2:#4B6365;--ln:#D9E3E3;--pr:#0D4450;--prs:#E4F1F1;--prt:#FFFFFF;--ok:#17703F;--oks:#E2F3E9;--wn:#8A5800;--wns:#FFF0CC;--rd:#B3261E;--rds:#FDE7E5;--or:#A04600;--ors:#FFE8D4;--sh:0 1px 2px rgba(18,41,43,.08),0 4px 12px rgba(18,41,43,.06);--an:#C2185B;--note:{{ noteDisplay }};background:#E3EBEB;padding:64px;display:flex;flex-direction:column;gap:96px;width:max-content;color:#0F2427" dir="ltr">
+<div style="display:flex;flex-direction:column;gap:16px;width:1500px">
+<div style="display:flex;align-items:center;gap:24px"><img src="brand/logo-h.png" alt="Pharmavique" style="height:72px;width:auto;mix-blend-mode:multiply"><span dir="rtl" style="font-size:36px;font-weight:700;color:#0D4450">فارماڤيك</span>
+<span style="padding:4px 12px;border-radius:999px;background:#fff;font-size:13px;font-weight:600;white-space:nowrap">Wireframes · Phase 1 + Pharmacist</span></div>
+<div style="font-size:16px;color:#4B6365;max-width:900px;line-height:1.6">Arabic-first RTL web app, mobile first. UI text is Arabic; canvas labels and annotations are English. All drug names, ingredients and prices are sample content.</div>
+<div style="display:flex;gap:12px;align-items:center"><a href="javascript:void(0)" onClick="{{ toggleNotes }}" style="display:inline-flex;gap:8px;align-items:center;padding:10px 16px;border-radius:12px;background:#C2185B;color:#fff;font-weight:600;font-size:14px;text-decoration:none;cursor:pointer"><i class="ph-fill ph-chat-centered-dots"></i>{{ notesLabel }}</a></div>
+<div style="display:flex;flex-wrap:wrap;gap:12px 24px;font-size:14px;margin-top:8px"><b>Clickable flows (tap any highlighted link, jump frame to frame):</b>
+<sc-for list="{{ flows }}" as="fl" hint-placeholder-count="6"><div style="display:flex;gap:6px;align-items:center;background:#fff;padding:6px 12px;border-radius:10px"><b>{{ fl.name }}</b><sc-for list="{{ fl.steps }}" as="s" hint-placeholder-count="5"><a href="{{ s.href }}" style="font-weight:600;text-decoration:none;background:#E4F1F1;padding:1px 8px;border-radius:6px">{{ s.label }}</a></sc-for></div></sc-for></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">A · Onboarding and shell</div><dc-import name="PvA" hint-size="2200px,1000px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">B · Shared core (mobile)</div><dc-import name="PvB1" hint-size="2900px,1100px"></dc-import>
+<div style="display:flex;gap:80px;align-items:flex-start"><dc-import name="PvDrug" frame-id="B8" frame-title="Drug page · mobile · light" hint-size="390px,2300px"></dc-import>
+<div style="--bg:#0F2427;--sf:#173236;--ink:#E7F1F1;--ink2:#9FB7B8;--ln:#2B4649;--pr:#3CC8C4;--prs:#14393C;--prt:#0A1B1D;--ok:#74D79B;--oks:#12301F;--wn:#F3C455;--wns:#3A2E0B;--rd:#FF9D95;--rds:#41191A;--or:#FFB67F;--ors:#3D2312;--sh:0 1px 2px rgba(0,0,0,.5),0 6px 16px rgba(0,0,0,.35)"><dc-import name="PvDrug" frame-id="B8d" frame-title="Drug page · mobile · dark" hint-size="390px,2300px"></dc-import></div></div>
+<dc-import name="PvB3" hint-size="3800px,1250px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">B · Tablet and desktop</div><dc-import name="PvWide" hint-size="2200px,4100px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">C · Pharmacist (mobile)</div><dc-import name="PvC" hint-size="2500px,1100px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">E · Account and trust</div><dc-import name="PvE" hint-size="2200px,1000px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:40px"><div style="font-size:28px;font-weight:700">D · Tokens and components</div><dc-import name="PvBrand" hint-size="1500px,420px"></dc-import><dc-import name="PvTokens" hint-size="1500px,900px"></dc-import><dc-import name="PvComponents" frame-id="D2" frame-title="Components · light" hint-size="1500px,1100px"></dc-import>
+<div style="--bg:#0F2427;--sf:#173236;--ink:#E7F1F1;--ink2:#9FB7B8;--ln:#2B4649;--pr:#3CC8C4;--prs:#14393C;--prt:#0A1B1D;--ok:#74D79B;--oks:#12301F;--wn:#F3C455;--wns:#3A2E0B;--rd:#FF9D95;--rds:#41191A;--or:#FFB67F;--ors:#3D2312;--sh:0 1px 2px rgba(0,0,0,.5),0 6px 16px rgba(0,0,0,.35)"><dc-import name="PvComponents" frame-id="D3" frame-title="Components · dark" hint-size="1500px,1100px"></dc-import></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showNotes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { notes: true };
+  componentDidMount() { if (this.props.showNotes === false) this.setState({ notes: false }); }
+  renderVals() {
+    const L = (a) => a.map(([label, href]) => ({ label, href }));
+    return {
+      noteDisplay: this.state.notes ? 'block' : 'none',
+      notesLabel: this.state.notes ? 'Hide safety annotations' : 'Show safety annotations',
+      toggleNotes: () => this.setState((s) => ({ notes: !s.notes })),
+      flows: [
+        { name: 'P1 Patient search', steps: L([['B1', '#B1'], ['B5', '#B5'], ['B3', '#B3'], ['B8', '#B8'], ['B11', '#B11'], ['B14', '#B14']]) },
+        { name: 'P2 Box scan', steps: L([['B6', '#B6'], ['B7', '#B7'], ['B8', '#B8']]) },
+        { name: 'P3 Rx scan', steps: L([['C1', '#C1'], ['C2', '#C2'], ['C3', '#C3'], ['C6', '#C6']]) },
+        { name: 'P4 Shelf scan', steps: L([['C4', '#C4'], ['C5', '#C5'], ['C6', '#C6']]) },
+        { name: 'P5 Assistant', steps: L([['B16', '#B16'], ['B8', '#B8']]) },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

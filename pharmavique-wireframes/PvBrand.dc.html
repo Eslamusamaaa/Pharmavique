@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div id="D0" style="display:flex;flex-direction:column;gap:12px;width:1500px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">D0</b><b>Brand identity (supplied) as applied in the UI</b></div>
+<div dir="ltr" style="background:#fff;border-radius:20px;box-shadow:0 12px 32px rgba(18,41,43,.1);padding:40px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:32px;color:#0F2427;font-size:14px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:16px">
+<div style="background:#F5F9F8;border-radius:16px;padding:32px;display:flex;align-items:center;justify-content:center;height:150px"><img src="brand/logo-h.png" alt="Pharmavique" style="height:84px;width:auto;mix-blend-mode:multiply"></div>
+<div style="background:#0F2427;border-radius:16px;padding:32px;display:flex;align-items:center;justify-content:center;height:150px"><img src="brand/logo-white.png" alt="Pharmavique" style="height:84px;width:auto"></div>
+<div style="font-size:13px;color:#4B6365;line-height:1.6">Horizontal lockup on light and dark. In the product the lockup sits in the mobile top bar; the P mark alone sits in the desktop rail. Keep clear space equal to the dot height.</div></div>
+<div style="display:flex;flex-direction:column;gap:16px"><div style="display:flex;gap:16px;align-items:center"><img src="brand/app-icon.png" alt="App icon" style="width:150px;height:150px;border-radius:34px"><img src="brand/app-icon.png" alt="" style="width:76px;height:76px;border-radius:18px"><img src="brand/app-icon.png" alt="" style="width:44px;height:44px;border-radius:10px"></div>
+<div style="background:#F5F9F8;border-radius:16px;padding:24px;display:flex;align-items:center;justify-content:center"><img src="brand/mark.png" alt="P mark" style="height:120px;width:auto;mix-blend-mode:multiply"></div>
+<div style="font-size:13px;color:#4B6365;line-height:1.6">App icon for the home-screen shell and PWA install; the full-color P mark for marketing surfaces.</div></div>
+<div style="display:flex;flex-direction:column;gap:12px"><b style="font-size:16px">Brand colors</b>
+<sc-for list="{{ sw }}" as="c" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;border-radius:10px;background:{{ c.hex }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></span><span style="flex:1"><b>{{ c.n }}</b><br><span style="font-size:12px;color:#4B6365">{{ c.u }}</span></span><code>{{ c.hex }}</code></div></sc-for>
+<div style="font-size:12.5px;color:#4B6365;line-height:1.5">The bright teal #1AAAAA is decorative and for large shapes only (3:1 on light). Text and buttons use the deep teal.</div></div>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return { sw: [['Deep teal', '--pr · buttons, links, wordmark', '#0D4450'], ['Bright teal', '--ac · logo accent, decorative', '#1AAAAA'], ['Brand dark', '--bg dark · text on light', '#0F2427'], ['Paper', '--bg light', '#F5F9F8']].map(([n, u, hex]) => ({ n, u, hex })) };
+  }
+}
+</script>
+</body>
+</html>

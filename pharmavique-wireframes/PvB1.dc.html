@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;gap:80px;align-items:flex-start">
+
+<div id="B1" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B1</b><b>Home · patient</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><img src="brand/logo-h.png" alt="Pharmavique" style="height:30px;width:auto;mix-blend-mode:multiply"><a href="#A3" style="min-height:44px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:999px;background:var(--prs);color:var(--ink);text-decoration:none;font-size:14px"><i class="ph ph-user-circle" style="font-size:20px"></i>مريض<i class="ph ph-caret-down"></i></a></div>
+<div style="flex:none;position:relative;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i style="display:var(--note);position:absolute;top:-6px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:32px 16px 16px;display:flex;flex-direction:column;gap:28px;overflow:hidden">
+<h1 style="margin:0;font-size:28px;line-height:1.4;font-weight:700">عن أي دواء تريد أن تعرف؟</h1>
+<div style="display:flex;flex-direction:column;gap:14px">
+<a href="#B4" style="display:flex;align-items:center;background:var(--sf);border-radius:16px;box-shadow:var(--sh);min-height:60px;text-decoration:none;color:var(--ink2);font-size:17px"><i class="ph ph-magnifying-glass" style="font-size:24px;padding:0 14px;color:var(--ink2)"></i><span style="flex:1">ابحث بالاسم أو المادة الفعالة</span></a>
+<div style="display:flex;gap:12px"><a href="#B6" style="flex:1;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:16px;background:var(--pr);color:var(--prt);text-decoration:none;font-weight:600"><i class="ph ph-scan" style="font-size:28px"></i>مسح علبة الدواء</a><a href="#B5" style="flex:1;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:16px;background:var(--sf);color:var(--pr);box-shadow:var(--sh);text-decoration:none;font-weight:600"><i class="ph ph-microphone" style="font-size:28px"></i>بحث صوتي</a></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:18px">آخر عمليات البحث</h2><span style="font-size:13px;color:var(--ink2);min-height:44px;display:flex;align-items:center">مسح</span></div>
+<sc-for list="{{ recents }}" as="r" hint-placeholder-count="3"><a href="#B8" style="min-height:52px;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)"><i class="ph ph-clock-counter-clockwise" style="font-size:20px;color:var(--ink2)"></i><span style="flex:1;font-size:16px">{{ r.ar }}</span><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ r.en }}</bdi></a></sc-for></div>
+</div>
+<div style="flex:none;display:flex;padding:8px 8px 22px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><sc-for list="{{ tabs0 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;font-size:11.5px;text-decoration:none;color:{{ t.color }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:24px"></i>{{ t.label }}</a></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Disclaimer bar present on every home, search and drug screen.</div><div>Role chip is tappable: role changeable later. Large type, 3 actions max for low-literacy users.</div></div>
+</div>
+
+<div id="B2" style="display:flex;flex-direction:column;gap:12px;width:390px" data-x="1">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B2</b><b>Home · pharmacist</b></div>
+<div dir="rtl" style="width:390px;height:1010px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><img src="brand/logo-h.png" alt="Pharmavique" style="height:30px;width:auto;mix-blend-mode:multiply"><a href="#A3" style="min-height:44px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:999px;background:var(--prs);color:var(--ink);text-decoration:none;font-size:14px"><i class="ph ph-first-aid-kit" style="font-size:20px"></i>صيدلي<i class="ph ph-caret-down"></i></a></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:20px 16px 8px;display:flex;flex-direction:column;gap:20px;overflow:hidden;min-height:0">
+<a href="#B4" style="display:flex;align-items:center;background:var(--sf);border-radius:14px;box-shadow:var(--sh);min-height:52px;text-decoration:none;color:var(--ink2)"><i class="ph ph-magnifying-glass" style="font-size:22px;padding:0 14px"></i><span style="flex:1">اسم الدواء أو المادة الفعالة</span></a>
+<div style="display:flex;gap:12px"><a href="#C1" style="flex:1;min-height:88px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 14px;border-radius:16px;background:var(--pr);color:var(--prt);text-decoration:none;font-weight:600"><i class="ph ph-file-text" style="font-size:26px"></i>مسح وصفة</a><a href="#C4" style="flex:1;min-height:88px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 14px;border-radius:16px;background:var(--pr);color:var(--prt);text-decoration:none;font-weight:600"><i class="ph ph-books" style="font-size:26px"></i>مسح رف</a></div>
+<div style="display:flex;flex-direction:column;gap:8px;position:relative"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i>
+<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:18px">تنبيهات رسمية</h2><a href="#B15" style="font-size:14px;font-weight:600;text-decoration:none">عرض الكل</a></div>
+<sc-for list="{{ alerts }}" as="a" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:14px;box-shadow:var(--sh);padding:12px 14px;display:flex;flex-direction:column;gap:4px"><span style="align-self:flex-start;display:inline-flex;gap:5px;align-items:center;padding:2px 10px;border-radius:999px;background:{{ a.bg }};color:{{ a.fg }};font-size:12.5px;font-weight:600"><i class="{{ a.icon }}"></i>{{ a.kind }}</span><div style="font-size:15px;font-weight:600;line-height:1.5">{{ a.title }}</div><div style="font-size:12.5px;color:var(--ink2)">{{ a.date }}</div></div></sc-for></div>
+<div style="display:flex;flex-direction:column;gap:2px"><h2 style="margin:0;font-size:18px">آخر عمليات البحث</h2>
+<sc-for list="{{ recents }}" as="r" hint-placeholder-count="2"><a href="#B8" style="min-height:44px;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)"><i class="ph ph-clock-counter-clockwise" style="font-size:20px;color:var(--ink2)"></i><span style="flex:1;font-size:15px">{{ r.ar }}</span><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ r.en }}</bdi></a></sc-for></div>
+</div>
+<div style="flex:none;display:flex;padding:8px 8px 22px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><sc-for list="{{ tabs0 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;font-size:11.5px;text-decoration:none;color:{{ t.color }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:24px"></i>{{ t.label }}</a></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Shortage wording is "listed by scientific name"; non-exact matches get "احتمال". Titles, dates, kind only.</div></div>
+</div>
+
+<div id="B3" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B3</b><b>Search results (misspelling → did you mean)</b></div>
+<div dir="rtl" style="width:390px;height:1160px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;padding:4px 16px 8px;display:flex;align-items:center;gap:4px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a>
+<div style="flex:1;display:flex;align-items:center;background:var(--sf);border-radius:14px;box-shadow:var(--sh);min-height:48px"><span style="flex:1;padding:0 14px;font-size:16px">بنادول</span><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink2)"><i class="ph ph-x-circle" style="font-size:20px"></i></span><a href="#B5" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--pr)"><i class="ph ph-microphone" style="font-size:22px"></i></a><a href="#B6" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--pr)"><i class="ph ph-camera" style="font-size:22px"></i></a></div></div>
+<div style="flex:none;position:relative;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i style="display:var(--note);position:absolute;top:-6px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+<div style="flex:none;font-size:15px">هل تقصد: <b style="color:var(--pr);text-decoration:underline">بانادول</b>؟</div>
+<div style="flex:none;display:flex;gap:8px;overflow:hidden;margin:0 -16px;padding:0 16px"><sc-for list="{{ filters }}" as="f" hint-placeholder-count="4"><span style="flex:none;min-height:40px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:999px;background:var(--sf);box-shadow:var(--sh);font-size:14px">{{ f }}<i class="ph ph-caret-down" style="font-size:14px"></i></span></sc-for></div>
+<div style="flex:none;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--ink2)"><span>12 نتيجة</span><span style="display:flex;align-items:center;gap:6px;min-height:44px"><i class="ph ph-sort-ascending"></i>الترتيب: الصلة</span></div>
+<sc-for list="{{ results }}" as="r" hint-placeholder-count="5"><a href="#B8" style="flex:none;text-decoration:none;color:var(--ink);background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px 16px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-size:17px;font-weight:700">{{ r.ar }}</div><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ r.en }}</bdi></div><span style="flex:none;font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:4px;background:var(--bg);padding:2px 8px;border-radius:8px"><i class="ph ph-text-aa"></i>{{ r.hint }}</span></div>
+<div style="font-size:13.5px"><bdi dir="ltr" style="font-weight:600">{{ r.ing }}</bdi></div><div style="font-size:13px;color:var(--ink2)">{{ r.meta }}</div></a></sc-for>
+</div>
+<div style="flex:none;display:flex;padding:8px 8px 22px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><sc-for list="{{ tabs1 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;font-size:11.5px;text-decoration:none;color:{{ t.color }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:24px"></i>{{ t.label }}</a></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Disclaimer bar stays under the search box on every result list.</div><div>Rows never show ratings. Match hint is factual. Similar-name note is neutral.</div></div>
+</div>
+
+<div id="B4" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B4</b><b>Search · typing, suggestions, recent</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;padding:4px 16px 8px;display:flex;align-items:center;gap:4px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a>
+<div style="flex:1;display:flex;align-items:center;background:var(--sf);border-radius:14px;min-height:48px;border:2px solid var(--pr)"><span style="flex:1;padding:0 14px;font-size:16px">بان<span style="border-inline-start:2px solid var(--pr);margin-inline-start:1px"></span></span><a href="#B5" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--pr)"><i class="ph ph-microphone" style="font-size:22px"></i></a><a href="#B6" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--pr)"><i class="ph ph-camera" style="font-size:22px"></i></a></div></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:var(--ink2);padding-bottom:2px">اقتراحات</div><sc-for list="{{ suggest }}" as="s" hint-placeholder-count="4"><a href="#B3" style="min-height:50px;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)"><i class="ph ph-magnifying-glass" style="font-size:20px;color:var(--ink2)"></i><span style="flex:1"><b style="color:var(--pr)">بان</b>{{ s.rest }}</span><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ s.en }}</bdi></a></sc-for></div>
+<div style="display:flex;flex-direction:column"><div style="font-size:13px;color:var(--ink2)">عمليات بحث سابقة</div><sc-for list="{{ recents }}" as="r" hint-placeholder-count="3"><div style="min-height:46px;display:flex;align-items:center;gap:12px"><i class="ph ph-clock-counter-clockwise" style="font-size:20px;color:var(--ink2)"></i><span style="flex:1">{{ r.ar }}</span><i class="ph ph-x" style="color:var(--ink2)"></i></div></sc-for></div>
+</div>
+<div style="flex:none;height:250px;background:#CBD3D4;display:flex;align-items:center;justify-content:center;color:#4B6365;font-size:13px" dir="ltr">on-screen keyboard (layout pushes up; no fixed bars)</div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div>Search box accepts Arabic or English with spelling tolerance. Tab bar is hidden while the keyboard is open so nothing fixed fights it.</div></div>
+</div>
+
+<div id="B5" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B5</b><b>Voice search · transcript review</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-x"></i></a><b style="flex:1;font-size:17px">بحث صوتي</b></div>
+<div style="flex:1;padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:28px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:20px"><div style="width:112px;height:112px;border-radius:50%;background:var(--pr);color:var(--prt);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 14px var(--prs),0 0 0 28px var(--bg)"><i class="ph-fill ph-microphone" style="font-size:52px"></i></div>
+<div style="display:flex;align-items:center;gap:5px;height:48px;margin-top:20px"><sc-for list="{{ bars }}" as="b" hint-placeholder-count="15"><span style="width:5px;height:{{ b }}px;border-radius:3px;background:var(--pr)"></span></sc-for></div>
+<div style="font-size:18px;font-weight:600">جارٍ الاستماع…</div></div>
+<div style="align-self:stretch;position:relative;background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:16px;display:flex;flex-direction:column;gap:10px"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i>
+<div style="font-size:13px;color:var(--ink2)">ما سمعناه (يمكنك التعديل)</div>
+<div style="display:flex;align-items:center;gap:8px;border:2px solid var(--pr);border-radius:12px;padding:8px 12px;min-height:48px;font-size:18px">بنادول اكسترا<i class="ph ph-pencil-simple" style="margin-inline-start:auto;color:var(--ink2)"></i></div></div>
+<div style="font-size:13.5px;color:var(--ink2);text-align:center;display:flex;gap:6px;align-items:center"><i class="ph ph-translate"></i>نفهم اللهجتين السعودية والمصرية</div>
+<div style="margin-top:auto;align-self:stretch;display:flex;flex-direction:column;gap:10px;padding-bottom:16px"><a href="#B3" style="min-height:52px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;background:var(--pr);color:var(--prt);font-weight:700;text-decoration:none"><i class="ph ph-magnifying-glass" style="font-size:20px"></i>ابحث</a><span style="min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;border:1.5px solid var(--pr);color:var(--pr);font-weight:600"><i class="ph ph-arrow-counter-clockwise"></i>أعد المحاولة</span></div>
+</div></div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Transcript is shown and editable. Nothing is searched until the user taps "ابحث".</div></div>
+</div>
+
+<div id="B6" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B6</b><b>Box scan · camera</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:linear-gradient(180deg,#1b2526,#0b1112);color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 8px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;text-decoration:none"><i class="ph ph-x"></i></a><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px"><i class="ph ph-lightning-slash"></i></span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:0 24px">
+<div style="position:relative;width:300px;height:200px"><span style="position:absolute;top:0;right:0;width:44px;height:44px;border-top:4px solid #fff;border-right:4px solid #fff;border-top-right-radius:14px"></span><span style="position:absolute;top:0;left:0;width:44px;height:44px;border-top:4px solid #fff;border-left:4px solid #fff;border-top-left-radius:14px"></span><span style="position:absolute;bottom:0;right:0;width:44px;height:44px;border-bottom:4px solid #fff;border-right:4px solid #fff;border-bottom-right-radius:14px"></span><span style="position:absolute;bottom:0;left:0;width:44px;height:44px;border-bottom:4px solid #fff;border-left:4px solid #fff;border-bottom-left-radius:14px"></span>
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:13px" dir="ltr">camera preview</div></div>
+<div style="background:rgba(255,255,255,.14);border-radius:12px;padding:10px 16px;font-size:15px;text-align:center">وجّه الكاميرا للاسم والتركيز</div></div>
+<div style="flex:none;padding:12px 24px 34px;display:flex;flex-direction:column;gap:18px;align-items:center">
+<div style="display:flex;background:rgba(255,255,255,.14);border-radius:999px;padding:3px"><span style="min-height:36px;padding:0 20px;display:flex;align-items:center;border-radius:999px;background:#fff;color:#0F2427;font-weight:600;font-size:14px">علبة</span><span style="min-height:36px;padding:0 20px;display:flex;align-items:center;font-size:14px">وصفة</span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;width:100%"><span style="width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:26px"><i class="ph ph-image"></i></span>
+<a href="#B7" style="width:76px;height:76px;border-radius:50%;border:5px solid #fff;display:flex;align-items:center;justify-content:center"><span style="width:56px;height:56px;border-radius:50%;background:#fff"></span></a><span style="width:56px"></span></div>
+<div style="display:flex;gap:6px;align-items:center;font-size:13px;color:rgba(255,255,255,.85);position:relative"><i style="display:var(--note);position:absolute;top:-8px;left:-26px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal">1</i><i class="ph ph-shield-check"></i>لا نحتفظ بصورتك بعد المعالجة</div></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Photo deletion promise stated on the capture screen, before the user shoots. Gallery import and flash are non-native web controls.</div></div>
+</div>
+
+<div id="B7" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B7</b><b>Box scan · confirm what was read</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B6" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">راجع ما قرأناه</b></div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+<div style="height:96px;border-radius:14px;background:repeating-linear-gradient(135deg,#d3dcdc 0 10px,#e4eaea 10px 20px);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink2)" dir="ltr">captured photo (temporary)</div>
+<div style="font-size:14px;color:var(--ink2)">لن نبحث قبل أن تؤكد. عدّل أي حقل غير صحيح.</div>
+<sc-for list="{{ fields }}" as="f" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:12px 14px;display:flex;flex-direction:column;gap:8px;position:relative;border:{{ f.bd }}"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink2)"><span>{{ f.k }}</span><span style="display:inline-flex;gap:4px;align-items:center;color:{{ f.fg }};font-weight:600"><i class="{{ f.icon }}"></i>{{ f.lvl }}</span></div>
+<div style="display:flex;align-items:center;gap:8px"><bdi dir="ltr" style="flex:1;font-size:19px;font-weight:700">{{ f.v }}</bdi><i class="ph ph-pencil-simple" style="font-size:22px;color:var(--pr);padding:10px"></i></div>
+<div style="height:6px;border-radius:3px;background:var(--bg);overflow:hidden"><div style="height:6px;width:{{ f.pct }};background:{{ f.fg }}"></div></div>
+<div style="display:{{ f.warn }};font-size:12.5px;color:var(--wn)">ثقة منخفضة، راجع هذا الحقل قبل البحث</div></div></sc-for>
+</div>
+<div style="flex:none;padding:12px 16px 30px;display:flex;flex-direction:column;gap:10px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><a href="#B8" style="min-height:52px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;background:var(--pr);color:var(--prt);font-weight:700;text-decoration:none"><i class="ph ph-magnifying-glass" style="font-size:20px"></i>ابحث</a><div style="display:flex;gap:6px;align-items:center;justify-content:center;font-size:13px;color:var(--ink2)"><i class="ph ph-shield-check"></i>لا نحتفظ بصورتك بعد المعالجة</div></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> AI output shows extracted text, confidence per field (icon + label + bar, never color only), edit and confirm before any lookup. Low confidence is flagged, not silently accepted.</div></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  tabs(a) {
+    return [['الرئيسية', 'house', '#B1'], ['بحث', 'magnifying-glass', '#B4'], ['المسح الضوئي', 'scan', '#B6'], ['حسابي', 'user', '#E1']].map(([label, ic, href], i) => ({ label, href, icon: (i === a ? 'ph-fill ph-' : 'ph ph-') + ic, color: i === a ? 'var(--pr)' : 'var(--ink2)', w: i === a ? 700 : 500 }));
+  }
+  renderVals() {
+    const lvl = {
+      hi: { lvl: 'ثقة عالية', fg: 'var(--ok)', icon: 'ph-fill ph-check-circle', bd: 'none', warn: 'none' },
+      mid: { lvl: 'ثقة متوسطة', fg: 'var(--pr)', icon: 'ph-fill ph-minus-circle', bd: 'none', warn: 'none' },
+      lo: { lvl: 'ثقة منخفضة', fg: 'var(--wn)', icon: 'ph-fill ph-warning', bd: '2px solid var(--wn)', warn: 'block' },
+    };
+    return {
+      tabs0: this.tabs(0), tabs1: this.tabs(1),
+      recents: [{ ar: 'بانادول 500 ملجم', en: 'PANADOL 500 mg' }, { ar: 'بانادول اكسترا', en: 'PANADOL EXTRA' }, { ar: 'بيندولينت', en: 'Bindolent' }],
+      alerts: [
+        { kind: 'نقص', icon: 'ph-fill ph-package', bg: 'var(--ors)', fg: 'var(--or)', title: 'مدرج في قائمة النواقص الرسمية باسم المادة العلمية: BENDAMUSTINE', date: 'نوفمبر 2026' },
+        { kind: 'سحب', icon: 'ph-fill ph-arrow-u-up-left', bg: 'var(--rds)', fg: 'var(--rd)', title: 'سحب تشغيلة: عنوان الإشعار الرسمي كما ورد', date: '12 نوفمبر 2026' },
+        { kind: 'تحديث نشرة', icon: 'ph-fill ph-file-text', bg: 'var(--wns)', fg: 'var(--wn)', title: 'تحديث قسم التحذيرات في نشرة PANADOL', date: 'أكتوبر 2026' },
+      ],
+      filters: ['الشكل الدوائي', 'الشركة', 'الحالة النظامية', 'حالة التسويق'],
+      results: [
+        ['بانادول 500 ملجم', 'PANADOL 500 mg film-coated tablet', 'تطابق الاسم', 'PARACETAMOL', 'قرص مغلف · Haleon Ireland Limited'],
+        ['بانادول اكسترا', 'PANADOL EXTRA TAB', 'تطابق الاسم', 'PARACETAMOL + CAFFEINE', 'قرص · Haleon Ireland Limited'],
+        ['بانادول قابل للذوبان', 'PANADOL SOLUBLE 500 mg', 'تطابق جزئي', 'PARACETAMOL', 'قرص فوّار · Haleon Ireland Limited'],
+        ['أدول 500 ملجم', 'ADOL 500 mg tablet', 'نفس المادة الفعالة', 'PARACETAMOL', 'قرص · Julphar'],
+        ['بنادول للأطفال', 'PANADOL CHILDREN SUSPENSION', 'تطابق جزئي', 'PARACETAMOL', 'معلق فموي · Haleon Ireland Limited'],
+      ].map(([ar, en, hint, ing, meta]) => ({ ar, en, hint, ing, meta })),
+      suggest: [['ادول', 'بانادول 500 ملجم', 'PANADOL 500 mg'], ['', 'بانادول اكسترا', 'PANADOL EXTRA'], ['', 'بانادول قابل للذوبان', 'PANADOL SOLUBLE'], ['', 'بانتوبرازول', 'PANTOPRAZOLE']].map(([x, t, en]) => ({ rest: t.slice(3), en })),
+      bars: [10, 18, 30, 22, 40, 26, 14, 34, 44, 28, 16, 36, 24, 12, 8],
+      fields: [
+        { k: 'الاسم', v: 'PANADOL EXTRA', pct: '94%', ...lvl.hi },
+        { k: 'التركيز', v: '500 mg', pct: '78%', ...lvl.mid },
+        { k: 'الشكل الدوائي', v: 'TABLET ?', pct: '38%', ...lvl.lo },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

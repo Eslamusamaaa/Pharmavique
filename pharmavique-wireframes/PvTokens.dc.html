@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div id="D1" style="display:flex;flex-direction:column;gap:12px;width:1500px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">D1</b><b>Design tokens</b></div>
+<div dir="ltr" style="background:#fff;border-radius:20px;box-shadow:0 12px 32px rgba(18,41,43,.1);padding:40px;display:grid;grid-template-columns:1.3fr 1fr;gap:56px;font-size:14px;color:#0F2427">
+<div style="display:flex;flex-direction:column;gap:20px"><h2 style="margin:0;font-size:20px">Color · light and dark (WCAG AA text pairs)</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div style="display:flex;flex-direction:column;gap:6px"><b>Light</b><sc-for list="{{ light }}" as="c" hint-placeholder-count="12"><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:8px;background:{{ c.hex }};box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)"></span><span style="flex:1"><b>{{ c.n }}</b><br><span style="font-size:12px;color:#4B6365">{{ c.use }}</span></span><code style="font-size:12px">{{ c.hex }}</code></div></sc-for></div>
+<div style="display:flex;flex-direction:column;gap:6px;background:#0F2427;color:#E7F1F1;padding:16px;border-radius:14px"><b>Dark</b><sc-for list="{{ dark }}" as="c" hint-placeholder-count="12"><div style="display:flex;gap:10px;align-items:center"><span style="width:36px;height:36px;border-radius:8px;background:{{ c.hex }};box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)"></span><span style="flex:1"><b>{{ c.n }}</b><br><span style="font-size:12px;color:#9FB7B8">{{ c.use }}</span></span><code style="font-size:12px">{{ c.hex }}</code></div></sc-for></div></div>
+<div style="font-size:13px;color:#4B6365;line-height:1.6">Primary = deep teal. Semantic colors are reserved for status and always paired with an icon and a label: official (green check), unverified (amber), safety alert/recall (red, sparingly), shortage (orange). <span style="color:#C2185B;font-weight:700">#C2185B</span> is for design annotations only, never in product UI.</div></div>
+<div style="display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Type</h2><div style="font-size:13px;color:#4B6365">IBM Plex Sans Arabic for Arabic; Inter for Latin drug names and digits. Base 16px, line height 1.7 for Arabic, scales to 200%.</div>
+<sc-for list="{{ type }}" as="t" hint-placeholder-count="6"><div dir="rtl" style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-size:{{ t.s }}px;line-height:1.4;font-weight:{{ t.w }}">{{ t.ar }}</span><span dir="ltr" style="font-size:12px;color:#4B6365;white-space:nowrap">{{ t.n }} · {{ t.s }}px · {{ t.w }}</span></div></sc-for></div>
+<div style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Spacing</h2><div style="display:flex;gap:10px;align-items:flex-end"><sc-for list="{{ space }}" as="s" hint-placeholder-count="8"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px"><span style="width:{{ s }}px;height:{{ s }}px;background:#0D4450;border-radius:2px"></span>{{ s }}</div></sc-for></div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Radius</h2><div style="display:flex;gap:12px;flex-wrap:wrap"><sc-for list="{{ radii }}" as="r" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px"><span style="width:56px;height:56px;background:#E4F1F1;border:2px solid #0D4450;border-radius:{{ r.v }}px"></span>{{ r.n }}</div></sc-for></div></div>
+<div style="display:flex;flex-direction:column;gap:10px"><h2 style="margin:0;font-size:20px">Elevation</h2><div style="display:flex;gap:20px;background:#F5F9F8;padding:20px;border-radius:14px"><sc-for list="{{ elev }}" as="e" hint-placeholder-count="3"><div style="width:120px;height:64px;border-radius:14px;background:#fff;box-shadow:{{ e.v }};display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center">{{ e.n }}</div></sc-for></div><div style="font-size:12.5px;color:#4B6365">Whitespace first; surfaces only for discrete items. Touch targets ≥ 44px; safe-area padding bottom 22px.</div></div>
+</div></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const L = [['bg', 'Canvas', '#F5F9F8'], ['sf', 'Surface', '#FFFFFF'], ['ink', 'Text', '#0F2427'], ['ink2', 'Text secondary (AA on bg)', '#4B6365'], ['ln', 'Line', '#D9E3E3'], ['pr', 'Primary (brand deep teal)', '#0D4450'], ['ac', 'Accent (decorative)', '#1AAAAA'], ['prs', 'Primary soft', '#E4F1F1'], ['ok', 'Official', '#17703F'], ['wn', 'Unverified / possible', '#8A5800'], ['rd', 'Safety alert / recall', '#B3261E'], ['or', 'Shortage', '#A04600']];
+    const D = ['#0F2427', '#173236', '#E7F1F1', '#9FB7B8', '#2B4649', '#3CC8C4', '#1AAAAA', '#14393C', '#74D79B', '#F3C455', '#FF9D95', '#FFB67F'];
+    const light = L.map(([k, n, hex]) => ({ n, use: '--' + k, hex }));
+    const dark = L.map(([k, n], i) => ({ n, use: '--' + k, hex: D[i] }));
+    return {
+      light, dark,
+      type: [['Display', 36, 700, 'اسم الدواء'], ['H1', 28, 700, 'بانادول 500 ملجم'], ['H2', 18, 700, 'المادة الفعالة'], ['Body', 16, 400, 'معلومات للاطلاع فقط وليست نصيحة'], ['Small', 13.5, 400, 'جُلبت في 17 نوفمبر 2026'], ['Caption', 12.5, 400, 'ريال سعودي (افتراضي)']].map(([n, s, w, ar]) => ({ n, s, w, ar })),
+      space: [4, 8, 12, 16, 20, 24, 32, 48],
+      radii: [['sm', 8], ['md', 12], ['lg', 16], ['sheet', 24], ['pill', 28]].map(([n, v]) => ({ n: n + ' ' + v, v })),
+      elev: [{ n: 'none (flat)', v: 'none' }, { n: 'card', v: '0 1px 2px rgba(18,41,43,.08),0 4px 12px rgba(18,41,43,.06)' }, { n: 'sheet', v: '0 -8px 32px rgba(0,0,0,.2)' }],
+    };
+  }
+}
+</script>
+</body>
+</html>

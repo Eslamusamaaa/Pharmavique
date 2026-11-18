@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;gap:80px;align-items:flex-start">
+
+<div id="A1" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">A1</b><b>Splash / launch</b></div>
+<a href="#A2" dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:#0F2427 url(brand/splash-bg.png) center/cover;color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:block;text-decoration:none">
+<div style="position:absolute;top:540px;inset-inline:0;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="font-size:40px;font-weight:700;line-height:1.3">فارماڤيك</div><div dir="ltr" style="font-size:16px;opacity:.85;letter-spacing:2px">Pharmavique</div><div style="margin-top:10px;font-size:15px;opacity:.95">معلومات الدواء من المصدر الرسمي</div></div>
+<div style="position:absolute;bottom:64px;left:135px;width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.25)"><div style="width:60%;height:4px;border-radius:2px;background:#1AAAAA"></div></div></a>
+</div>
+
+<div id="A2" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">A2</b><b>Intro · slide 2 of 3 (what it never does)</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;justify-content:flex-start;align-items:center;padding:0 8px"><a href="#A3" style="min-height:44px;display:flex;align-items:center;padding:0 12px;color:var(--ink2);text-decoration:none;font-size:15px">تخطّي</a></div>
+<div style="flex:1;padding:24px 24px;display:flex;flex-direction:column;gap:24px">
+<div style="height:200px;border-radius:24px;background:var(--prs);display:flex;align-items:center;justify-content:center;color:var(--pr)"><i class="ph ph-shield-check" style="font-size:88px"></i></div>
+<h1 style="margin:0;font-size:28px;line-height:1.4">ما لا نفعله</h1>
+<div style="display:flex;flex-direction:column;gap:14px;position:relative"><i style="display:var(--note);position:absolute;top:-14px;left:0;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><sc-for list="{{ nots }}" as="n" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:center;font-size:17px"><i class="ph ph-prohibit" style="font-size:24px;color:var(--ink2)"></i>{{ n }}</div></sc-for></div></div>
+<div style="flex:none;padding:12px 24px 34px;display:flex;align-items:center;justify-content:space-between"><div style="display:flex;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:var(--ln)"></span><span style="width:28px;height:10px;border-radius:5px;background:var(--pr)"></span><span style="width:10px;height:10px;border-radius:50%;background:var(--ln)"></span></div><a href="#A3" style="min-height:52px;padding:0 28px;display:flex;align-items:center;gap:8px;border-radius:14px;background:var(--pr);color:var(--prt);font-weight:700;text-decoration:none">التالي<i class="ph ph-arrow-left" style="font-size:20px"></i></a></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Limits stated up-front. Progress runs right to left; Next arrow points left. Slides: 1 what it is, 2 what it never does, 3 privacy.</div></div>
+</div>
+
+<div id="A3" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">A3</b><b>Role chooser</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:1;padding:32px 20px 16px;display:flex;flex-direction:column;gap:16px">
+<h1 style="margin:0;font-size:26px;line-height:1.4">كيف تستخدم فارماڤيك؟</h1><div style="font-size:15px;color:var(--ink2)">اختر ما يناسبك. يمكنك تغييره لاحقًا من حسابي.</div>
+<sc-for list="{{ roles }}" as="r" hint-placeholder-count="3"><a href="{{ r.href }}" style="text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;background:var(--sf);box-shadow:var(--sh);border:2px solid {{ r.bd }};min-height:84px"><span style="width:52px;height:52px;border-radius:14px;background:var(--prs);color:var(--pr);display:flex;align-items:center;justify-content:center;font-size:28px"><i class="{{ r.icon }}"></i></span><div style="flex:1"><div style="font-size:18px;font-weight:700">{{ r.t }}</div><div style="font-size:13.5px;color:var(--ink2);line-height:1.5">{{ r.d }}</div></div><i class="{{ r.chk }}" style="font-size:26px;color:var(--pr)"></i></a></sc-for></div>
+<div style="flex:none;padding:12px 20px 34px"><a href="#B1" style="min-height:52px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:var(--pr);color:var(--prt);font-weight:700;text-decoration:none">متابعة</a></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div>Equal weight to the three roles. Selected state = border + check icon + fill, not color alone. Role drives home (B1 / B2 / company dashboard later).</div></div>
+</div>
+
+<div id="A4" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">A4</b><b>Permission explainers (before system prompt)</b></div>
+<div dir="rtl" style="width:390px;height:1180px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7;padding:24px 16px;gap:20px">
+<sc-for list="{{ perms }}" as="p" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:20px;box-shadow:var(--sh);padding:24px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center"><span style="width:72px;height:72px;border-radius:50%;background:var(--prs);color:var(--pr);display:flex;align-items:center;justify-content:center;font-size:36px"><i class="{{ p.icon }}"></i></span><b style="font-size:19px">{{ p.t }}</b><div style="font-size:14.5px;color:var(--ink2);max-width:290px">{{ p.d }}</div>
+<span style="align-self:stretch;min-height:50px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:var(--pr);color:var(--prt);font-weight:700">متابعة</span><span style="align-self:stretch;min-height:48px;display:flex;align-items:center;justify-content:center;color:var(--ink2);font-weight:600">ليس الآن</span></div></sc-for>
+<div style="position:relative;height:1px"><i style="display:var(--note);position:absolute;top:-10px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal">1</i></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Plain reason + deletion promise before each system prompt; "ليس الآن" always available. Camera explainer says photos are deleted after processing; location is only used to list licensed pharmacies.</div></div>
+</div>
+
+<div id="A5" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">A5</b><b>Shell · offline banner + pull to refresh</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-slash"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;position:relative;display:flex;gap:8px;align-items:center;padding:10px 16px;background:var(--ink);color:var(--bg);font-size:14px"><i style="display:var(--note);position:absolute;top:-6px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph-fill ph-wifi-slash" style="font-size:18px"></i>لا يوجد اتصال، تظهر آخر نتائج محفوظة</div>
+<div style="flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><img src="brand/logo-h.png" alt="Pharmavique" style="height:30px;width:auto;mix-blend-mode:multiply"></div>
+<div style="flex:none;display:flex;justify-content:center;padding:6px 0"><span style="width:40px;height:40px;border-radius:50%;background:var(--sf);box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;color:var(--pr);font-size:20px"><i class="ph ph-arrow-down"></i></span></div>
+<div style="flex:none;text-align:center;font-size:13px;color:var(--ink2)">اسحب للتحديث</div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:10px;overflow:hidden"><div style="font-size:13px;color:var(--ink2)">محفوظ على جهازك · آخر تحديث 17 نوفمبر 2026</div>
+<sc-for list="{{ cached }}" as="c" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:12px 14px"><div style="font-weight:700">{{ c.ar }}</div><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ c.en }}</bdi></div></sc-for></div>
+<div style="flex:none;display:flex;padding:8px 8px 22px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><sc-for list="{{ tabs0 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;font-size:11.5px;text-decoration:none;color:{{ t.color }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:24px"></i>{{ t.label }}</a></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Offline banner is text + icon, not color alone, and says results are cached. Pull-to-refresh is a web gesture with a visible fallback.</div></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const role = (t, d, icon, on, href) => ({ t, d, icon, href, bd: on ? 'var(--pr)' : 'transparent', chk: on ? 'ph-fill ph-check-circle' : 'ph ph-circle' });
+    return {
+      nots: ['لا نقدّم نصائح طبية', 'لا نذكر جرعات', 'لا نعرف ما يتوفر في الصيدليات'],
+      roles: [
+        role('مريض', 'اعرف المادة الفعالة والسعر والمنتجات المشابهة', 'ph ph-user', 1, '#B1'),
+        role('صيدلي', 'مسح الوصفات والرفوف ومقارنة سريعة', 'ph ph-first-aid-kit', 0, '#B2'),
+        role('شركة أدوية', 'محفظة منتجاتك وخريطة السوق', 'ph ph-buildings', 0, '#A3'),
+      ],
+      perms: [
+        { icon: 'ph ph-camera', t: 'نحتاج الكاميرا لقراءة العلبة', d: 'نقرأ الاسم والتركيز من الصورة. لا نحتفظ بصورتك بعد المعالجة.' },
+        { icon: 'ph ph-microphone', t: 'نحتاج الميكروفون للبحث الصوتي', d: 'تتحدث باسم الدواء فنكتبه لك لتراجعه قبل البحث.' },
+        { icon: 'ph ph-map-pin', t: 'نحتاج موقعك لعرض الصيدليات المرخصة القريبة', d: 'نستخدمه لعرض الأقرب فقط. لا نعرف ما يتوفر لديها.' },
+      ],
+      cached: [{ ar: 'بانادول 500 ملجم', en: 'PANADOL 500 mg' }, { ar: 'بانادول اكسترا', en: 'PANADOL EXTRA TAB' }, { ar: 'بيندولينت', en: 'Bindolent 100 mg' }],
+      tabs0: [['الرئيسية', 'house', '#B1'], ['بحث', 'magnifying-glass', '#B4'], ['المسح الضوئي', 'scan', '#B6'], ['حسابي', 'user', '#E1']].map(([label, ic, href], i) => ({ label, href, icon: (i === 0 ? 'ph-fill ph-' : 'ph ph-') + ic, color: i === 0 ? 'var(--pr)' : 'var(--ink2)', w: i === 0 ? 700 : 500 })),
+    };
+  }
+}
+</script>
+</body>
+</html>

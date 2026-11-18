@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;gap:80px;align-items:flex-start">
+
+<div id="B11" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B11</b><b>Compare · sticky first column (RTL)</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B8" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">مقارنة (3)</b></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:12px 0 0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+<div style="padding:0 16px;display:flex;gap:6px;align-items:center;font-size:13.5px;position:relative"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><span style="display:inline-flex;gap:4px;align-items:center;padding:2px 10px;border-radius:999px;background:var(--wns);color:var(--wn);font-weight:600"><i class="ph-bold ph-not-equals"></i>يختلف</span><span style="color:var(--ink2)">الفروق مظللة ومعنونة</span></div>
+<div style="overflow-x:auto;overflow-y:hidden;padding-bottom:8px"><div style="width:660px">
+<div style="display:flex"><div style="position:sticky;right:0;z-index:2;width:92px;flex:none;background:var(--bg)"></div><sc-for list="{{ heads }}" as="h" hint-placeholder-count="3"><div style="width:190px;flex:none;padding:0 6px"><div style="background:var(--sf);border-radius:14px;box-shadow:var(--sh);padding:10px 12px;position:relative"><div style="font-size:15px;font-weight:700;line-height:1.4">{{ h.ar }}</div><bdi dir="ltr" style="font-size:12px;color:var(--ink2)">{{ h.en }}</bdi><i class="ph ph-x" style="position:absolute;top:8px;left:8px;color:var(--ink2);font-size:14px"></i></div></div></sc-for></div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="7"><div style="display:flex;margin-top:8px"><div style="position:sticky;right:0;z-index:2;width:92px;flex:none;background:var(--bg);padding:10px 16px 10px 8px;font-size:13px;color:var(--ink2);font-weight:600;line-height:1.4">{{ r.k }}</div><sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="3"><div style="width:190px;flex:none;padding:0 6px"><div style="min-height:54px;border-radius:12px;padding:8px 12px;background:{{ c.bg }};font-size:14px;line-height:1.5;display:flex;flex-direction:column;gap:2px"><bdi dir="auto">{{ c.v }}</bdi><span style="display:{{ c.diff }};align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--wn)"><i class="ph-bold ph-not-equals"></i>يختلف</span></div></div></sc-for></div></sc-for>
+</div></div></div>
+</div>
+<div style="flex:none;padding:10px 16px 28px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><div style="font-size:12.5px;color:var(--ink2);text-align:center">اسحب للاطلاع على بقية الأعمدة · لا تعني الفروق أفضلية لأي منتج</div></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Differences use icon + text + tint, no color alone. No "best" or "cheapest" badge; neutral wording only.</div></div>
+</div>
+
+<div id="B12" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B12</b><b>Price history</b></div>
+<div dir="rtl" style="width:390px;height:920px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B8" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">سجل الأسعار</b></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+<div><div style="font-size:18px;font-weight:700">بانادول 500 ملجم</div><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">PANADOL 500 mg film-coated tablet</bdi></div>
+<div style="display:flex;background:var(--sf);border-radius:12px;padding:3px;box-shadow:var(--sh)"><sc-for list="{{ ranges }}" as="g" hint-placeholder-count="4"><span style="flex:1;min-height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:14px;font-weight:600;background:{{ g.bg }};color:{{ g.fg }}">{{ g.l }}</span></sc-for></div>
+<div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:16px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:var(--ink2)">السعر الحالي</span><span><b style="font-size:26px">7.25</b> <span style="font-size:13px;color:var(--ink2)">ريال (افتراضي)</span></span></div>
+<svg viewBox="0 0 320 140" width="100%" height="140"><g stroke="var(--ln)" stroke-width="1"><line x1="0" y1="20" x2="320" y2="20"/><line x1="0" y1="70" x2="320" y2="70"/><line x1="0" y1="120" x2="320" y2="120"/></g><polyline points="8,16 90,16 90,50 170,50 170,84 250,84 250,112 312,112" fill="none" stroke="var(--pr)" stroke-width="3" stroke-linejoin="round"/><circle cx="8" cy="16" r="5" fill="var(--pr)"/></svg>
+<div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink2)"><span>الأحدث</span><span>الأقدم</span></div></div>
+<div style="display:flex;flex-direction:column"><div style="display:flex;padding:6px 4px;font-size:12.5px;color:var(--ink2)"><span style="flex:1">التاريخ</span><span style="flex:1">السعر</span><span style="flex:1">التغيّر</span></div>
+<sc-for list="{{ hist }}" as="h" hint-placeholder-count="4"><div style="display:flex;padding:10px 4px;font-size:14.5px;background:{{ h.bg }};border-radius:8px"><span style="flex:1">{{ h.d }}</span><span style="flex:1;font-weight:600">{{ h.p }}</span><span style="flex:1;display:flex;align-items:center;gap:4px;color:var(--ink2)"><i class="{{ h.icon }}"></i>{{ h.c }}</span></div></sc-for></div>
+<div style="position:relative;display:flex;gap:8px;font-size:13px;color:var(--ink2);background:var(--sf);border-radius:12px;padding:10px 12px"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph ph-info" style="color:var(--pr);font-size:18px;margin-top:2px"></i>العملة غير مذكورة في المصدر الرسمي وتم اعتمادها كريال سعودي</div>
+</div></div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Currency assumption repeated next to the chart. Chart is text-backed by the table (accessible). Time runs right to left in RTL.</div></div>
+</div>
+
+<div id="B13" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B13</b><b>States · no result, loading, error, low confidence</b></div>
+<div dir="rtl" style="width:390px;height:1180px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7;padding:24px 16px;gap:24px">
+<div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;position:relative"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph ph-magnifying-glass" style="font-size:40px;color:var(--ink2)"></i><b style="font-size:18px">لم نجد نتائج لـ «بانادلو»</b><div style="font-size:14px;color:var(--ink2)">جرّب هذه الخطوات</div>
+<div style="align-self:stretch;display:flex;flex-direction:column;gap:2px;text-align:right;font-size:15px"><span style="min-height:44px;display:flex;align-items:center;gap:10px"><i class="ph ph-text-aa" style="color:var(--pr)"></i>تحقق من الإملاء</span><span style="min-height:44px;display:flex;align-items:center;gap:10px"><i class="ph ph-flask" style="color:var(--pr)"></i>جرّب اسم المادة الفعالة</span><span style="min-height:44px;display:flex;align-items:center;gap:10px"><i class="ph ph-scan" style="color:var(--pr)"></i>امسح علبة الدواء</span></div></div>
+<div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:16px;display:flex;flex-direction:column;gap:12px"><div style="font-size:13px;color:var(--ink2)">جارٍ التحميل</div><sc-for list="{{ sk }}" as="s" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:8px"><div style="height:18px;width:{{ s }};border-radius:6px;background:var(--ln)"></div><div style="height:12px;width:50%;border-radius:6px;background:var(--ln)"></div></div></sc-for></div>
+<div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center"><i class="ph ph-cloud-slash" style="font-size:40px;color:var(--ink2)"></i><b style="font-size:18px">تعذّر التحميل</b><div style="font-size:14px;color:var(--ink2)">حدثت مشكلة في الاتصال بالخادم. حاول مرة أخرى.</div><span style="min-height:48px;padding:0 24px;display:flex;align-items:center;gap:8px;border-radius:12px;background:var(--pr);color:var(--prt);font-weight:600"><i class="ph ph-arrow-clockwise"></i>إعادة المحاولة</span></div>
+<div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;border:2px solid var(--wn);position:relative"><i style="display:var(--note);position:absolute;top:-10px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">2</i><i class="ph-fill ph-warning" style="font-size:40px;color:var(--wn)"></i><b style="font-size:18px">لم نتمكن من قراءة الصورة بوضوح</b><div style="font-size:14px;color:var(--ink2)">لا نبحث بنتيجة غير مؤكدة. التقط صورة أخرى أو اكتب الاسم يدويًا.</div><div style="display:flex;gap:8px;align-self:stretch"><span style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--pr);color:var(--prt);font-weight:600">التقط صورة أخرى</span><span style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1.5px solid var(--pr);color:var(--pr);font-weight:600">اكتب الاسم</span></div></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> No-result state offers next steps, never a guess presented as a match.</div><div><b style="color:var(--an)">2</b> Low-confidence AI output is blocked from lookup and flagged with icon + text.</div></div>
+</div>
+
+<div id="B14" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B14</b><b>My list</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px"><b style="font-size:20px">قائمتي</b><a href="#B15" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-bell"></i></a></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+<div style="position:relative;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;background:var(--wns);color:var(--ink)"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph-fill ph-warning" style="color:var(--wn);font-size:22px;margin-top:2px"></i><div style="font-size:14.5px"><b>تحتوي على نفس المادة الفعالة، راجع الصيدلي</b><div style="font-size:13px;color:var(--ink2)">بانادول 500 ملجم · بانادول اكسترا: <bdi dir="ltr">PARACETAMOL</bdi></div></div></div>
+<div style="font-size:13px;color:var(--ink2)">أدوية محفوظة (3)</div>
+<sc-for list="{{ saved }}" as="s" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px 16px;display:flex;flex-direction:column;gap:6px"><a href="#B8" style="text-decoration:none;color:var(--ink);display:flex;justify-content:space-between;gap:8px"><div><div style="font-size:16px;font-weight:700">{{ s.ar }}</div><bdi dir="ltr" style="font-size:13px;color:var(--ink2)">{{ s.en }}</bdi></div><b>{{ s.price }}</b></a>
+<div style="display:{{ s.open }};flex-direction:column;border-top:1px solid var(--ln);margin-top:6px;padding-top:4px"><sc-for list="{{ s.toggles }}" as="t" hint-placeholder-count="3"><div style="min-height:44px;display:flex;align-items:center;justify-content:space-between;font-size:14.5px"><span style="display:flex;gap:8px;align-items:center"><i class="{{ t.icon }}" style="color:var(--pr)"></i>{{ t.l }}</span><span style="width:46px;height:26px;border-radius:13px;background:{{ t.bg }};display:flex;align-items:center;justify-content:{{ t.j }};padding:0 3px"><span style="width:20px;height:20px;border-radius:50%;background:#fff"></span></span></div></sc-for></div></div></sc-for>
+</div>
+<div style="flex:none;display:flex;padding:8px 8px 22px;background:var(--sf);box-shadow:0 -1px 0 var(--ln)"><sc-for list="{{ tabs3 }}" as="t" hint-placeholder-count="4"><a href="{{ t.href }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;font-size:11.5px;text-decoration:none;color:{{ t.color }};font-weight:{{ t.w }}"><i class="{{ t.icon }}" style="font-size:24px"></i>{{ t.label }}</a></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Shared-ingredient notice states a fact and redirects to the pharmacist. No "stop", "switch" or "duplicate" advice. Saving needs an account (guest gate in E3).</div></div>
+</div>
+
+<div id="B15" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B15</b><b>Alerts feed</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B14" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">التنبيهات</b></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+<div style="display:flex;gap:8px"><span style="min-height:40px;display:inline-flex;align-items:center;padding:0 16px;border-radius:999px;background:var(--pr);color:var(--prt);font-size:14px;font-weight:600">الكل</span><span style="min-height:40px;display:inline-flex;align-items:center;padding:0 16px;border-radius:999px;background:var(--sf);box-shadow:var(--sh);font-size:14px">قائمتي فقط</span></div>
+<sc-for list="{{ feed }}" as="a" hint-placeholder-count="5"><a href="#B8" style="text-decoration:none;color:var(--ink);background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:12px 14px;display:flex;flex-direction:column;gap:5px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="display:inline-flex;gap:5px;align-items:center;padding:2px 10px;border-radius:999px;background:{{ a.bg }};color:{{ a.fg }};font-size:12.5px;font-weight:600"><i class="{{ a.icon }}"></i>{{ a.kind }}</span><span style="font-size:12.5px;color:var(--ink2)">{{ a.date }}</span></div><div style="font-size:15px;font-weight:600;line-height:1.5">{{ a.title }}</div><div style="font-size:13px;color:var(--ink2)">{{ a.sub }}</div></a></sc-for>
+</div></div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div>Each item = icon + label + official title or data change + date; links to the drug. Safety red is used only for recalls.</div></div>
+</div>
+
+<div id="B16" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B16</b><b>Assistant · cited answer, redirect, not found</b></div>
+<div dir="rtl" style="width:390px;height:1180px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">اسأل عن بيانات الأدوية</b></div>
+<div style="flex:none;display:flex;gap:8px;align-items:flex-start;padding:8px 16px;background:var(--prs);font-size:12.5px;line-height:1.6"><i class="ph-fill ph-info" style="color:var(--pr);font-size:16px;margin-top:2px"></i><span>معلومات للاطلاع فقط وليست نصيحة طبية. استشر الصيدلي أو الطبيب قبل أي تغيير في دواء.</span></div>
+<div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:14px">
+<div style="align-self:flex-start;max-width:78%;background:var(--pr);color:var(--prt);border-radius:16px 16px 16px 4px;padding:10px 14px">ما سعر بانادول 500؟</div>
+<div style="align-self:stretch;background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px;display:flex;flex-direction:column;gap:10px;position:relative"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i>
+<div>السعر المسجل لـ بانادول 500 ملجم هو <b>7.25</b> ريال سعودي (افتراضي).</div>
+<a href="#B8" style="align-self:flex-start;min-height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:999px;background:var(--prs);color:var(--pr);font-size:13px;font-weight:600;text-decoration:none"><i class="ph ph-link-simple"></i>بانادول 500 ملجم · 2209260577</a>
+<div style="font-size:12.5px;color:var(--ink2);display:flex;gap:6px;align-items:center"><i class="ph-fill ph-seal-check" style="color:var(--ok)"></i>المصدر: بياناتنا الرسمية</div></div>
+<div style="align-self:flex-start;max-width:78%;background:var(--pr);color:var(--prt);border-radius:16px 16px 16px 4px;padding:10px 14px">هل يمكنني أخذ بانادول مع دواء آخر؟</div>
+<div style="align-self:stretch;background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px;display:flex;flex-direction:column;gap:6px;position:relative;border:1.5px solid var(--pr)"><i style="display:var(--note);position:absolute;top:-8px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">2</i><div style="display:flex;gap:8px;align-items:center;font-weight:700"><i class="ph-fill ph-first-aid-kit" style="color:var(--pr);font-size:22px"></i>هذا سؤال للصيدلي أو الطبيب</div><div style="font-size:14px;color:var(--ink2)">لا نقدّم نصائح طبية. يمكنني عرض معلومات السجل الرسمي مثل المادة الفعالة والسعر.</div></div>
+<div style="align-self:flex-start;max-width:78%;background:var(--pr);color:var(--prt);border-radius:16px 16px 16px 4px;padding:10px 14px">ما لون علبة الدواء؟</div>
+<div style="align-self:stretch;background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px;display:flex;flex-direction:column;gap:6px"><div style="display:flex;gap:8px;align-items:center;font-weight:700"><i class="ph ph-magnifying-glass" style="color:var(--ink2);font-size:22px"></i>لم أجد هذا في بياناتنا</div></div>
+<div style="align-self:stretch;background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:14px 16px;display:flex;gap:6px;align-items:center"><span style="width:8px;height:8px;border-radius:50%;background:var(--ink2)"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--ink2);opacity:.6"></span><span style="width:8px;height:8px;border-radius:50%;background:var(--ink2);opacity:.3"></span><span style="font-size:13px;color:var(--ink2);margin-inline-start:6px">جارٍ البحث في بياناتنا…</span></div>
+<div style="margin-top:auto;display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ qs }}" as="q" hint-placeholder-count="2"><span style="min-height:44px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;background:var(--sf);box-shadow:var(--sh);font-size:14px;color:var(--pr)">{{ q }}</span></sc-for></div>
+</div>
+<div style="flex:none;padding:10px 16px 28px;background:var(--sf);box-shadow:0 -1px 0 var(--ln);display:flex;gap:8px"><div style="flex:1;min-height:48px;border-radius:14px;background:var(--bg);display:flex;align-items:center;padding:0 14px;color:var(--ink2)">اكتب سؤالك عن اسم أو مادة أو سعر</div><span style="width:48px;height:48px;border-radius:14px;background:var(--pr);color:var(--prt);display:flex;align-items:center;justify-content:center;font-size:22px"><i class="ph ph-paper-plane-tilt"></i></span></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Every statement carries a citation chip to the drug record + "source: our official data" line. Answers only from our data.</div><div><b style="color:var(--an)">2</b> Advice questions get a calm redirect; no partial advice. Not-found says so plainly.</div></div>
+</div>
+
+<div id="B17" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B17</b><b>Licensed pharmacies near me</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div dir="ltr" style="height:44px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph-fill ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
+<div style="flex:none;height:52px;display:flex;align-items:center;padding:0 8px"><a href="#B1" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink);text-decoration:none"><i class="ph ph-arrow-right"></i></a><b style="flex:1;font-size:17px">الصيدليات المرخصة القريبة</b></div>
+<div style="flex:none;position:relative;display:flex;gap:8px;align-items:flex-start;padding:10px 16px;background:var(--wns);font-size:13.5px;line-height:1.6"><i style="display:var(--note);position:absolute;top:-6px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><i class="ph-fill ph-info" style="color:var(--wn);font-size:18px;margin-top:2px"></i><span>نعرض الصيدليات المرخصة فقط ولا نعرف ما يتوفر لديها</span></div>
+<div style="flex:none;height:290px;position:relative;background:repeating-linear-gradient(90deg,transparent 0 59px,var(--ln) 59px 60px),repeating-linear-gradient(0deg,#e8efef 0 59px,var(--ln) 59px 60px)"><sc-for list="{{ pins }}" as="p" hint-placeholder-count="4"><i class="ph-fill ph-map-pin" style="position:absolute;left:{{ p.x }}px;top:{{ p.y }}px;font-size:34px;color:var(--pr)"></i></sc-for><span style="position:absolute;left:174px;top:130px;width:16px;height:16px;border-radius:50%;background:var(--ink);border:3px solid #fff"></span><span style="position:absolute;bottom:8px;left:8px;font-size:11px;color:var(--ink2);background:var(--bg);padding:1px 6px;border-radius:6px" dir="ltr">map tiles (no stock data)</span></div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;gap:10px;overflow:hidden"><div style="font-size:13px;color:var(--ink2)">الأقرب إليك</div>
+<sc-for list="{{ pharm }}" as="p" hint-placeholder-count="3"><div style="background:var(--sf);border-radius:16px;box-shadow:var(--sh);padding:12px 14px;display:flex;align-items:center;gap:12px"><div style="flex:1"><div style="font-weight:700;display:flex;align-items:center;gap:6px">{{ p.n }}<i class="ph-fill ph-seal-check" style="color:var(--ok);font-size:16px"></i></div><div style="font-size:13px;color:var(--ink2)">{{ p.r }} · {{ p.a }}</div></div><span style="width:48px;height:48px;border-radius:12px;background:var(--prs);color:var(--pr);display:flex;align-items:center;justify-content:center;font-size:22px"><i class="ph ph-phone"></i></span></div></sc-for></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Banner is placed above the map: licensed only, never "available here". Location is requested via the explainer in A4 first.</div></div>
+</div>
+
+<div id="B18" style="display:flex;flex-direction:column;gap:12px;width:390px">
+<div style="display:flex;align-items:center;gap:8px;font-size:15px" dir="ltr"><b style="background:#0F2427;color:#fff;border-radius:6px;padding:2px 8px;font-size:13px">B18</b><b>"عن البيانات" bottom sheet</b></div>
+<div dir="rtl" style="width:390px;height:844px;border-radius:32px;overflow:hidden;position:relative;background:var(--bg);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 12px 32px rgba(18,41,43,.14);display:flex;flex-direction:column;font-size:16px;line-height:1.7">
+<div style="position:absolute;inset:0;background:rgba(10,24,25,.5);z-index:1"></div>
+<div style="padding:60px 16px;opacity:.6"><h1 style="margin:0;font-size:28px">بانادول 500 ملجم</h1><bdi dir="ltr" style="color:var(--ink2)">PANADOL 500 mg film-coated tablet</bdi></div>
+<div style="position:absolute;bottom:0;inset-inline:0;z-index:2;background:var(--sf);border-radius:24px 24px 0 0;padding:12px 20px 34px;display:flex;flex-direction:column;gap:14px;box-shadow:0 -8px 32px rgba(0,0,0,.2)">
+<span style="align-self:center;width:44px;height:5px;border-radius:3px;background:var(--ln)"></span>
+<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:20px">عن البيانات</b><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px"><i class="ph ph-x"></i></span></div>
+<sc-for list="{{ about }}" as="a" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:flex-start"><i class="{{ a.icon }}" style="font-size:22px;color:var(--pr);margin-top:2px"></i><div><div style="font-size:13px;color:var(--ink2)">{{ a.k }}</div><div style="font-size:15px">{{ a.v }}</div></div></div></sc-for>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:relative"><i style="display:var(--note);position:absolute;top:-12px;left:4px;width:20px;height:20px;border-radius:50%;background:var(--an);color:#fff;font:700 11px/20px Inter;text-align:center;font-style:normal;z-index:5">1</i><span style="display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;background:var(--oks);color:var(--ok);font-size:13px;font-weight:600"><i class="ph-fill ph-seal-check"></i>رسمي</span><span style="display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;background:var(--wns);color:var(--wn);font-size:13px;font-weight:600"><i class="ph-fill ph-question"></i>غير موثّق</span><span style="font-size:12.5px;color:var(--ink2)">مستويا الثقة</span></div>
+<div style="font-size:13px;color:var(--ink2);background:var(--bg);border-radius:12px;padding:10px 12px">لا نعرف المخزون ولا سعر البيع في الصيدليات، ولا نقدّم جرعات أو نصائح طبية.</div>
+<span style="min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--pr);color:var(--prt);font-weight:600">حسنًا</span></div>
+</div>
+<div dir="ltr" style="display:var(--note);font-size:12.5px;line-height:1.5;color:#4B6365"><div><b style="color:var(--an)">1</b> Trust model: "official" (green check) vs "غير موثّق" (amber question). Source link, fetch date and limits in one sheet.</div></div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  tabs(a) {
+    return [['الرئيسية', 'house', '#B1'], ['بحث', 'magnifying-glass', '#B4'], ['المسح الضوئي', 'scan', '#B6'], ['حسابي', 'user', '#E1']].map(([label, ic, href], i) => ({ label, href, icon: (i === a ? 'ph-fill ph-' : 'ph ph-') + ic, color: i === a ? 'var(--pr)' : 'var(--ink2)', w: i === a ? 700 : 500 }));
+  }
+  renderVals() {
+    const D = (v) => v ? { bg: 'var(--wns)', diff: 'flex' } : { bg: 'var(--sf)', diff: 'none' };
+    const row = (k, vs, diff) => ({ k, cells: vs.map((v, i) => ({ v, ...D(diff && diff[i]) })) });
+    const tg = (l, on, icon) => ({ l, icon, bg: on ? 'var(--pr)' : 'var(--ln)', j: on ? 'flex-end' : 'flex-start' });
+    const K = {
+      price: { kind: 'تغيّر السعر', icon: 'ph-fill ph-tag', bg: 'var(--prs)', fg: 'var(--pr)' },
+      status: { kind: 'تغيّر الحالة', icon: 'ph-fill ph-arrows-clockwise', bg: 'var(--prs)', fg: 'var(--pr)' },
+      label: { kind: 'تحديث نشرة', icon: 'ph-fill ph-file-text', bg: 'var(--wns)', fg: 'var(--wn)' },
+      short: { kind: 'نقص', icon: 'ph-fill ph-package', bg: 'var(--ors)', fg: 'var(--or)' },
+      recall: { kind: 'سحب', icon: 'ph-fill ph-arrow-u-up-left', bg: 'var(--rds)', fg: 'var(--rd)' },
+    };
+    return {
+      tabs3: this.tabs(3),
+      heads: [{ ar: 'بانادول 500 ملجم', en: 'PANADOL 500 mg' }, { ar: 'أدول 500 ملجم', en: 'ADOL 500 mg' }, { ar: 'باراسيتامول 0.5 جم', en: 'PARACETAMOL 0.5 g' }],
+      rows: [
+        row('المادة الفعالة', ['PARACETAMOL', 'PARACETAMOL', 'PARACETAMOL']),
+        row('التركيز', ['500 ملجم', '500 ملجم', '0.5 جم'], [0, 0, 1]),
+        row('الشكل الدوائي', ['قرص مغلف', 'قرص', 'قرص'], [0, 1, 1]),
+        row('الاستخدام', ['عن طريق الفم', 'عن طريق الفم', 'عن طريق الفم']),
+        row('الشركة', ['Haleon Ireland Limited', 'Julphar', 'شركة نموذجية ب'], [0, 1, 1]),
+        row('السعر (افتراضي)', ['7.25 ريال', '6.50 ريال', '9.25 ريال'], [0, 1, 1]),
+        row('الحالة', ['مسوّق · ترخيص ساري', 'مسوّق · ترخيص ساري', 'مسوّق · ترخيص ساري']),
+      ],
+      ranges: [['3 أشهر', 0], ['6 أشهر', 1], ['سنة', 0], ['الكل', 0]].map(([l, on]) => ({ l, bg: on ? 'var(--pr)' : 'transparent', fg: on ? 'var(--prt)' : 'var(--ink2)' })),
+      hist: [['3 سبتمبر 2026', '7.25', 'ph ph-arrow-up', '+0.75'], ['11 مارس 2026', '6.50', 'ph ph-arrow-up', '+0.50'], ['2 يوليو 2025', '6.00', 'ph ph-arrow-up', '+0.50'], ['14 يناير 2025', '5.50', 'ph ph-minus', 'أول سجل']].map(([d, p, icon, c], i) => ({ d, p, icon, c, bg: i % 2 ? 'transparent' : 'var(--sf)' })),
+      sk: ['70%', '55%', '80%'],
+      saved: [
+        { ar: 'بانادول 500 ملجم', en: 'PANADOL 500 mg', price: '7.25', open: 'flex', toggles: [tg('تغيّر السعر', 1, 'ph ph-tag'), tg('تغيّر الحالة', 1, 'ph ph-arrows-clockwise'), tg('تنبيه أمان جديد', 0, 'ph ph-shield-warning')] },
+        { ar: 'بانادول اكسترا', en: 'PANADOL EXTRA TAB', price: '9.50', open: 'none', toggles: [] },
+        { ar: 'بيندولينت', en: 'Bindolent 100 mg', price: '831.50', open: 'none', toggles: [] },
+      ],
+      feed: [
+        { ...K.price, date: 'اليوم', title: 'تغيّر السعر المسجل: بانادول 500 ملجم', sub: 'من 6.50 إلى 7.25 ريال (افتراضي)' },
+        { ...K.short, date: 'أمس', title: 'مدرج في قائمة النواقص الرسمية باسم المادة العلمية', sub: 'BENDAMUSTINE · احتمال، يحتاج مراجعة' },
+        { ...K.label, date: '12 نوفمبر', title: 'تحديث قسم التحذيرات في النشرة', sub: 'PANADOL EXTRA TAB' },
+        { ...K.recall, date: '8 نوفمبر', title: 'سحب تشغيلة، عنوان الإشعار كما ورد في المصدر', sub: 'المصدر: هيئة الغذاء والدواء' },
+        { ...K.status, date: '2 نوفمبر', title: 'تغيّرت حالة التسويق', sub: 'Bindolent 100 mg' },
+      ],
+      qs: ['ما سعر بانادول 500؟', 'ما المواد الفعالة في بانادول اكسترا؟'],
+      pins: [{ x: 60, y: 40 }, { x: 250, y: 70 }, { x: 120, y: 190 }, { x: 300, y: 200 }],
+      pharm: [{ n: 'صيدلية نموذجية 1', r: 'الرياض', a: 'حي النخيل، طريق الملك فهد' }, { n: 'صيدلية نموذجية 2', r: 'الرياض', a: 'حي الورود، شارع العليا' }, { n: 'صيدلية نموذجية 3', r: 'الرياض', a: 'حي الملز' }],
+      about: [
+        { icon: 'ph ph-database', k: 'المصدر', v: 'سجل هيئة الغذاء والدواء السعودية (SFDA)' },
+        { icon: 'ph ph-clock', k: 'آخر جلب', v: '17 نوفمبر 2026' },
+        { icon: 'ph ph-warning-circle', k: 'حدود البيانات', v: 'العملة غير مذكورة في المصدر الرسمي وتم اعتمادها كريال سعودي.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
