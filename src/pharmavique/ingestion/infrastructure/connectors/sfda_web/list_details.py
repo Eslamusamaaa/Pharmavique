@@ -35,14 +35,20 @@ def _text(cell: Tag) -> str:
 
 
 def parse_detail_page(html: str) -> DetailPage:
-    """The label/value pairs of the page's table.
+    """The label/value pairs of a detail page.
 
-    A two-cell row is a pair (`Trade name`, `Hyrimoz`). A one-cell row takes the table's header as
-    its label (`SFDA Approved Use`, the approved-use text).
+    A page with a table: a two-cell row is a pair (`Trade name`, `Hyrimoz`); a one-cell row takes
+    the table's header as its label (`SFDA Approved Use`). A page without one is a content page
+    (a recall, a risk-minimization item): its title, date, labelled fields and attachment links.
     """
-    table = BeautifulSoup(html, "html.parser").find("table")
-    if table is None:
-        raise ParseError("no table on the detail page")
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table")
+    if table is not None:
+        return _table_pairs(table)
+    return _node_pairs(soup)
+
+
+def _table_pairs(table: Tag) -> DetailPage:
     header = ""
     pairs: list[tuple[str, str]] = []
     for row in table.find_all("tr"):
@@ -54,9 +60,37 @@ def parse_detail_page(html: str) -> DetailPage:
             pairs.append((_text(cells[0]), _text(cells[1])))
         elif header:
             pairs.append((header, _text(cells[0])))
-    pairs = [(label, value) for label, value in pairs if value]
-    if not pairs:
+    kept = [(label, value) for label, value in pairs if value]
+    if not kept:
         raise ParseError("the detail table has no values")
+    return DetailPage(tuple(kept))
+
+
+def _node_pairs(soup: BeautifulSoup) -> DetailPage:
+    scope = soup.find("main") or soup
+    pairs: list[tuple[str, str]] = []
+    title = scope.find("h2")
+    if title is not None and _text(title):
+        pairs.append(("Title", _text(title)))
+    content = scope.select_one(".node__content")
+    if content is None:
+        raise ParseError("no content on the detail page")
+    for field in content.select(".field"):
+        classes: list[str] = list(field.get("class") or [])
+        label_tag = field.select_one(".field__label")
+        if "field--name-field-file-media" in classes:
+            pairs.extend(("Attachment", str(a["href"])) for a in field.select("a[href]"))
+            continue
+        # a field with a hidden label (the body) is its own item
+        own_item = "field__item" in classes or "field__items" in classes
+        value_tag = field if own_item else field.select_one(".field__item, .field__items")
+        value = _text(value_tag) if value_tag is not None else ""
+        if not value:
+            continue
+        label = _text(label_tag) if label_tag is not None else "Body"
+        pairs.append((label, value))
+    if len(pairs) < 2:
+        raise ParseError("the detail page has no labelled fields")
     return DetailPage(tuple(pairs))
 
 

@@ -106,3 +106,29 @@ async def test_a_block_stops_the_run_and_robots_is_honoured(tmp_path: Path) -> N
             records(), tmp_path / "e.jsonl"
         )
     assert fetcher.calls == []
+
+
+NODE = """
+<main><div class="text"><h2 class="mb-3 fs-3">Voluntary Recall of two batches of Dopram</h2>
+<span>2026-02-12</span>
+<div class="node__content">
+<div class="text-formatted field field--name-body field--label-hidden field__item">
+ Trade Name Scientific Name Register Number Dopram DOXAPRAM</div>
+<div class="field field--name-field-date field--label-above">
+ <div class="field__label">التاريخ</div><div class="field__item">2025-11-02</div></div>
+<div class="field field--name-field-issue field--label-above">
+ <div class="field__label">سبب السحب</div>
+ <div class="field__item"><p><span>Non-compliance with specifications.</span></p></div></div>
+<div class="field field--name-field-file-media field--label-hidden field__items">
+ <a href="/sites/default/files/2025-11/Dopram.pdf">Letter</a></div>
+</div></div></main>
+"""
+
+
+def test_a_page_without_a_table_is_read_from_its_labelled_fields() -> None:
+    pairs = dict(parse_detail_page(NODE).pairs)
+    assert pairs["Title"] == "Voluntary Recall of two batches of Dopram"
+    assert pairs["التاريخ"] == "2025-11-02"
+    assert pairs["سبب السحب"] == "Non-compliance with specifications."
+    assert pairs["Body"].startswith("Trade Name Scientific Name")
+    assert pairs["Attachment"] == "/sites/default/files/2025-11/Dopram.pdf"
