@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from pharmavique.knowledge.domain.chunks import Chunk, SourceDocument
+from pharmavique.knowledge.domain.retrieval import Passage
 
 
 class DocumentSource(Protocol):
@@ -26,3 +27,25 @@ class Embedder(Protocol):
     def model(self) -> str: ...
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+
+
+class ChunkVectors(Protocol):
+    """Where chunk vectors are kept; vectors of different models never mix."""
+
+    async def missing(self, model: str, limit: int) -> list[tuple[str, str]]:
+        """(chunk id, text) of chunks that have no vector from `model` yet."""
+        ...
+
+    async def save(self, model: str, vectors: Sequence[tuple[str, list[float]]]) -> None: ...
+
+
+class PassageSearch(Protocol):
+    """Two independent rankings of stored chunks; fusion happens in the application layer."""
+
+    async def by_vector(
+        self, model: str, vector: list[float], register_numbers: Sequence[str], limit: int
+    ) -> list[Passage]: ...
+
+    async def by_text(
+        self, query: str, register_numbers: Sequence[str], limit: int
+    ) -> list[Passage]: ...
