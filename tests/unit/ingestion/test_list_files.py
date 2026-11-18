@@ -83,6 +83,23 @@ async def test_an_html_answer_is_not_kept_as_a_document(tmp_path: Path) -> None:
     assert counts == {"stored_before": 0, "downloaded": 0, "failed": 2}
 
 
+async def test_a_web_page_sent_with_a_document_type_is_not_kept(tmp_path: Path) -> None:
+    """The homepage once came back as a "docx": the type said document, the bytes were HTML."""
+
+    def page_as_docx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"<!DOCTYPE html>\r\n<html><body>Home</body></html>",
+            headers={
+                "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml"
+            },
+        )
+
+    made, _ = crawler(httpx.MockTransport(page_as_docx))
+    counts = await made.run(records(), tmp_path / "f", tmp_path / "i.jsonl")
+    assert counts == {"stored_before": 0, "downloaded": 0, "failed": 2}
+
+
 async def test_a_block_stops_the_run_and_robots_is_honoured(tmp_path: Path) -> None:
     def blocked(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429)

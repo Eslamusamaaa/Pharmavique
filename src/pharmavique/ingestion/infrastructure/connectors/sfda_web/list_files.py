@@ -74,6 +74,7 @@ class ListFileCrawler:
                     response.status_code != 200
                     or not content_type.startswith(_DOCUMENT_TYPES)
                     or not 0 < len(response.content) <= MAX_BYTES
+                    or _looks_like_web_page(response.content)
                 ):
                     counts["failed"] += 1
                     self._log.warning(
@@ -110,6 +111,11 @@ class ListFileCrawler:
 
     def _url(self, link: str) -> str:
         return link if link.startswith("http") else f"{self._base_url}{link}"
+
+
+def _looks_like_web_page(content: bytes) -> bool:
+    """A page of the site sent under a document type (its homepage came back as a "docx")."""
+    return content.lstrip()[:15].lower().startswith((b"<!doctype html", b"<html"))
 
 
 def _open_store(folder: Path, index_path: Path) -> tuple[set[str], TextIO]:
