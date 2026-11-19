@@ -149,7 +149,7 @@ export default function Search() {
       {/* search bar: back arrow on the right, field, clear, mic and camera on the left */}
       <View style={styles.bar}>
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(tabs)/index'))}
+          onPress={() => (router.canGoBack() ? router.back() : router.navigate('/'))}
           style={styles.iconBtn}
           accessibilityLabel="رجوع"
         >

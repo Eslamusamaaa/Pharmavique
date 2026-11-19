@@ -45,7 +45,7 @@ export default function VoiceSearch() {
     const q = heard.trim();
     if (!q) return;
     add({ ar: q, en: null, register: null, query: q });
-    router.replace({ pathname: '/(tabs)/search', params: { q } });
+    router.replace({ pathname: '/search', params: { q } });
   };
 
   const askAssistant = () => {

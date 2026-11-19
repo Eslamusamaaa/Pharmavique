@@ -263,7 +263,7 @@ function BoxReview({ photo, result, onBack }: { photo: string; result: ScanResul
           {first ? <Candidates line={first} /> : null}
         </View>
         <Pressable
-          onPress={() => name.trim() && router.push({ pathname: '/(tabs)/search', params: { q: name.trim() } })}
+          onPress={() => name.trim() && router.push({ pathname: '/search', params: { q: name.trim() } })}
           disabled={!name.trim()}
           style={[styles.primary, { backgroundColor: c.pr, opacity: name.trim() ? 1 : 0.5 }]}
         >
@@ -348,7 +348,7 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
             <Pressable
               onPress={() => {
                 const first = names.find((_, i) => confirmed[i]);
-                if (first) router.push({ pathname: '/(tabs)/search', params: { q: first } });
+                if (first) router.push({ pathname: '/search', params: { q: first } });
               }}
               disabled={!count}
               style={[styles.primary, { backgroundColor: c.pr, opacity: count ? 1 : 0.5 }]}

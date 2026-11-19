@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { askAssistant, friendlyError, type AssistantAnswer, type Level } from '@/api/client';
+import { askAssistant, friendlyError, type AssistantAnswer, type ConversationTurn, type Level } from '@/api/client';
 import { DisclaimerBar, Row, T } from '@/components/ui';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
@@ -66,10 +66,20 @@ export default function Assistant() {
     const q = question.trim();
     if (!q || busy) return;
     const pendingId = nextId();
+    // The conversation so far, so follow-ups ("and the 40 mg one?") keep their meaning.
+    const history: ConversationTurn[] = turns
+      .flatMap((t): ConversationTurn[] =>
+        t.role === 'user'
+          ? [{ role: 'user', text: t.text }]
+          : t.role === 'assistant'
+            ? [{ role: 'assistant', text: t.answer.answer }]
+            : [],
+      )
+      .slice(-6);
     setText('');
     setTurns((all) => [...all, { id: nextId(), role: 'user', text: q }, { id: pendingId, role: 'pending' }]);
     try {
-      const answer = await askAssistant({ question: q, level, register_number: params.register ?? null, spoken });
+      const answer = await askAssistant({ question: q, level, register_number: params.register ?? null, spoken, history });
       setTurns((all) => all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'assistant', answer } : t)));
       // A question asked by voice is answered by voice too (Saudi Arabic).
       if (spoken && !answer.refused) speaker.speak(pendingId, answer.answer);
@@ -99,7 +109,7 @@ export default function Assistant() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={styles.header}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.navigate('/(tabs)/index'))} style={styles.iconBtn} accessibilityLabel="رجوع">
+        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.navigate('/'))} style={styles.iconBtn} accessibilityLabel="رجوع">
           <ArrowRightIcon size={24} color={c.ink} />
         </Pressable>
         <T size={17} weight={700} style={{ flex: 1 }} numberOfLines={1}>

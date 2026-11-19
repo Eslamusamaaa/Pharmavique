@@ -206,8 +206,16 @@ async function postFile<T>(path: string, field: string, uri: string, name: strin
   return (await response.json()) as T;
 }
 
+export type ConversationTurn = { role: 'user' | 'assistant'; text: string };
+
 export function askAssistant(
-  body: { question: string; level: Level; register_number?: string | null; spoken?: boolean },
+  body: {
+    question: string;
+    level: Level;
+    register_number?: string | null;
+    spoken?: boolean;
+    history?: ConversationTurn[]; // earlier turns, oldest first: the server keeps no conversation
+  },
   signal?: AbortSignal,
 ): Promise<AssistantAnswer> {
   return postJson<AssistantAnswer>('/v1/assistant/ask', body, signal);
