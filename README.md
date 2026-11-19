@@ -85,7 +85,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Box and prescription scan | Done | Vision model with automatic fallback across models, registry matching, mandatory review |
 | Knowledge base (RAG) | Done | Chunking, embeddings, hybrid retrieval; content grows as the safety lists finish loading |
 | SFDA safety lists | In progress | All six lists crawled; detail pages, documents, OCR, loading and linking running |
-| Mobile app | In progress | Home, search and drug page done in light and dark mode; assistant, voice, scan and list screens next |
+| Mobile app | Done for the core journeys | Home, search, drug page, assistant with listen, voice search, box and prescription scan, light and dark; medication list and safety check next |
 | Accounts, roles, watchlist alerts, analytics | Planned | Bounded contexts exist as skeletons |
 
 ## 3. Screens
@@ -104,6 +104,9 @@ The running app uses real SFDA data. Light and dark themes follow the design tok
 | Search results | <img src="docs/media/wireframes/B3.png" width="200"> | <img src="docs/media/app/search.png" width="200"> | <img src="docs/media/app/search-dark.png" width="200"> |
 | Drug page | <img src="docs/media/wireframes/B8.png" width="200"> | <img src="docs/media/app/drug.png" width="200"> | <img src="docs/media/app/drug-dark.png" width="200"> |
 | Equivalents and compare | <img src="docs/media/wireframes/B11.png" width="200"> | <img src="docs/media/app/drug-same-ingredient.png" width="200"> | <img src="docs/media/app/drug-same-ingredient-dark.png" width="200"> |
+| Assistant | <img src="docs/media/wireframes/B16.png" width="200"> | <img src="docs/media/app/assistant.png" width="200"> | <img src="docs/media/app/assistant-dark.png" width="200"> |
+| Voice search | <img src="docs/media/wireframes/B5.png" width="200"> | <img src="docs/media/app/voice.png" width="200"> | <img src="docs/media/app/voice-dark.png" width="200"> |
+| Box scan review | <img src="docs/media/wireframes/B7.png" width="200"> | <img src="docs/media/app/scan-review.png" width="200"> | <img src="docs/media/app/scan-review-dark.png" width="200"> |
 
 ### 3.2 Wireframe gallery: patient
 
@@ -578,7 +581,8 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/products/{register_number}/same-ingredient` | Same ingredient set, cheapest first, with verdict |
 | POST | `/v1/assistant/ask` | Cited answer to a question |
 | POST | `/v1/voice/transcribe` | Audio upload to text |
-| POST | `/v1/voice/speak` | Text to audio in the Saudi Arabic voice |
+| POST | `/v1/voice/speak` | Text to audio in the Saudi Arabic voice; with `as_link` a one-time link for the app's player |
+| GET | `/v1/voice/audio/{key}` | Fetch a spoken answer once (expires after 10 minutes) |
 | POST | `/v1/recognition/scan?kind=box` or `kind=prescription` | Photo to medicine lines with registry candidates |
 
 Example: ask the assistant.
@@ -689,11 +693,10 @@ migrations/           Alembic environment
 ## 19. Roadmap
 
 1. Finish loading the six SFDA safety lists and fill the knowledge base with their documents.
-2. App screens for the assistant (with listen), voice search, box and prescription scan.
-3. My medication list and safety check: duplicate active ingredient, ingredient allergy, recalls and alerts.
-4. Accounts, tenants and roles; alerts on a user's medicines through the outbox relay.
-5. Price history from SFDA snapshots, and online pharmacy prices marked as unverified.
-6. Egypt as a CSV-import adapter marked unverified. Drug interactions wait for a licensed source.
+2. My medication list and safety check: duplicate active ingredient, ingredient allergy, recalls and alerts.
+3. Accounts, tenants and roles; alerts on a user's medicines through the outbox relay.
+4. Price history from SFDA snapshots, and online pharmacy prices marked as unverified.
+5. Egypt as a CSV-import adapter marked unverified. Drug interactions wait for a licensed source.
 
 ## 20. Disclaimer
 
