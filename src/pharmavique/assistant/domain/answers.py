@@ -52,6 +52,8 @@ class Answer:
     tools_used: tuple[str, ...] = ()
     general: bool = False  # an answer without registry citations: general information
     urgent: bool = False  # the question looked like an emergency
+    # answered, general, emergency, injection, rule_refusal, ungrounded or empty
+    outcome: str = "answered"
 
 
 # ---- emergencies (checked on the question, before any model call) --------------------------------
