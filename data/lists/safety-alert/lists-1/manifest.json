@@ -1,0 +1,47 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 0,
+    "list_pages": 28,
+    "list_pages_fetched": 99,
+    "records_written": 276,
+    "unique_rows": 276
+  },
+  "duplicates": [
+    "/sites/default/files/2026-10/Safety%20Signal%20of%20Tozinameran%20and%20the%20Risk%20of%20Still%27s%20disease.pdf#268d9a5b",
+    "/sites/default/files/2026-04/Safety%20Signals%20Identified%20by%20the%20SFDA%20%28January%20-%20March%29%202026%20.pdf#88d3172a",
+    "/sites/default/files/2026-02/Safety%20Signals%20Identified%20by%20the%20SFDA%20October-%20December%29%202025.pdf#b355cb4c",
+    "/sites/default/files/2025-04/TeclistamabTumourLysisSyndrome.pdf#e0299ebc",
+    "/sites/default/files/2026-02/Sorafenib%20and%20the%20Risk%20of%20Multiple%20Organ%20Dysfunction%20Syndrome.pdf#61d4471d"
+  ],
+  "empty_pages": [],
+  "finished_at": "2026-11-18T23:04:02.188326+00:00",
+  "last_page_in_pager": 27,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "safety-alert",
+  "list_completeness": {
+    "expected": 276,
+    "gap": 0,
+    "passes": 5,
+    "unique": 276
+  },
+  "path": "/en/safety_alert",
+  "probed_pages": 27,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-safety-alert",
+  "started_at": "2026-11-18T22:59:46.197916+00:00",
+  "status": "complete",
+  "title": "Safety Alert",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}

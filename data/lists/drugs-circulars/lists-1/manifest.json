@@ -1,0 +1,41 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 0,
+    "list_pages": 17,
+    "list_pages_fetched": 18,
+    "records_written": 146,
+    "unique_rows": 146
+  },
+  "duplicates": [],
+  "empty_pages": [],
+  "finished_at": "2026-11-18T23:04:36.533541+00:00",
+  "last_page_in_pager": 16,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "drugs-circulars",
+  "list_completeness": {
+    "expected": 146,
+    "gap": 0,
+    "passes": 1,
+    "unique": 146
+  },
+  "path": "/en/drugs_circulars_withdrawal",
+  "probed_pages": 16,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-drugs-circulars",
+  "started_at": "2026-11-18T23:04:02.190327+00:00",
+  "status": "complete",
+  "title": "Drug circulars and withdrawals",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}

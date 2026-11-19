@@ -1,0 +1,173 @@
+2026-11-19 00:59:42 START sfda-lists --run-id lists-1 --lists safety-alert,drugs-circulars,safety-labeling,rmm,drug-shortage,drug-shortage-resolved,dhpc
+2026-11-19 00:59:46,197 INFO list safety-alert (run lists-1, output data\lists\safety-alert\lists-1)
+2026-11-19 00:59:47,506 INFO list page 0 of 27
+2026-11-19 01:00:34,903 INFO list page 20 of 27
+2026-11-19 01:01:17,134 INFO repair pass 2: fetching 7 list pages again (271 of 276 rows known)
+2026-11-19 01:01:53,186 INFO repair pass 3: fetching 7 list pages again (271 of 276 rows known)
+2026-11-19 01:02:17,081 INFO repair pass 4: fetching 28 list pages again (271 of 276 rows known)
+2026-11-19 01:03:12,267 WARNING the list shows 271 rows but 276 were expected; see the manifest
+2026-11-19 01:03:12,267 INFO sorted sweep ('title', 'asc'): 271 of 276 rows known
+2026-11-19 01:04:02,189 INFO safety-alert finished with status complete
+2026-11-19 01:04:02,190 INFO list drugs-circulars (run lists-1, output data\lists\drugs-circulars\lists-1)
+2026-11-19 01:04:03,453 INFO list page 0 of 16
+2026-11-19 01:04:36,535 INFO drugs-circulars finished with status complete
+2026-11-19 01:04:36,536 INFO list safety-labeling (run lists-1, output data\lists\safety-labeling\lists-1)
+2026-11-19 01:04:38,393 INFO list page 0 of 26
+2026-11-19 01:05:12,279 INFO list page 20 of 26
+2026-11-19 01:05:26,963 INFO repair pass 2: fetching 22 list pages again (202 of 261 rows known)
+2026-11-19 01:06:05,246 INFO repair pass 3: fetching 22 list pages again (202 of 261 rows known)
+2026-11-19 01:06:49,747 INFO repair pass 4: fetching 27 list pages again (202 of 261 rows known)
+2026-11-19 01:07:36,051 WARNING the list shows 202 rows but 261 were expected; see the manifest
+2026-11-19 01:07:36,051 INFO sorted sweep ('title', 'asc'): 202 of 261 rows known
+2026-11-19 01:08:34,728 INFO sorted sweep ('title', 'desc'): 241 of 261 rows known
+2026-11-19 01:09:50,824 INFO sorted sweep ('field_trade_name', 'asc'): 241 of 261 rows known
+2026-11-19 01:10:48,540 INFO sorted sweep ('field_trade_name', 'desc'): 241 of 261 rows known
+2026-11-19 01:11:36,881 INFO safety-labeling finished with status partial
+2026-11-19 01:11:36,882 INFO list rmm (run lists-1, output data\lists\rmm\lists-1)
+2026-11-19 01:11:40,180 INFO list page 0 of 57
+2026-11-19 01:12:14,626 INFO list page 20 of 57
+2026-11-19 01:12:50,018 INFO list page 40 of 57
+2026-11-19 01:13:21,599 INFO repair pass 2: fetching 11 list pages again (535 of 578 rows known)
+2026-11-19 01:13:40,799 INFO repair pass 3: fetching 11 list pages again (535 of 578 rows known)
+2026-11-19 01:13:59,794 INFO repair pass 4: fetching 58 list pages again (535 of 578 rows known)
+2026-11-19 01:15:41,190 WARNING the list shows 535 rows but 578 were expected; see the manifest
+2026-11-19 01:15:41,190 INFO sorted sweep ('title', 'asc'): 535 of 578 rows known
+2026-11-19 01:17:23,795 INFO rmm finished with status complete
+2026-11-19 01:17:23,796 INFO list drug-shortage (run lists-1, output data\lists\drug-shortage\lists-1)
+2026-11-19 01:17:24,753 INFO list page 0 of 72
+2026-11-19 01:17:58,625 INFO list page 20 of 72
+2026-11-19 01:18:34,618 INFO list page 40 of 72
+2026-11-19 01:19:09,835 INFO list page 60 of 72
+2026-11-19 01:19:33,181 INFO repair pass 2: fetching 73 list pages again (723 of 726 rows known)
+2026-11-19 01:21:42,692 INFO repair pass 3: fetching 73 list pages again (723 of 726 rows known)
+2026-11-19 01:23:59,687 INFO repair pass 4: fetching 73 list pages again (723 of 726 rows known)
+2026-11-19 01:26:07,569 WARNING the list shows 723 rows but 726 were expected; see the manifest
+2026-11-19 01:26:07,589 INFO drug-shortage finished with status partial
+2026-11-19 01:26:07,589 INFO list drug-shortage-resolved (run lists-1, output data\lists\drug-shortage-resolved\lists-1)
+2026-11-19 01:26:10,297 INFO list page 0 of 59
+2026-11-19 01:26:45,395 INFO list page 20 of 59
+2026-11-19 01:27:19,605 INFO list page 40 of 59
+2026-11-19 01:27:57,178 INFO repair pass 2: fetching 2 list pages again (586 of 593 rows known)
+2026-11-19 01:27:59,783 INFO repair pass 3: fetching 2 list pages again (586 of 593 rows known)
+2026-11-19 01:28:03,077 INFO repair pass 4: fetching 60 list pages again (586 of 593 rows known)
+2026-11-19 01:29:54,926 WARNING the list shows 586 rows but 593 were expected; see the manifest
+2026-11-19 01:29:54,944 INFO drug-shortage-resolved finished with status partial
+2026-11-19 01:29:54,945 INFO list dhpc (run lists-1, output data\lists\dhpc\lists-1)
+2026-11-19 01:29:57,678 INFO list page 0 of 10
+2026-11-19 01:30:16,031 INFO dhpc finished with status complete
+2026-11-19 01:30:18 END sfda-lists exit=2
+2026-11-19 01:30:18 START sfda-list-details --run-id lists-1 --list-run-id lists-1 --lists safety-alert,drugs-circulars,safety-labeling,rmm,drug-shortage,drug-shortage-resolved,dhpc
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf#c908c1a8: https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Elasomeran%20and%20the%20Risk%20of%20Electric%20shock%20sensation.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf#e4c5b0e8: https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Sildenafil%20and%20the%20Risk%20of%20Hemianopia.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf#37adf64b: https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20Dimenhydrinate%20and%20the%20Risk%20of%20Toxic%20epidermal%20necrolysis.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf#005ef242: https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-11/Safety%20Signal%20of%20vemurafenib%20and%20the%20Risk%20of%20Heart%20failure.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf#e3519a55: https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Penile%20squamous%20cell%20carcinoma.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf#cf06622e: https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Mycobacterium%20Tuberculosis%20complex%20test%20positive%20.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf#bdb2e7dd: https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Leflunomide%20and%20the%20Risk%20of%20Rheumatoid%20lung.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf#0c9e4b15: https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Prucalopride%20and%20the%20Risk%20of%20Suicidal%20ideation.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+attempt 2 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf", waiting until "domcontentloaded"
+); waiting 60 s
+no detail for /sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf#de5e6bc8: https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf: Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Apremilast%20and%20the%20Risk%20of%20Enthesopathy.pdf", waiting until "domcontentloaded"
+
+attempt 1 of 3 failed for https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Tozinameran%20and%20the%20Risk%20of%20Still%27s%20disease.pdf (Page.goto: Download is starting
+Call log:
+  - navigating to "https://www.sfda.gov.sa/sites/default/files/2026-10/Safety%20Signal%20of%20Tozinameran%20and%20the%20Risk%20of%20Still%27s%20disease.pdf", waiting until "domcontentloaded"
+); waiting 30 s
+2026-11-19 01:45:12 START sfda-list-details --run-id lists-1 --list-run-id lists-1 --lists safety-alert,drugs-circulars,safety-labeling,rmm,drug-shortage,drug-shortage-resolved,dhpc
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15220 (HTTP 500); waiting 30 s

@@ -1,0 +1,49 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 7,
+    "list_pages": 60,
+    "list_pages_fetched": 125,
+    "records_written": 586,
+    "unique_rows": 586
+  },
+  "duplicates": [
+    "CARBOPLATIN#31825bbb",
+    "DULOXETINE#56e3d2ed",
+    "DULOXETINE#56e3d2ed",
+    "LORNOXICAM#fdc6ab64",
+    "LORNOXICAM#fdc6ab64",
+    "OLMESARTAN MEDOXOMIL,HYDROCHLOROTHIAZIDE#c970d56d",
+    "SODIUM HYALURONATE#47eb69dc"
+  ],
+  "empty_pages": [],
+  "finished_at": "2026-11-18T23:29:54.942513+00:00",
+  "last_page_in_pager": 59,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "drug-shortage-resolved",
+  "list_completeness": {
+    "expected": 593,
+    "gap": 7,
+    "passes": 4,
+    "unique": 586
+  },
+  "path": "/en/resolvedShortageList",
+  "probed_pages": 59,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-drug-shortage-resolved",
+  "started_at": "2026-11-18T23:26:07.590576+00:00",
+  "status": "partial",
+  "title": "Resolved drug shortages",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}

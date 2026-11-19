@@ -1,0 +1,41 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 0,
+    "list_pages": 11,
+    "list_pages_fetched": 12,
+    "records_written": 105,
+    "unique_rows": 105
+  },
+  "duplicates": [],
+  "empty_pages": [],
+  "finished_at": "2026-11-18T23:30:16.030793+00:00",
+  "last_page_in_pager": 10,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "dhpc",
+  "list_completeness": {
+    "expected": 105,
+    "gap": 0,
+    "passes": 1,
+    "unique": 105
+  },
+  "path": "/en/pharmacovigilance",
+  "probed_pages": 10,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-dhpc",
+  "started_at": "2026-11-18T23:29:54.945024+00:00",
+  "status": "complete",
+  "title": "Pharmacovigilance letters (DHPC)",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}

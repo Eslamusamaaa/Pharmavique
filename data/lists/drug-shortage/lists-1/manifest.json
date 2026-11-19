@@ -1,0 +1,45 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 3,
+    "list_pages": 73,
+    "list_pages_fetched": 293,
+    "records_written": 723,
+    "unique_rows": 723
+  },
+  "duplicates": [
+    "AMIKACIN#dd19c2bf",
+    "LEVOFLOXACIN#2efd2c2f",
+    "MIRTAZAPINE#1cbe66da"
+  ],
+  "empty_pages": [],
+  "finished_at": "2026-11-18T23:26:07.587592+00:00",
+  "last_page_in_pager": 72,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "drug-shortage",
+  "list_completeness": {
+    "expected": 726,
+    "gap": 3,
+    "passes": 4,
+    "unique": 723
+  },
+  "path": "/en/currentlyInShortageList",
+  "probed_pages": 72,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-drug-shortage",
+  "started_at": "2026-11-18T23:17:23.797828+00:00",
+  "status": "partial",
+  "title": "Drug Shortage List",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}
