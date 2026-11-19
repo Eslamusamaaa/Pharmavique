@@ -33,6 +33,7 @@ from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
 from pharmavique.substitution.application.compare import CompareProductsHandler
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
 from pharmavique.voice.application.speak import Speak, Transcribe
+from pharmavique.voice.infrastructure.audio_cache import AudioCache
 
 
 @asynccontextmanager
@@ -104,6 +105,7 @@ def create_app(
     app.state.transcribe = transcribe
     app.state.scanner = scanner
     app.state.metrics = observability.Metrics()
+    app.state.audio_cache = AudioCache()
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:

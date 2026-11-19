@@ -60,3 +60,24 @@ async def test_without_a_speech_key_the_endpoints_say_so() -> None:
 
     assert spoken.status_code == 503
     assert heard.status_code == 503
+
+
+async def test_a_spoken_answer_can_be_fetched_once_by_a_short_lived_link() -> None:
+    tts = FakeTTS()
+    app = create_app(speak=Speak(tts))
+    async with client(app) as c:
+        linked = await c.post("/v1/voice/speak", json={"text": "البنادول مسكن.", "as_link": True})
+        audio = await c.get(linked.json()["url"])
+        again = await c.get(linked.json()["url"])
+
+    assert linked.status_code == 200
+    assert linked.json()["media_type"] == "audio/mpeg"
+    assert audio.status_code == 200
+    assert audio.content == b"RIFF....WAVE"
+    assert audio.headers["content-type"] == "audio/mpeg"
+    assert again.status_code == 404  # served once, then gone
+
+
+async def test_an_unknown_audio_link_is_a_404() -> None:
+    async with client(create_app(speak=Speak(FakeTTS()))) as c:
+        assert (await c.get("/v1/voice/audio/abc")).status_code == 404

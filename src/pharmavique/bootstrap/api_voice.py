@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from pharmavique.voice.application.speak import MAX_AUDIO_BYTES, MAX_TEXT, Speak, Transcribe
+from pharmavique.voice.infrastructure.audio_cache import AudioCache
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"])
@@ -22,6 +23,12 @@ class TranscriptOut(BaseModel):
 
 class SpeakIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
+    as_link: bool = False  # True: answer with a one-time link the app's audio player can open
+
+
+class SpokenLinkOut(BaseModel):
+    url: str  # relative to the API: GET it once within 10 minutes
+    media_type: str
 
 
 def get_transcribe(request: Request) -> Transcribe:
@@ -62,11 +69,28 @@ async def transcribe(
     responses={200: {"content": {"audio/mpeg": {}, "audio/wav": {}}}},
     summary="Text to speech in the Saudi Arabic voice (MP3 or WAV, per provider)",
 )
-async def speak(body: SpeakIn, backend: Annotated[Speak, Depends(get_speak)]) -> Response:
+async def speak(
+    body: SpeakIn, request: Request, backend: Annotated[Speak, Depends(get_speak)]
+) -> Response:
     try:
         audio = await backend.run(body.text)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except SpeechError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
+    if body.as_link:
+        cache: AudioCache = request.app.state.audio_cache
+        key = cache.put(audio.content, audio.media_type)
+        link = SpokenLinkOut(url=f"/v1/voice/audio/{key}", media_type=audio.media_type)
+        return Response(content=link.model_dump_json(), media_type="application/json")
     return Response(content=audio.content, media_type=audio.media_type)
+
+
+@router.get("/audio/{key}", summary="Fetch a spoken answer once by its short-lived link")
+async def audio(key: str, request: Request) -> Response:
+    cache: AudioCache = request.app.state.audio_cache
+    found = cache.take(key)
+    if found is None:
+        raise HTTPException(status_code=404, detail="this audio link has expired")
+    content, media_type = found
+    return Response(content=content, media_type=media_type, headers={"Cache-Control": "no-store"})
