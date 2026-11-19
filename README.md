@@ -494,6 +494,16 @@ uv run alembic upgrade heads              # every context's schema
 
 ### 11.3 Load the data shipped in the repository
 
+Fastest: restore the database snapshot kept in the repository (catalog, search index, SFDA lists
+and knowledge vectors), then skip the commands below.
+
+```bash
+bash scripts/db_restore.sh            # restores data/db/pharmavique.dump
+bash scripts/db_snapshot.sh           # after changing data, refresh the snapshot before committing
+```
+
+Or rebuild everything from the raw files:
+
 ```bash
 uv run pharmavique sfda-load --run-id full-20261116 --from-records   # 9,144 drugs into the catalog
 uv run pharmavique search-reindex                                     # the search index
