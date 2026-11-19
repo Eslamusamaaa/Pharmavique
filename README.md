@@ -1,14 +1,25 @@
 <p align="center">
-  <img src="pharmavique-wireframes/brand/logo-h.png" alt="Pharmavique" height="80">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="pharmavique-wireframes/brand/logo-white.png">
+    <img src="pharmavique-wireframes/brand/logo-h.png" alt="Pharmavique" height="80">
+  </picture>
+</p>
+
+<h3 align="center">Know your medicine.</h3>
+
+<p align="center">
+  Pharmavique helps people in Saudi Arabia understand the medicines they use.<br>
+  Find any registered medicine in seconds, see what it contains and where the information comes from,<br>
+  discover other products with the same active ingredient, and stay informed about official safety alerts and recalls.
 </p>
 
 <p align="center">
-  <b>Drug intelligence for Saudi Arabia, built on official SFDA data.</b><br>
-  Search · Drug records with provenance · Equivalence rules · AI assistant with citations · Saudi Arabic voice · Box and prescription scanning
+  Search by name, point your camera at a medicine box or a prescription,<br>
+  or simply ask a question and hear the answer in a Saudi Arabic voice.
 </p>
 
 <p align="center">
-  Python 3.12 · FastAPI · PostgreSQL 17 (pg_trgm, pgvector) · LangGraph · React Native (Expo) · DDD · Onion architecture
+  Built for patients, pharmacists and pharmaceutical companies.
 </p>
 
 ---
