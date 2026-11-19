@@ -21,6 +21,9 @@ RULE_REFUSAL = (
     "الجرعة المناسبة لك أو قرار إيقاف الدواء أو تغييره ده قرار الطبيب أو الصيدلي، لأنه بيعتمد على "
     "حالتك. أقدر أعرض لك بيانات الدواء الرسمية والنشرة ومصدرها."
 )
+SOURCES_DOWN = (
+    "مقدرتش أوصل لبيانات الهيئة دلوقتي، فمش هجاوب من غيرها عشان متكونش المعلومة غلط. جرّب كمان شوية."
+)
 EMERGENCY_REPLY = (
     "ده ممكن يكون موقف طارئ. اتصل بالإسعاف على 997 أو روح أقرب طوارئ فورًا، وخلي علبة الدواء معاك. "
     "متستناش تظهر أعراض."
@@ -52,7 +55,7 @@ class Answer:
     tools_used: tuple[str, ...] = ()
     general: bool = False  # an answer without registry citations: general information
     urgent: bool = False  # the question looked like an emergency
-    # answered, general, emergency, injection, rule_refusal, ungrounded or empty
+    # answered, general, emergency, injection, rule_refusal, ungrounded, sources_down or empty
     outcome: str = "answered"
 
 

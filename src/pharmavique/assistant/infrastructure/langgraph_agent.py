@@ -27,10 +27,16 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from pharmavique.assistant.application.ports import AgentRun, DrugFacts, ToolCall
 from pharmavique.assistant.domain.answers import Citation, Level
+from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.infrastructure.prompts import system_prompt
 
 MAX_STEPS = 20  # graph steps (model + tool turns): room for the tool budget and an answer
 RUN_TIMEOUT = 75.0  # seconds for the whole answer, tools included
+VERIFY = (
+    "Before answering, look up every medicine named in my question or in our conversation with "
+    "search_drugs, then answer from what the registry returns. Never identify a medicine from "
+    "memory: brand names in Saudi Arabia can differ from other countries."
+)
 NUDGE = (
     "Write the final answer to my question now, from the tool results above, "
     "citing each fact with its [n]. If they do not answer it, say it is not in our sources."
@@ -220,7 +226,13 @@ class LangGraphAgentRunner:
         self._facts = facts
 
     async def run(
-        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+        self,
+        question: str,
+        level: Level,
+        register_number: str | None,
+        *,
+        spoken: bool = False,
+        history: Sequence[Turn] = (),
     ) -> AgentRun:
         citations = _Citations()
         box = ToolBox(self._facts, citations)
@@ -239,7 +251,11 @@ class LangGraphAgentRunner:
         graph.add_edge("tools", "model")
         app = graph.compile()
         config: Any = {"recursion_limit": MAX_STEPS}
-        messages: list[AnyMessage] = [HumanMessage(question)]
+        earlier: list[AnyMessage] = [
+            HumanMessage(turn.text) if turn.role == "user" else AIMessage(turn.text)
+            for turn in history
+        ]
+        messages: list[AnyMessage] = [*earlier, HumanMessage(question)]
         text = ""
         async with asyncio.timeout(RUN_TIMEOUT):
             try:
@@ -250,6 +266,13 @@ class LangGraphAgentRunner:
                     # Reasoning models sometimes end a turn with no visible text: ask once.
                     result = await app.ainvoke(
                         MessagesState(messages=[*messages, HumanMessage(NUDGE)]), config
+                    )
+                    messages = result["messages"]
+                    text = _final_text(messages)
+                if text.strip() and not box.calls:
+                    # Answered without consulting the registry: one verification turn.
+                    result = await app.ainvoke(
+                        MessagesState(messages=[*messages, HumanMessage(VERIFY)]), config
                     )
                     messages = result["messages"]
                     text = _final_text(messages)

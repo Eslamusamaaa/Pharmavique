@@ -10,6 +10,7 @@ Each question is recorded for observability, without its text.
 """
 
 import time
+from collections.abc import Sequence
 from dataclasses import replace
 
 from pharmavique.assistant.application.ports import (
@@ -23,11 +24,13 @@ from pharmavique.assistant.domain.answers import (
     EMERGENCY_REPLY,
     NOT_IN_SOURCES,
     RULE_REFUSAL,
+    SOURCES_DOWN,
     Answer,
     Level,
     breaks_rules,
     is_emergency,
 )
+from pharmavique.assistant.domain.conversation import Turn, prepare_history
 from pharmavique.assistant.domain.guardrails import (
     INJECTION_REPLY,
     UNGROUNDED_REPLY,
@@ -51,9 +54,16 @@ class AskAssistant:
         self._observer = observer
 
     async def ask(
-        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
+        self,
+        question: str,
+        level: Level,
+        register_number: str | None,
+        *,
+        spoken: bool = False,
+        history: Sequence[Turn] = (),
     ) -> Answer:
-        """`spoken`: the answer will be read aloud, so it is written in Saudi dialect."""
+        """`spoken`: the answer will be read aloud, so it is written in Saudi dialect.
+        `history`: the earlier turns of this conversation, as the app kept them."""
         question = question.strip()
         if not question or len(question) > MAX_QUESTION:
             raise ValueError(f"a question must be 1 to {MAX_QUESTION} characters")
@@ -61,7 +71,9 @@ class AskAssistant:
         run = AgentRun("", (), ())
         missing: list[str] = []
         try:
-            answer, run, missing = await self._answer(question, level, register_number, spoken)
+            answer, run, missing = await self._answer(
+                question, level, register_number, spoken, prepare_history(history)
+            )
         except Exception:
             self._record("error", level, spoken, run, started, len(question), 0)
             raise
@@ -69,7 +81,12 @@ class AskAssistant:
         return answer
 
     async def _answer(
-        self, question: str, level: Level, register_number: str | None, spoken: bool
+        self,
+        question: str,
+        level: Level,
+        register_number: str | None,
+        spoken: bool,
+        history: tuple[Turn, ...],
     ) -> tuple[Answer, AgentRun, list[str]]:
         empty = AgentRun("", (), ())
         if is_emergency(question):
@@ -86,7 +103,9 @@ class AskAssistant:
                 empty,
                 [],
             )
-        run = await self._runner.run(question, level, register_number, spoken=spoken)
+        run = await self._runner.run(
+            question, level, register_number, spoken=spoken, history=history
+        )
         text = run.text.strip()
         base = Answer(
             text,
@@ -97,6 +116,14 @@ class AskAssistant:
             general=not run.citations,
             outcome="answered" if run.citations else "general",
         )
+        if run.tool_calls and not any(call.ok for call in run.tool_calls):
+            # Every lookup failed (database or provider down): an answer now could only come
+            # from the model's memory, which is how drugs get misidentified.
+            return (
+                replace(base, text=SOURCES_DOWN, general=False, outcome="sources_down"),
+                run,
+                [],
+            )
         if not text:
             return replace(base, text=NOT_IN_SOURCES, general=False, outcome="empty"), run, []
         if breaks_rules(text):
@@ -107,7 +134,11 @@ class AskAssistant:
                 run,
                 [],
             )
-        missing = ungrounded_facts(text, (*run.evidence, question))
+        # Numbers from earlier answers in this conversation count as known, so a follow-up
+        # that repeats them is not withheld.
+        missing = ungrounded_facts(
+            text, (*run.evidence, question, *(turn.text for turn in history))
+        )
         if missing:
             return (
                 replace(

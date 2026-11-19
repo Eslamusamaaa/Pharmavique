@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pharmavique.assistant.domain.answers import Citation, Level
+from pharmavique.assistant.domain.conversation import Turn
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,8 +35,16 @@ class AgentRun:
 
 class AgentRunner(Protocol):
     async def run(
-        self, question: str, level: Level, register_number: str | None, *, spoken: bool = False
-    ) -> AgentRun: ...
+        self,
+        question: str,
+        level: Level,
+        register_number: str | None,
+        *,
+        spoken: bool = False,
+        history: Sequence[Turn] = (),
+    ) -> AgentRun:
+        """`history`: earlier turns of this conversation, already cleaned."""
+        ...
 
 
 class DrugFacts(Protocol):

@@ -73,7 +73,7 @@ async def test_the_runner_calls_tools_and_keeps_only_the_cited_records() -> None
 
 
 async def test_the_system_prompt_carries_the_level_and_the_product() -> None:
-    model = ScriptedModel(AIMessage("مش في مصادرنا."))
+    model = ScriptedModel(AIMessage("مش في مصادرنا."), AIMessage("مش في مصادرنا."))
 
     run = await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PHARMACIST, "1-1")
 
@@ -119,7 +119,7 @@ async def test_a_model_that_stays_silent_ends_with_an_empty_answer() -> None:
 
 
 async def test_a_spoken_answer_is_asked_for_in_saudi_dialect() -> None:
-    model = ScriptedModel(AIMessage("x"))
+    model = ScriptedModel(AIMessage("x"), AIMessage("x"))
 
     await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PATIENT, None, spoken=True)
 
@@ -190,3 +190,35 @@ async def test_tool_output_is_marked_as_data_and_kept_as_evidence() -> None:
     assert "PARACETAMOL" in evidence
     assert (run.input_tokens, run.output_tokens) == (90, 7)
     assert run.tool_calls[0].ok is True
+
+
+async def test_earlier_turns_come_before_the_new_question() -> None:
+    from pharmavique.assistant.domain.conversation import Turn
+
+    model = ScriptedModel(AIMessage("الفرق في التركيز [1]."), AIMessage("الفرق في التركيز [1]."))
+    history = (Turn("user", "ايه هو بنتلوك؟"), Turn("assistant", "بنتلوك فيه بانتوبرازول."))
+
+    await LangGraphAgentRunner(model, FakeFacts()).run(
+        "ايه الفرق بين 20 و40؟", Level.PATIENT, None, history=history
+    )
+
+    shown = model.seen[0]
+    assert [type(m).__name__ for m in shown[1:]] == ["HumanMessage", "AIMessage", "HumanMessage"]
+    assert shown[1].content == "ايه هو بنتلوك؟"
+    assert shown[3].content == "ايه الفرق بين 20 و40؟"
+    assert "follow-ups" in shown[0].content
+
+
+async def test_an_answer_about_a_drug_without_any_lookup_gets_one_verification_turn() -> None:
+    model = ScriptedModel(
+        AIMessage("بنتلوك هو Bentyl."),  # answered from memory: no tool call
+        call("search_drugs", {"query": "بنتلوك"}, "a"),
+        AIMessage("بنتلوك فيه بانتوبرازول [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("ايه هو بنتلوك؟", Level.PATIENT, None)
+
+    assert run.text == "بنتلوك فيه بانتوبرازول [1]."
+    assert run.tools_used == ("search_drugs",)
+    nudge = [m for m in model.seen[1] if type(m).__name__ == "HumanMessage"][-1]
+    assert "search_drugs" in nudge.content
