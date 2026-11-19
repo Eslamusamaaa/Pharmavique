@@ -171,3 +171,8 @@ Call log:
 ); waiting 30 s
 2026-11-19 01:45:12 START sfda-list-details --run-id lists-1 --list-run-id lists-1 --lists safety-alert,drugs-circulars,safety-labeling,rmm,drug-shortage,drug-shortage-resolved,dhpc
 attempt 1 of 3 failed for https://www.sfda.gov.sa/en/node/15220 (HTTP 500); waiting 30 s
+attempt 1 of 3 failed for https://www.sfda.gov.sa/en/details_data?nid=17594&id=VILAZODONE&page=70 (Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.sfda.gov.sa/en/details_data?nid=17594&id=VILAZODONE&page=70
+Call log:
+  - navigating to "https://www.sfda.gov.sa/en/details_data?nid=17594&id=VILAZODONE&page=70", waiting until "domcontentloaded"
+); waiting 30 s
+2026-11-19 02:42:48 START sfda-list-details --run-id lists-1 --list-run-id lists-1 --lists safety-alert,drugs-circulars,safety-labeling,rmm,drug-shortage,drug-shortage-resolved,dhpc
