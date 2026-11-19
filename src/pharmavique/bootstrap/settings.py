@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # The assistant's language model (needs tool calling).
     llm_provider: Literal["groq", "openrouter"] = "groq"
     llm_model: str = "openai/gpt-oss-120b"
+    # Prompt-injection classifier (Groq); adds to the rule-based guardrails. Empty disables it.
+    prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
     # Embeddings through an OpenAI-compatible endpoint (ADR-006); the column holds 1024 dimensions.
     embedding_base_url: str = "https://openrouter.ai/api/v1"
     embedding_model: str = "baai/bge-m3"

@@ -12,7 +12,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pharmavique.assistant.application.ask import AskAssistant
-from pharmavique.bootstrap import api_assistant, api_drugs, api_recognition, api_voice, health
+from pharmavique.bootstrap import (
+    api_assistant,
+    api_drugs,
+    api_recognition,
+    api_voice,
+    health,
+    observability,
+)
 from pharmavique.bootstrap.ai import build_assistant, build_scanner, build_voice
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
@@ -57,6 +64,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 search=app.state.search,
                 catalog=catalog,
                 equivalence=app.state.equivalence,
+                observer=observability.LoggingAssistantObserver(app.state.metrics),
             )
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
     try:
@@ -95,6 +103,8 @@ def create_app(
     app.state.speak = speak
     app.state.transcribe = transcribe
     app.state.scanner = scanner
+    app.state.metrics = observability.Metrics()
+    app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:
         app.add_middleware(
@@ -104,6 +114,7 @@ def create_app(
             allow_headers=["*"],
         )
     app.include_router(health.router)
+    app.include_router(observability.router)
     app.include_router(api_drugs.router)
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)

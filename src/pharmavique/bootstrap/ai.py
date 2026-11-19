@@ -9,7 +9,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.assistant.application.ask import AskAssistant
+from pharmavique.assistant.application.ports import AssistantObserver
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
+from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
@@ -109,10 +111,16 @@ def build_assistant(
     search: ProductSearch,
     catalog: ReadProductCardsHandler,
     equivalence: EquivalenceQueries,
+    observer: AssistantObserver | None = None,
 ) -> AskAssistant | None:
     model = build_chat_model(settings)
     if model is None:
         return None
     passages = RetrievePassages(PostgresPassageSearch(session_factory), build_embedder(settings))
     facts = ContractDrugFacts(search, catalog, catalog, equivalence, passages)
-    return AskAssistant(LangGraphAgentRunner(model, facts))
+    detector = None
+    if settings.groq_api_key is not None and settings.prompt_guard_model:
+        detector = GroqPromptGuard(
+            settings.groq_api_key.get_secret_value(), settings.prompt_guard_model
+        )
+    return AskAssistant(LangGraphAgentRunner(model, facts), detector=detector, observer=observer)
