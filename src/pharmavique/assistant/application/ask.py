@@ -29,6 +29,7 @@ from pharmavique.assistant.domain.answers import (
     Level,
     breaks_rules,
     is_emergency,
+    without_rule_breaking_sentences,
 )
 from pharmavique.assistant.domain.conversation import Turn, prepare_history
 from pharmavique.assistant.domain.guardrails import (
@@ -127,13 +128,22 @@ class AskAssistant:
         if not text:
             return replace(base, text=NOT_IN_SOURCES, general=False, outcome="empty"), run, []
         if breaks_rules(text):
-            return (
-                replace(
-                    base, text=RULE_REFUSAL, refused=True, general=False, outcome="rule_refusal"
-                ),
-                run,
-                [],
-            )
+            # Remove only the sentences that give a dose or say to stop or switch; keep the rest.
+            cleaned = without_rule_breaking_sentences(text)
+            if cleaned is None:
+                return (
+                    replace(
+                        base,
+                        text=RULE_REFUSAL,
+                        refused=True,
+                        general=False,
+                        outcome="rule_refusal",
+                    ),
+                    run,
+                    [],
+                )
+            text = cleaned
+            base = replace(base, text=cleaned)
         # Numbers from earlier answers in this conversation count as known, so a follow-up
         # that repeats them is not withheld.
         missing = ungrounded_facts(

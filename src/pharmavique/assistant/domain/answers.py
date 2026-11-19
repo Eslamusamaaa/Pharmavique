@@ -21,6 +21,7 @@ RULE_REFUSAL = (
     "الجرعة المناسبة لك أو قرار إيقاف الدواء أو تغييره ده قرار الطبيب أو الصيدلي، لأنه بيعتمد على "
     "حالتك. أقدر أعرض لك بيانات الدواء الرسمية والنشرة ومصدرها."
 )
+DOSE_NOTE = "(الجرعة وطريقة الاستخدام المناسبة لك يحددها الطبيب أو الصيدلي.)"
 SOURCES_DOWN = (
     "مقدرتش أوصل لبيانات الهيئة دلوقتي، فمش هجاوب من غيرها عشان متكونش المعلومة غلط. جرّب كمان شوية."
 )
@@ -109,6 +110,28 @@ _CONSULT = re.compile(
 _DOSE = re.compile("|".join(f"(?:{r})" for r in _DOSE_RULES), re.IGNORECASE)
 _STOP_SWITCH = re.compile("|".join(f"(?:{r})" for r in _STOP_SWITCH_RULES), re.IGNORECASE)
 _SENTENCES = re.compile(r"(?<=[.!?؟؛\n])\s*")
+
+
+MIN_KEPT_CHARS = 40  # below this, what is left after removing sentences is not an answer
+
+
+def _breaks(sentence: str) -> bool:
+    if _DOSE.search(sentence):
+        return True
+    return bool(_STOP_SWITCH.search(sentence)) and not _CONSULT.search(sentence)
+
+
+def without_rule_breaking_sentences(text: str) -> str | None:
+    """The text without the sentences that break a rule, with a short note; None when what
+    is left is too short to stand as an answer. Unchanged text is returned as it is."""
+    sentences = [s for s in _SENTENCES.split(text) if s.strip()]
+    kept = [s for s in sentences if not _breaks(s)]
+    if len(kept) == len(sentences):
+        return text
+    rest = " ".join(s.strip() for s in kept).strip()
+    if len(rest) < MIN_KEPT_CHARS:
+        return None
+    return f"{rest}\n\n{DOSE_NOTE}"
 
 
 def breaks_rules(text: str) -> bool:

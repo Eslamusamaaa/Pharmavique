@@ -13,6 +13,7 @@ import pytest
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.application.ports import AgentRun, AssistantEvent, ToolCall
 from pharmavique.assistant.domain.answers import (
+    DOSE_NOTE,
     EMERGENCY_REPLY,
     NOT_IN_SOURCES,
     RULE_REFUSAL,
@@ -323,3 +324,26 @@ async def test_when_every_source_failed_the_assistant_does_not_guess() -> None:
 
     assert answer.text == SOURCES_DOWN
     assert answer.outcome == "sources_down"
+
+
+async def test_only_the_dose_sentence_is_removed_and_the_rest_is_kept() -> None:
+    text = (
+        "بانتولوك فيه مادة بانتوبرازول وبيقلل حموضة المعدة [1]. "
+        "خذ قرص واحد مرة يوميا قبل الفطار. "
+        "بيتصرف بوصفة طبية [1]."
+    )
+
+    answer = await AskAssistant(FakeRunner(text)).ask("ايه هو بنتلوك؟", Level.PATIENT, None)
+
+    assert "بانتوبرازول" in answer.text
+    assert "بوصفة طبية" in answer.text
+    assert "قبل الفطار" not in answer.text
+    assert answer.text.endswith(DOSE_NOTE)
+    assert answer.outcome == "answered"
+    assert answer.refused is False
+
+
+async def test_an_answer_that_is_only_dosing_is_still_replaced() -> None:
+    answer = await AskAssistant(FakeRunner("خذ قرصين كل 6 ساعات.")).ask("x", Level.PATIENT, None)
+
+    assert answer.text == RULE_REFUSAL
