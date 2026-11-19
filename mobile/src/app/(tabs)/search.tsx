@@ -181,7 +181,7 @@ export default function Search() {
               <XCircleIcon size={20} color={c.ink2} />
             </Pressable>
           ) : null}
-          <Pressable style={styles.smallBtn} accessibilityLabel="بحث صوتي">
+          <Pressable onPress={() => router.push('/voice')} style={styles.smallBtn} accessibilityLabel="بحث صوتي">
             <MicrophoneIcon size={22} color={c.ink} />
           </Pressable>
           <Pressable onPress={() => router.push('/scan')} style={styles.smallBtn} accessibilityLabel="مسح علبة الدواء">

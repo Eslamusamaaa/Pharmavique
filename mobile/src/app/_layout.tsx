@@ -31,6 +31,8 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="drug/[register]" />
+        <Stack.Screen name="assistant" />
+        <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>
     </SafeAreaProvider>
   );

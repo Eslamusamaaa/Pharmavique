@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import {
   CaretDownIcon,
+  ChatCircleDotsIcon,
   ClockCounterClockwiseIcon,
   MagnifyingGlassIcon,
   MicrophoneIcon,
@@ -74,7 +75,7 @@ export default function Home() {
               </T>
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: '/search', params: { voice: '1' } })}
+              onPress={() => router.push('/voice')}
               style={[styles.action, { backgroundColor: c.sf }, cardShadow]}
               accessibilityRole="button"
             >
@@ -84,6 +85,19 @@ export default function Home() {
               </T>
             </Pressable>
           </Row>
+          <Pressable
+            onPress={() => router.push('/assistant')}
+            style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+            accessibilityRole="button"
+          >
+            <ChatCircleDotsIcon size={26} color={c.pr} />
+            <View style={{ flex: 1 }}>
+              <T weight={700}>اسأل المساعد عن أي دواء</T>
+              <T size={13} color={c.ink2}>
+                إجابات من بيانات الهيئة الرسمية، ومعاها صوت باللهجة السعودية
+              </T>
+            </View>
+          </Pressable>
         </View>
         {recents.length > 0 ? (
           <View style={{ gap: 6 }}>
@@ -137,5 +151,15 @@ const styles = StyleSheet.create({
   searchBox: { minHeight: 60, borderRadius: radius.lg, flexDirection: 'row-reverse', alignItems: 'center' },
   action: { flex: 1, minHeight: 76, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', gap: 2 },
   clear: { minHeight: 44, justifyContent: 'center' },
+  assistant: {
+    minHeight: 64,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
   recent: { minHeight: 52, flexDirection: 'row-reverse', alignItems: 'center', gap: 12 },
 });

@@ -122,3 +122,109 @@ export function friendlyError(e: unknown): string {
   if (status === 404) return 'الدواء ده مش موجود في السجل.';
   return `السيرفر رد بخطأ (${status}).`;
 }
+
+// ---- assistant, voice and scan --------------------------------------------------------------
+export type Level = 'patient' | 'pharmacist' | 'clinical';
+
+export type AssistantCitation = {
+  number: number;
+  source_id: string;
+  title: string;
+  url: string | null;
+  kind: 'catalog' | 'document' | string;
+  published: string | null;
+};
+
+export type AssistantAnswer = {
+  answer: string;
+  citations: AssistantCitation[];
+  grounded: boolean;
+  general: boolean;
+  urgent: boolean;
+  refused: boolean;
+  level: Level;
+  tools_used: string[];
+  disclaimer: string;
+};
+
+export type ScanCandidate = {
+  register_number: string;
+  trade_name_ar: string | null;
+  trade_name_en: string | null;
+  score: number;
+};
+
+export type ScanLine = {
+  raw_text: string;
+  name: string;
+  strength: string | null;
+  form: string | null;
+  dose: string | null;
+  needs_review: boolean;
+  candidates: ScanCandidate[];
+};
+
+export type ScanResult = { kind: 'box' | 'prescription'; status: 'needs_review' | 'nothing_read'; lines: ScanLine[] };
+
+async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw error;
+    throw new ApiError('network', null);
+  }
+  if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
+  return (await response.json()) as T;
+}
+
+/** A file picked or recorded on the device, as multipart form data (native and web). */
+async function fileField(uri: string, name: string, type: string): Promise<Blob | { uri: string; name: string; type: string }> {
+  if (uri.startsWith('blob:') || uri.startsWith('data:') || uri.startsWith('http')) {
+    return await (await fetch(uri)).blob();
+  }
+  return { uri, name, type };
+}
+
+async function postFile<T>(path: string, field: string, uri: string, name: string, type: string): Promise<T> {
+  const form = new FormData();
+  const file = await fileField(uri, name, type);
+  if (file instanceof Blob) form.append(field, file, name);
+  else form.append(field, file as unknown as Blob);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { method: 'POST', body: form, headers: { Accept: 'application/json' } });
+  } catch {
+    throw new ApiError('network', null);
+  }
+  if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
+  return (await response.json()) as T;
+}
+
+export function askAssistant(
+  body: { question: string; level: Level; register_number?: string | null; spoken?: boolean },
+  signal?: AbortSignal,
+): Promise<AssistantAnswer> {
+  return postJson<AssistantAnswer>('/v1/assistant/ask', body, signal);
+}
+
+export function transcribeAudio(uri: string): Promise<{ text: string }> {
+  const name = uri.endsWith('.webm') ? 'question.webm' : 'question.m4a';
+  return postFile('/v1/voice/transcribe', 'audio', uri, name, name.endsWith('webm') ? 'audio/webm' : 'audio/m4a');
+}
+
+/** A one-time link to the spoken text (Saudi Arabic voice), ready for the audio player. */
+export async function speakLink(text: string): Promise<string> {
+  const { url } = await postJson<{ url: string; media_type: string }>('/v1/voice/speak', { text, as_link: true });
+  return `${API_URL}${url}`;
+}
+
+export function scanImage(uri: string, mimeType: string, kind: 'box' | 'prescription'): Promise<ScanResult> {
+  const name = mimeType === 'image/png' ? 'scan.png' : mimeType === 'image/webp' ? 'scan.webp' : 'scan.jpg';
+  return postFile(`/v1/recognition/scan?kind=${kind}`, 'image', uri, name, mimeType);
+}

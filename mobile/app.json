@@ -27,6 +27,26 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "فارماڤيك محتاج الكاميرا عشان يقرا اسم الدواء من العلبة أو الروشتة. الصورة مش بتتحفظ.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "فارماڤيك محتاج الميكروفون عشان تسأل بصوتك. الصوت مش بيتحفظ."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "فارماڤيك محتاج الصور عشان تختار صورة علبة دواء أو روشتة."
+        }
       ]
     ],
     "experiments": {

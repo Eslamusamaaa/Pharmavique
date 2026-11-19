@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowRightIcon,
   BookmarkSimpleIcon,
+  ChatCircleDotsIcon,
   CheckCircleIcon,
   ColumnsIcon,
   DatabaseIcon,
@@ -346,6 +347,17 @@ export default function DrugScreen() {
         </View>
 
         <View style={{ gap: 6 }}>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/assistant', params: { register: d.register_number, name: displayName(d) } })
+            }
+            style={styles.link}
+          >
+            <ChatCircleDotsIcon size={18} color={c.pr} />
+            <T size={14} weight={600} color={c.pr}>
+              اسأل المساعد عن الدواء ده
+            </T>
+          </Pressable>
           {d.provenance.source_ref ? (
             <Pressable onPress={() => Linking.openURL(d.provenance.source_ref as string)} style={styles.link}>
               <DatabaseIcon size={18} color={c.pr} />
