@@ -639,6 +639,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(lists_cli.load(args))
     if args.command == "knowledge-build":
         return asyncio.run(knowledge_cli.build(args))
+    if args.command == "knowledge-embed":
+        return asyncio.run(knowledge_cli.embed(args))
     if args.command == "sfda-load":
         return asyncio.run(_sfda_load(args))
     raise AssertionError(f"unhandled command {args.command!r}")  # pragma: no cover

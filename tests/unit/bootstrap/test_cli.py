@@ -153,3 +153,15 @@ async def test_robots_download_is_retried_after_a_connection_error() -> None:
     assert attempts == 3
     assert policy.allows("https://example.test/public")
     assert not policy.allows("https://example.test/private")
+
+
+def test_knowledge_embed_options_are_parsed() -> None:
+    args = build_parser().parse_args(["knowledge-embed", "--batch-size", "16", "--limit", "100"])
+
+    assert (args.command, args.batch_size, args.limit) == ("knowledge-embed", 16, 100)
+
+
+def test_knowledge_embed_defaults() -> None:
+    args = build_parser().parse_args(["knowledge-embed"])
+
+    assert (args.batch_size, args.limit) == (32, None)
