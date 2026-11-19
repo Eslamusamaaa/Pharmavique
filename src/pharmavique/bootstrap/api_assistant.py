@@ -1,15 +1,21 @@
 """The assistant endpoint (B16): questions answered only from our sources, with citations."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from pharmavique.assistant.application.ask import MAX_QUESTION, AskAssistant
 from pharmavique.assistant.domain.answers import Level
+from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"])
+
+
+class TurnIn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=4000)
 
 
 class AskIn(BaseModel):
@@ -17,6 +23,8 @@ class AskIn(BaseModel):
     level: Level = Level.PATIENT
     register_number: str | None = Field(default=None, max_length=40)
     spoken: bool = False  # the answer will be read aloud: written in Saudi dialect
+    # Earlier turns of this conversation, oldest first; the server keeps no conversation.
+    history: list[TurnIn] = Field(default_factory=list, max_length=20)
 
 
 class CitationOut(BaseModel):
@@ -55,7 +63,11 @@ def get_assistant(request: Request) -> AskAssistant:
 async def ask(body: AskIn, assistant: Annotated[AskAssistant, Depends(get_assistant)]) -> AnswerOut:
     try:
         answer = await assistant.ask(
-            body.question, body.level, body.register_number, spoken=body.spoken
+            body.question,
+            body.level,
+            body.register_number,
+            spoken=body.spoken,
+            history=[Turn(t.role, t.text) for t in body.history],
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
