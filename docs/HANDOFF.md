@@ -247,3 +247,23 @@ owner keeps; do not add it.
 - A resume of the drugs crawl stops after 15 failing pages in a row; with the 18 empty-details
   drugs in the list it cannot finish by itself.
 - Counting rows on a list needs content keys: the shortage list repeats one link id on different rows.
+
+## 15. Update 2026-11-20 (new machine, after the Drive move)
+
+- **Docker Desktop would not start**: "initializing Ingest server ... sailor-ingest.sock ... The file
+  cannot be accessed by the system". Stale unix-socket files cannot be deleted on this machine, but
+  **their folder can be renamed**. Fix: quit Docker, rename `%LOCALAPPDATA%\Docker\run` and
+  `%LOCALAPPDATA%\docker-secrets-engine` (for example to `run.stale-<date>`), start Docker Desktop. The
+  `pgdata` volume survives; `docker compose up -d db redis` then works.
+- Database holds 9,144 products, 2,655 safety-list rows (22,571 links) and 3,652 embedded knowledge
+  chunks. Safety lists on disk: safety-alert 276, drugs-circulars 146, safety-labeling 241, rmm 578,
+  drug-shortage 723, drug-shortage-resolved 586, dhpc 105 rows; all detail pages and PDFs present.
+  A list's "gap" in its manifest (3, 7, 20) equals the number of rows the site repeats with identical
+  content, so nothing was found missing. The other lists (approvals, pharmacies, unregistered,
+  vet-drugs, feed, and so on) have no records on this machine; drug-companies has 6,135 rows that are
+  not loaded.
+- Assistant: follow-up questions work when the app sends `history`; model citation marks like
+  `【9†L1-L5】` are now cleaned; a provider rate limit (free Groq tier: 8,000 tokens a minute) answers
+  HTTP 429 "busy" instead of 500.
+- Phone: `.claude/launch.json` has a `phone` entry; the app reads the API address from
+  `mobile/.env.local` (`EXPO_PUBLIC_API_URL`, git-ignored, change the IP when the network changes).
