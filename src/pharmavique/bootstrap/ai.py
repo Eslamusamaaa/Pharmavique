@@ -62,7 +62,8 @@ def build_chat_model(settings: Settings) -> Any | None:
         api_key=key,
         temperature=0,
         timeout=60,
-        max_retries=1,
+        # The free tier allows 8,000 tokens a minute: wait out short limits instead of failing.
+        max_retries=4,
     )
 
 

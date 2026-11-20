@@ -3,8 +3,12 @@
 from collections.abc import Sequence
 from typing import Any
 
+import httpx2
+import openai
+import pytest
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
+from pharmavique.assistant.application.ports import AssistantBusy
 from pharmavique.assistant.domain.answers import Level
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 
@@ -222,3 +226,26 @@ async def test_an_answer_about_a_drug_without_any_lookup_gets_one_verification_t
     assert run.tools_used == ("search_drugs",)
     nudge = [m for m in model.seen[1] if type(m).__name__ == "HumanMessage"][-1]
     assert "search_drugs" in nudge.content
+
+
+async def test_citation_marks_with_a_line_range_are_normalized() -> None:
+    model = ScriptedModel(
+        call("drug_details", {"register_number": "1-1"}, "a"),
+        AIMessage("المادة الفعالة هي الباراسيتامول【1†L1-L5】 ولا شيء【7†L1-L5】."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PATIENT, None)
+
+    assert run.text == "المادة الفعالة هي الباراسيتامول[1] ولا شيء."
+    assert [c.source_id for c in run.citations] == ["catalog:1-1"]
+
+
+class RateLimitedModel(ScriptedModel):
+    async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
+        response = httpx2.Response(429, request=httpx2.Request("POST", "http://model"))
+        raise openai.RateLimitError("tokens per minute reached", response=response, body=None)
+
+
+async def test_a_provider_rate_limit_becomes_a_busy_error_not_a_crash() -> None:
+    with pytest.raises(AssistantBusy):
+        await LangGraphAgentRunner(RateLimitedModel(), FakeFacts()).run("سؤال", Level.PATIENT, None)

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from pharmavique.assistant.application.ask import MAX_QUESTION, AskAssistant
+from pharmavique.assistant.application.ports import AssistantBusy
 from pharmavique.assistant.domain.answers import Level
 from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
@@ -71,6 +72,12 @@ async def ask(body: AskIn, assistant: Annotated[AskAssistant, Depends(get_assist
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    except AssistantBusy as error:
+        raise HTTPException(
+            status_code=429,
+            detail="the assistant is busy for a moment, try again in a few seconds",
+            headers={"Retry-After": "10"},
+        ) from error
     # The runner numbers citations 1..n in the order the answer's [n] refer to them.
     numbered = list(enumerate(answer.citations, start=1))
     return AnswerOut(

@@ -13,6 +13,10 @@ from pharmavique.assistant.domain.answers import Citation, Level
 from pharmavique.assistant.domain.conversation import Turn
 
 
+class AssistantBusy(Exception):
+    """The model provider refused the call for now (rate limit): the app should retry shortly."""
+
+
 @dataclass(frozen=True, slots=True)
 class ToolCall:
     name: str

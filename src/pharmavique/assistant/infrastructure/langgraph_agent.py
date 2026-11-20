@@ -13,6 +13,7 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+import openai
 from langchain_core.messages import (
     AIMessage,
     AnyMessage,
@@ -25,7 +26,7 @@ from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from pharmavique.assistant.application.ports import AgentRun, DrugFacts, ToolCall
+from pharmavique.assistant.application.ports import AgentRun, AssistantBusy, DrugFacts, ToolCall
 from pharmavique.assistant.domain.answers import Citation, Level
 from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.infrastructure.prompts import system_prompt
@@ -41,7 +42,8 @@ NUDGE = (
     "Write the final answer to my question now, from the tool results above, "
     "citing each fact with its [n]. If they do not answer it, say it is not in our sources."
 )
-_CITED = re.compile(r"[\[【](\d+)[\]】]")  # some models write 【n】 instead of [n]
+# some models write 【n】 or 【n†L1-L5】 instead of [n]
+_CITED = re.compile(r"[\[【](\d+)(?:†[^\]】]*)?[\]】]")
 
 
 class _Citations:
@@ -278,6 +280,8 @@ class LangGraphAgentRunner:
                     text = _final_text(messages)
             except GraphRecursionError:
                 text = ""  # the model kept calling tools: no answer rather than a loop
+            except openai.RateLimitError as error:
+                raise AssistantBusy("the model provider's rate limit was reached") from error
         inputs, outputs = _tokens(messages)
         # Keep only records the answer cites and that really exist, renumbered 1..n in that order.
         cited = sorted(
