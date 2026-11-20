@@ -16,7 +16,7 @@ from pharmavique.assistant.domain.guardrails import looks_like_injection
 MAX_TURNS = 6  # three questions and their answers
 MAX_TURN_CHARS = 600
 ROLES = ("user", "assistant")
-_CITATIONS = re.compile(r"\s*[\[【]\d+[\]】]")
+_CITATIONS = re.compile(r"\s*[\[【]\d+(?:†[^\]】]*)?[\]】]")  # [1], 【1】, 【1†L1-L5】
 
 
 @dataclass(frozen=True, slots=True)
