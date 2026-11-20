@@ -120,6 +120,7 @@ export function friendlyError(e: unknown): string {
   const status = e instanceof ApiError ? e.status : null;
   if (status === null) return 'مش قادر أوصل للسيرفر. اتأكد إن الـ API شغال وإن الموبايل على نفس الشبكة.';
   if (status === 404) return 'الدواء ده مش موجود في السجل.';
+  if (status === 429) return 'المساعد مشغول لحظات. جرّب تاني بعد ثواني.';
   return `السيرفر رد بخطأ (${status}).`;
 }
 
