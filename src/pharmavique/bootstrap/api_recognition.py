@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.recognition.application.scan import MAX_IMAGE_BYTES, ScanImage
-from pharmavique.recognition.domain.scans import ScanKind
+from pharmavique.recognition.domain.scans import ScanKind, ScanResult
 from pharmavique.recognition.infrastructure.openai_vision import VisionError
 
 router = APIRouter(prefix="/v1/recognition", tags=["recognition"])
@@ -66,6 +66,10 @@ async def scan(
         raise HTTPException(status_code=502, detail=str(error)) from error
     finally:
         del data  # the image is not kept beyond this request
+    return scan_out(result)
+
+
+def scan_out(result: ScanResult) -> ScanOut:
     return ScanOut(
         kind=result.kind,
         status=result.status,

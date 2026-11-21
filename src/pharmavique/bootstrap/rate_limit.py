@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse, Response
 from pharmavique.foundation.kv import KeyValueStore, StoreUnavailable
 
 HEAVY_PREFIXES = ("/v1/assistant", "/v1/voice", "/v1/recognition", "/v1/auth")
+HEAVY_WHEN_POSTING = ("/v1/jobs",)  # submitting is heavy; polling a job is cheap and frequent
 EXEMPT_PATHS = frozenset({"/health", "/ready"})
 _SWEEP_EVERY = 256  # requests between clean-ups of idle clients
 
@@ -102,7 +103,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         client = client_address(request, self._hops)
         if path not in EXEMPT_PATHS:
-            for scope, window in self._windows(path):
+            for scope, window in self._windows(path, request.method):
                 wait = await self._check(scope, window, client)
                 if wait is not None:
                     return JSONResponse(
@@ -126,8 +127,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return None
         return window.retry_after(client)
 
-    def _windows(self, path: str) -> list[tuple[str, SlidingWindow]]:
+    def _windows(self, path: str, method: str) -> list[tuple[str, SlidingWindow]]:
         windows = [("general", self._general)] if self._general is not None else []
-        if self._heavy is not None and path.startswith(HEAVY_PREFIXES):
+        heavy = path.startswith(HEAVY_PREFIXES) or (
+            method == "POST" and path.startswith(HEAVY_WHEN_POSTING)
+        )
+        if self._heavy is not None and heavy:
             windows.append(("heavy", self._heavy))
         return windows

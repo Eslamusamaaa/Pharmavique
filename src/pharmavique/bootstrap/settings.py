@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     db_pool_size: int = 10
     db_max_overflow: int = 20
 
+    # Background jobs for slow work (scan, assistant). "inline" runs them inside the API process
+    # (no worker to start); "arq" hands them to `pharmavique worker` processes through Redis,
+    # which is what a large deployment runs, scaled by the number of workers.
+    job_backend: Literal["inline", "arq"] = "inline"
+    job_max_concurrency: int = 8  # jobs one worker runs at once (the model providers' limits apply)
+    job_timeout_seconds: int = 90
+    jobs_per_user_per_minute: int = 6  # submissions per caller; 0 turns the limit off
+    job_max_queue_depth: int = 500  # new jobs are refused (503) while this many are waiting
+
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
     # Folder the daily refresh writes its summaries to; the operator board reads it (read-only).

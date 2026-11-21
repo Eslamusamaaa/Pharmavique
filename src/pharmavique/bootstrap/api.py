@@ -24,6 +24,7 @@ from pharmavique.bootstrap import (
     api_compare,
     api_drugs,
     api_interactions,
+    api_jobs,
     api_lasa,
     api_me,
     api_operator,
@@ -41,6 +42,7 @@ from pharmavique.bootstrap.ai import (
     build_voice,
 )
 from pharmavique.bootstrap.api_pictures import PictureLookup
+from pharmavique.bootstrap.job_handlers import build_handlers
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
@@ -59,8 +61,10 @@ from pharmavique.catalog.infrastructure.persistence.price_changes import (
 )
 from pharmavique.catalog.infrastructure.persistence.quality import SqlAlchemyQualityReader
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
+from pharmavique.foundation.arq_jobs import ArqJobQueue
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.foundation.jobs import InlineJobQueue, JobQueue, JobRunner
 from pharmavique.foundation.kv import KeyValueStore, RedisStore, redis_client
 from pharmavique.foundation.read_cache import ReadCache
 from pharmavique.identity.application.service import IdentityService
@@ -112,6 +116,7 @@ def use_shared_store(app: FastAPI, store: KeyValueStore, cache_ttl_seconds: int)
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = None
     redis_store: RedisStore | None = None
+    arq_queue: ArqJobQueue | None = None
     injected = (
         app.state.search,
         app.state.catalog,
@@ -156,6 +161,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 observer=observability.LoggingAssistantObserver(app.state.metrics),
             )
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
+            if app.state.kv is not None:
+                runner = JobRunner(
+                    app.state.kv, build_handlers(app.state.scanner, app.state.assistant)
+                )
+                if settings.job_backend == "arq" and settings.redis_url is not None:
+                    arq_queue = await ArqJobQueue.connect(
+                        runner, settings.redis_url.get_secret_value()
+                    )
+                    app.state.jobs = arq_queue
+                else:
+                    app.state.jobs = InlineJobQueue(runner)
             app.state.pictures = SqlAlchemyPictureStore(session_factory)
             app.state.list_items = SqlAlchemyListItemReader(session_factory)
             app.state.ingredients = SqlAlchemyIngredientReader(session_factory)
@@ -188,6 +204,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if engine is not None:
             await engine.dispose()
+        if arq_queue is not None:
+            await arq_queue.close()
         if redis_store is not None:
             await redis_store.close()
 
@@ -212,6 +230,9 @@ def create_app(
     ingredients: CatalogIngredients | None = None,
     token_verifier: TokenVerifier | None = None,
     store: KeyValueStore | None = None,
+    jobs: JobQueue | None = None,
+    jobs_per_user_per_minute: int | None = None,
+    job_max_queue_depth: int | None = None,
     analytics: AnalyticsService | None = None,
     quality: CatalogQuality | None = None,
     refresh_history: FileRefreshHistory | None = None,
@@ -254,10 +275,22 @@ def create_app(
     app.state.audio_cache = LocalAudioStore()
     app.state.kv = None
     app.state.read_cache = None
+    app.state.jobs = jobs
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
     if store is not None:
         use_shared_store(app, store, get_settings().cache_ttl_seconds)
     settings = get_settings()
+    app.state.job_limits = api_jobs.JobLimits(
+        per_user_per_minute=settings.jobs_per_user_per_minute
+        if jobs_per_user_per_minute is None
+        else jobs_per_user_per_minute,
+        max_queue_depth=settings.job_max_queue_depth
+        if job_max_queue_depth is None
+        else job_max_queue_depth,
+        trusted_proxy_hops=settings.trusted_proxy_hops
+        if trusted_proxy_hops is None
+        else trusted_proxy_hops,
+    )
     app.add_middleware(
         RateLimitMiddleware,
         general=settings.rate_limit_per_minute
@@ -294,4 +327,5 @@ def create_app(
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)
+    app.include_router(api_jobs.router)
     return app
