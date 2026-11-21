@@ -64,7 +64,7 @@ async def user(
     out: Result,
     seed: int,
 ) -> None:
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311 - picks test requests, nothing secret
     while time.perf_counter() < stop_at:
         path, params = pick(scenario, numbers, rng)
         started = time.perf_counter()
