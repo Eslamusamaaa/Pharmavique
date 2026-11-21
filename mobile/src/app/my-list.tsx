@@ -13,14 +13,17 @@ import {
   arabicMeError,
   getAlerts,
   getAllergies,
+  getCurrentInteractions,
   getDigest,
   getSaved,
   markAlertsRead,
   removeAllergy,
   removeMedicine,
   searchIngredients,
+  setMedicineStatus,
   type AlertItem,
   type Alerts,
+  type CurrentInteractions,
   type Digest,
   type SavedMedicines,
 } from '@/api/me';
@@ -49,6 +52,7 @@ export default function MyList() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [alerts, setAlerts] = useState<Alerts | null>(null);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [among, setAmong] = useState<CurrentInteractions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [typed, setTyped] = useState('');
@@ -56,7 +60,14 @@ export default function MyList() {
 
   const load = useCallback(async () => {
     try {
-      const [s, a, al, d] = await Promise.all([getSaved(), getAllergies(), getAlerts(), getDigest(7)]);
+      const [s, a, al, d, ci] = await Promise.all([
+        getSaved(),
+        getAllergies(),
+        getAlerts(),
+        getDigest(7),
+        getCurrentInteractions().catch(() => null),
+      ]);
+      setAmong(ci);
       setSaved(s);
       setAllergies(a.items.map((i) => i.ingredient));
       setAlerts(al);
@@ -203,11 +214,33 @@ export default function MyList() {
           )}
         </View>
 
+        {among && among.findings.length > 0 ? (
+          <Card style={{ gap: 6, borderWidth: 1.5, borderColor: c.wn }}>
+            <Row gap={8}>
+              <WarningIcon size={20} color={c.wn} weight="fill" />
+              <T weight={700} style={{ flex: 1 }}>
+                تداخلات مسجّلة بين أدويتك الحالية
+              </T>
+            </Row>
+            {among.findings.map((x) => (
+              <T key={`${x.about_register_number}-${x.with_register_number}-${x.ingredients.join('+')}`} size={13.5}>
+                {x.ingredients.join(' ↔ ')}
+                {x.severity ? ` · تصنيف المصدر: ${x.severity}` : ''}
+              </T>
+            ))}
+            <T size={12.5} color={c.ink2}>
+              {among.note}
+            </T>
+          </Card>
+        ) : null}
+
         <View style={{ gap: 10 }}>
           <H2>أدويتي المحفوظة</H2>
           {saved && saved.items.length > 0 ? (
-            saved.items.map((m) => (
-              <Card key={m.register_number} style={{ gap: 6 }}>
+            [...saved.items]
+              .sort((a, b) => Number(a.status === 'past') - Number(b.status === 'past'))
+              .map((m) => (
+              <Card key={m.register_number} style={{ gap: 6, opacity: m.status === 'past' ? 0.7 : 1 }}>
                 <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <Pressable
                     style={{ flex: 1 }}
@@ -224,6 +257,16 @@ export default function MyList() {
                     <TrashIcon size={20} color={c.ink2} />
                   </Pressable>
                 </Row>
+                {m.status === 'past' ? <Pill tone="muted" label="كنت باخده قبل كده" /> : null}
+                <Pressable
+                  onPress={() => run(() => setMedicineStatus(m.register_number, m.status === 'past' ? 'current' : 'past'))}
+                  accessibilityRole="button"
+                  style={{ minHeight: 40, justifyContent: 'center' }}
+                >
+                  <T size={13} weight={600} color={c.pr}>
+                    {m.status === 'past' ? 'باخده دلوقتي' : 'مش باخده دلوقتي (كنت باخده قبل كده)'}
+                  </T>
+                </Pressable>
                 {m.allergy_matches.map((x) => (
                   <Pill
                     key={`${x.allergy}-${x.ingredient}`}

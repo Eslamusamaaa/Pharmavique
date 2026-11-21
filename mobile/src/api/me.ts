@@ -1,13 +1,17 @@
 // The signed-in person's saved medicines, allergies, alerts and digest. Every call carries the access
 // token; the API also limits every query to this person's rows.
 import { accessToken, AuthError } from '@/api/auth';
-import { API_URL, ApiError, type Product } from '@/api/client';
+import { API_URL, ApiError, type AssistantAnswer, type Level, type Product, type ConversationTurn } from '@/api/client';
 
 export type AllergyMatch = { allergy: string; ingredient: string };
+
+export type MedicineStatus = 'current' | 'past';
 
 export type SavedMedicine = {
   register_number: string;
   added_at: string;
+  status: MedicineStatus; // the person's own record: taken now, or taken before
+  status_changed_at: string | null;
   product: Product | null;
   allergy_matches: AllergyMatch[];
 };
@@ -74,6 +78,51 @@ export const removeAllergy = (ingredient: string) =>
   authed<void>('DELETE', `/v1/me/allergies?ingredient=${encodeURIComponent(ingredient)}`);
 export const getAllergyCheck = (register: string, signal?: AbortSignal) =>
   authed<AllergyCheck>('GET', `/v1/me/allergy-check/${encodeURIComponent(register)}`, undefined, signal);
+
+export const setMedicineStatus = (register: string, status: MedicineStatus) =>
+  authed<void>('PUT', `/v1/me/medicines/${encodeURIComponent(register)}/status`, { status });
+
+export type HistoryFinding = {
+  kind: 'interaction' | 'duplicate_ingredient';
+  severity: string | null; // as the source rates it
+  source: string | null;
+  with_register_number: string;
+  with_name: string;
+  ingredients: string[];
+  about_register_number: string | null;
+};
+
+export type HistoryCheck = {
+  register_number: string;
+  name: string;
+  ingredients: string[];
+  already_taken: boolean;
+  compared_with: { register_number: string; name: string }[];
+  findings: HistoryFinding[];
+  allergy_matches: AllergyMatch[];
+  unmatched_ingredients: string[];
+  complete: boolean;
+  note: string;
+};
+
+export type CurrentInteractions = {
+  medicines: { register_number: string; name: string }[];
+  findings: HistoryFinding[];
+  complete: boolean;
+  note: string;
+};
+
+export const getHistoryCheck = (register: string, signal?: AbortSignal) =>
+  authed<HistoryCheck>('GET', `/v1/me/history/check/${encodeURIComponent(register)}`, undefined, signal);
+export const getCurrentInteractions = (signal?: AbortSignal) =>
+  authed<CurrentInteractions>('GET', '/v1/me/history/interactions', undefined, signal);
+
+/** Ask about a drug and compare it with my current medicines. The comparison runs on the server;
+ * the language model never sees my medicines. */
+export const askWithMyMedicines = (
+  body: { question: string; level: Level; register_number: string; spoken?: boolean; history?: ConversationTurn[] },
+  signal?: AbortSignal,
+) => authed<AssistantAnswer>('POST', '/v1/assistant/ask', { ...body, use_history: true }, signal);
 
 export const getAlerts = (signal?: AbortSignal) => authed<Alerts>('GET', '/v1/me/alerts', undefined, signal);
 export const markAlertsRead = (alertId?: string) =>

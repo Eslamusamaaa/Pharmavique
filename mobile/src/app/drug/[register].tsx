@@ -36,7 +36,8 @@ import {
   type Shortage,
   type SimilarNames,
 } from '@/api/client';
-import { arabicMeError, getAllergyCheck, saveMedicine, type AllergyCheck } from '@/api/me';
+import { arabicMeError, getAllergyCheck, getHistoryCheck, saveMedicine, type AllergyCheck, type HistoryCheck } from '@/api/me';
+import { HistoryCard } from '@/components/history-card';
 import { DrugPicture } from '@/components/DrugPicture';
 import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
 import { useAccount } from '@/state/auth';
@@ -80,6 +81,7 @@ export default function DrugScreen() {
   const [similar, setSimilar] = useState<SimilarNames | null>(null);
   const { account } = useAccount();
   const [allergy, setAllergy] = useState<AllergyCheck | null>(null);
+  const [history, setHistory] = useState<HistoryCheck | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const [sort, setSort] = useState<'price' | 'name'>('price');
 
@@ -115,6 +117,18 @@ export default function DrugScreen() {
     getAllergyCheck(register, controller.signal)
       .then(setAllergy)
       .catch(() => setAllergy(null));
+    return () => controller.abort();
+  }, [register, account]);
+
+  useEffect(() => {
+    if (!account) {
+      setHistory(null);
+      return;
+    }
+    const controller = new AbortController();
+    getHistoryCheck(register, controller.signal)
+      .then(setHistory)
+      .catch(() => setHistory(null));
     return () => controller.abort();
   }, [register, account]);
 
@@ -278,6 +292,8 @@ export default function DrugScreen() {
             </T>
           </View>
         ) : null}
+
+        {history && history.compared_with.length > 0 ? <HistoryCard check={history} /> : null}
 
         {/* SFDA's shortage list: what it says and how sure the link is. Never "switch". */}
         {shortage && shortage.status !== 'not_listed' ? (

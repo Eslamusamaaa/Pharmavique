@@ -30,6 +30,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { askAssistant, friendlyError, type AssistantAnswer, type ConversationTurn } from '@/api/client';
+import { askWithMyMedicines } from '@/api/me';
+import { HistoryCard } from '@/components/history-card';
+import { useAccount } from '@/state/auth';
 import { DisclaimerBar, Row, T } from '@/components/ui';
 import { roleInfo, useRole } from '@/state/role';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
@@ -48,6 +51,8 @@ export default function Assistant() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ register?: string; name?: string; q?: string }>();
+  const { account } = useAccount();
+  const [useMine, setUseMine] = useState(false);
   const { role } = useRole();
   const { level, suggestions } = roleInfo(role ?? 'patient');
   const [text, setText] = useState('');
@@ -75,7 +80,10 @@ export default function Assistant() {
     Keyboard.dismiss(); // the answer is what matters now, not the keyboard
     setTurns((all) => [...all, { id: nextId(), role: 'user', text: q }, { id: pendingId, role: 'pending' }]);
     try {
-      const answer = await askAssistant({ question: q, level, register_number: params.register ?? null, spoken, history });
+      const answer =
+        useMine && account && params.register
+          ? await askWithMyMedicines({ question: q, level, register_number: params.register, spoken, history })
+          : await askAssistant({ question: q, level, register_number: params.register ?? null, spoken, history });
       setTurns((all) => all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'assistant', answer } : t)));
       // A question asked by voice is answered by voice too (Saudi Arabic).
       if (spoken && !answer.refused) speaker.speak(pendingId, answer.answer);
@@ -113,6 +121,21 @@ export default function Assistant() {
         </T>
       </View>
       <DisclaimerBar />
+      {account && params.register ? (
+        <Pressable
+          onPress={() => setUseMine((v) => !v)}
+          style={[styles.mine, { backgroundColor: useMine ? c.prs : c.sf, borderColor: useMine ? c.pr : c.ln }]}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: useMine }}
+        >
+          <T size={14} weight={600} style={{ flex: 1 }}>
+            {useMine ? 'هقارن الدوا ده بأدويتي الحالية' : 'قارن الدوا ده بأدويتي الحالية'}
+          </T>
+          <T size={12.5} color={c.ink2}>
+            {useMine ? 'شغّال' : 'مقفول'}
+          </T>
+        </Pressable>
+      ) : null}
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
@@ -155,12 +178,14 @@ export default function Assistant() {
                 </View>
               );
             return (
-              <AnswerCard
-                key={turn.id}
-                answer={turn.answer}
-                listening={speaker.loadingId === turn.id}
-                onListen={() => speaker.speak(turn.id, turn.answer.answer)}
-              />
+              <View key={turn.id} style={{ gap: 10 }}>
+                <AnswerCard
+                  answer={turn.answer}
+                  listening={speaker.loadingId === turn.id}
+                  onListen={() => speaker.speak(turn.id, turn.answer.answer)}
+                />
+                {turn.answer.history_check ? <HistoryCard check={turn.answer.history_check} /> : null}
+              </View>
             );
           })}
           {mic.error ? (
@@ -319,6 +344,7 @@ const styles = StyleSheet.create({
   citations: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
   citeChip: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill },
   listen: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, minHeight: 36 },
+  mine: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, minHeight: 44, marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, borderWidth: 1, borderRadius: radius.md },
   suggestions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   chip: { borderWidth: 1, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14 },
   inputBar: { flexDirection: 'row-reverse', alignItems: 'flex-end', gap: 8, paddingTop: 8, paddingHorizontal: 12 },

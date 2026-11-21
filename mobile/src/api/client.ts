@@ -229,6 +229,7 @@ export type AssistantAnswer = {
   refused: boolean;
   level: Level;
   tools_used: string[];
+  history_check?: import('@/api/me').HistoryCheck | null; // only when I asked to use my medicines
   disclaimer: string;
 };
 
