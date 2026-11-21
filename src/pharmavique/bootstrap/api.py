@@ -17,6 +17,7 @@ from pharmavique.bootstrap import (
     api_compare,
     api_drugs,
     api_interactions,
+    api_lasa,
     api_pictures,
     api_recognition,
     api_shortage,
@@ -142,6 +143,7 @@ def create_app(
     app.state.scanner = scanner
     app.state.pictures = pictures
     app.state.list_items = list_items
+    app.state.lasa = None
     app.state.interactions = interactions
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
@@ -170,6 +172,7 @@ def create_app(
     app.include_router(observability.router)
     app.include_router(api_drugs.router)
     app.include_router(api_compare.router)
+    app.include_router(api_lasa.router)
     app.include_router(api_pictures.router)
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
