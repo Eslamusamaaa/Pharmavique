@@ -37,15 +37,22 @@ Set-Content -Path $lock -Value (Get-Date -Format o)
 $summary = New-Object System.Collections.Generic.List[string]
 $failed = 0
 
-function Invoke-Step([string]$name, [string[]]$arguments) {
+# `$ok` lists the exit codes that are not failures (the lists crawler exits 2 when a list finished
+# with holes: its rows are still checked against the baseline before they are loaded).
+function Invoke-Step([string]$name, [string[]]$arguments, [int[]]$ok = @(0)) {
     $log = Join-Path $logs ("{0}.log" -f $name)
     $started = Get-Date
     & $python -X utf8 -m pharmavique.bootstrap.cli @arguments 2>&1 | Out-File -FilePath $log -Encoding utf8
     $code = $LASTEXITCODE
     $minutes = [math]::Round(((Get-Date) - $started).TotalMinutes, 1)
     $script:summary.Add("| $name | exit $code | $minutes min |")
-    if ($code -ne 0) { $script:failed++ }
+    if ($ok -notcontains $code) { $script:failed++ }
     return $code
+}
+
+function Get-RowCount([string]$path) {
+    if (-not (Test-Path $path)) { return 0 }
+    return (Get-Content $path | Measure-Object -Line).Lines
 }
 
 try {
@@ -63,8 +70,20 @@ try {
         # the lists that change quickly: shortages, safety notices, new approvals
         $fast = "drug-shortage,drug-shortage-resolved,safety-alert,safety-labeling,drugs-circulars,dhpc,rmm,drug-approvals"
         $run = "lists-$stamp"
-        if ((Invoke-Step "lists-crawl" @("sfda-lists", "--lists", $fast, "--run-id", $run)) -eq 0) {
-            Invoke-Step "lists-load" @("sfda-lists-load", "--lists", $fast, "--run-id", $run) | Out-Null
+        $code = Invoke-Step "lists-crawl" @("sfda-lists", "--lists", $fast, "--run-id", $run) @(0, 2)
+        if ($code -eq 0 -or $code -eq 2) {
+            # load only the lists whose new crawl has at least 90% of the baseline's rows, so a
+            # half-read list can never shrink what the database holds
+            $loadable = @()
+            foreach ($name in $fast.Split(",")) {
+                $baseRows = Get-RowCount (Join-Path $root "data\lists\$name\lists-1\records.jsonl")
+                $newRows = Get-RowCount (Join-Path $root "data\lists\$name\$run\records.jsonl")
+                if ($newRows -gt 0 -and $newRows -ge [math]::Floor(0.9 * $baseRows)) { $loadable += $name }
+                else { $summary.Add("| lists-load $name | skipped: $newRows rows, baseline $baseRows | |") }
+            }
+            if ($loadable.Count -gt 0) {
+                Invoke-Step "lists-load" @("sfda-lists-load", "--lists", ($loadable -join ","), "--run-id", $run) | Out-Null
+            }
         }
     }
 
@@ -75,7 +94,7 @@ try {
             Invoke-Step "pictures-export" @("sfda-images-export", "--run-id", $run) | Out-Null
         }
         Invoke-Step "pictures-find" @(
-            "sfda-images", "--sitemaps", "data\media\sitemaps-new", "--from-sitemap-pictures",
+            "sfda-images", "--sitemaps", "data\media\sitemaps", "--from-sitemap-pictures",
             "--run-id", "daily-$stamp", "--limit", "100000", "--delay", "0.4", "--jitter", "0.2",
             "--concurrency", "8"
         ) | Out-Null
@@ -86,7 +105,7 @@ try {
 
     if (($Steps -contains "weekly") -and ((Get-Date).DayOfWeek -eq "Sunday")) {
         # the shops' catalogs and the pictures that could not be downloaded last time
-        Invoke-Step "weekly-sitemaps" @("sfda-images-sitemaps", "--out", "data\media\sitemaps-new", "--delay", "1.0") | Out-Null
+        Invoke-Step "weekly-sitemaps" @("sfda-images-sitemaps", "--out", "data\media\sitemaps", "--delay", "1.0") | Out-Null
         Invoke-Step "weekly-restore" @("sfda-images-restore") | Out-Null
     }
 }
