@@ -173,6 +173,8 @@ async def _deliver(sender: EmailSender | None, message: EmailMessage) -> None:
         await sender.send(message)
     except EmailError as error:
         _log.warning("an email could not be sent: %s", error)
+    except Exception as error:  # nothing a sender does may break a finished request
+        _log.warning("an email could not be sent (%s)", type(error).__name__)
 
 
 def get_email_sender(request: Request) -> EmailSender | None:

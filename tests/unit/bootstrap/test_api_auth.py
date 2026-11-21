@@ -465,3 +465,16 @@ async def test_a_forged_or_broken_unsubscribe_link_changes_nothing(
         ).status_code == 400
     me = await client.get("/v1/auth/me", headers=bearer(session["access_token"]))
     assert me.json()["email_notifications"] is True
+
+
+async def test_any_failure_of_the_sender_is_contained_and_never_breaks_sign_up(
+    client: httpx.AsyncClient, outbox: Outbox, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def explode(message: EmailMessage) -> None:
+        raise UnicodeEncodeError("charmap", "x", 0, 1, "cannot encode")
+
+    monkeypatch.setattr(outbox, "send", explode)
+
+    response = await register(client)
+
+    assert response.status_code == 201

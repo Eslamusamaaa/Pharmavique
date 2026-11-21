@@ -141,3 +141,30 @@ async def test_the_console_sender_prints_the_message() -> None:
 def test_the_console_sender_cannot_be_built_for_production() -> None:
     with pytest.raises(ValueError, match="production"):
         ConsoleEmailSender(production=True)
+
+
+async def test_the_console_sender_prints_arabic_even_when_the_console_cannot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+    import sys
+
+    class Cp1252Console:
+        """A Windows console: text goes through cp1252 unless bytes are written directly."""
+
+        def __init__(self) -> None:
+            self.buffer = io.BytesIO()
+
+        def write(self, text: str) -> int:
+            text.encode("cp1252")  # raises UnicodeEncodeError for Arabic, like the real console
+            return len(text)
+
+        def flush(self) -> None:
+            return None
+
+    console = Cp1252Console()
+    monkeypatch.setattr(sys, "stdout", console)
+
+    await ConsoleEmailSender().send(EmailMessage("me@example.com", "رمز", "رمز التأكيد 123456"))
+
+    assert "رمز التأكيد 123456" in console.buffer.getvalue().decode("utf-8")

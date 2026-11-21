@@ -8,6 +8,7 @@ is the owner's, Q-38). The password comes from the environment only.
 import asyncio
 import smtplib
 import ssl
+import sys
 from collections.abc import Callable
 from email.message import EmailMessage as MimeMessage
 from email.utils import formatdate, make_msgid
@@ -68,11 +69,24 @@ class SmtpEmailSender:
             raise EmailError(f"could not send the email ({type(error).__name__})") from error
 
 
+def _write_utf8(text: str) -> None:
+    """Print as UTF-8 bytes: a Windows console's own encoding cannot show Arabic and would raise."""
+    data = (text + chr(10)).encode("utf-8")
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is not None:
+        buffer.write(data)
+        buffer.flush()
+    else:
+        sys.stdout.write(data.decode("utf-8"))
+
+
 class ConsoleEmailSender:
     """Prints the email instead of sending it. For development only: it shows the message (a
     verification code included), so it refuses to be built for a production deployment."""
 
-    def __init__(self, write: Callable[[str], None] = print, production: bool = False) -> None:
+    def __init__(
+        self, write: Callable[[str], None] = _write_utf8, production: bool = False
+    ) -> None:
         if production:
             raise ValueError("the console email sender must not be used in production")
         self._write = write
