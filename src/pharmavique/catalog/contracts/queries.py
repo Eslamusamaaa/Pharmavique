@@ -205,6 +205,45 @@ class CatalogQuality(Protocol):
     async def quality_stats(self, market: Market) -> CatalogQualityStats: ...
 
 
+@dataclass(frozen=True, slots=True)
+class Pharmacy:
+    """A licensed pharmacy from the SFDA list. The list gives a city and a national-address short
+    code, never a street or coordinates, so `city` is the finest place known."""
+
+    market: Market
+    name: str
+    phone: str | None
+    region: str | None
+    city_key: str | None  # the normalized canonical city; None when the address has no city
+    city: str | None
+    short_code: str | None
+    address: str  # exactly as the source wrote it
+    source_ref: str
+    fetched_at: datetime | None
+    trust: str
+
+
+@dataclass(frozen=True, slots=True)
+class CityLocation:
+    """Where a city is (one point), found once by a geocoder, never typed in by hand."""
+
+    market: Market
+    city_key: str
+    city: str
+    latitude: float
+    longitude: float
+    source: str
+    source_ref: str
+    fetched_at: datetime
+    trust: str  # a geocoder is not an official source: "unofficial_unverified"
+
+
+class CatalogPharmacies(Protocol):
+    async def pharmacies(self, market: Market) -> tuple[Pharmacy, ...]: ...
+
+    async def city_locations(self, market: Market) -> tuple[CityLocation, ...]: ...
+
+
 class CatalogIngredients(Protocol):
     """The active ingredient names the catalog knows, for pickers and allergy entry."""
 
