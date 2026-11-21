@@ -19,6 +19,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Linking,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -28,8 +29,9 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { askAssistant, friendlyError, type AssistantAnswer, type ConversationTurn, type Level } from '@/api/client';
+import { askAssistant, friendlyError, type AssistantAnswer, type ConversationTurn } from '@/api/client';
 import { DisclaimerBar, Row, T } from '@/components/ui';
+import { roleInfo, useRole } from '@/state/role';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
 
@@ -39,14 +41,6 @@ type Turn =
   | { id: string; role: 'pending' }
   | { id: string; role: 'error'; text: string };
 
-const LEVELS: { key: Level; label: string }[] = [
-  { key: 'patient', label: 'مبسّط' },
-  { key: 'pharmacist', label: 'للصيدلي' },
-  { key: 'clinical', label: 'متخصص' },
-];
-
-const SUGGESTIONS = ['ما سعر بانادول 500؟', 'ما المواد الفعالة في بانادول اكسترا؟', 'هل فيه بديل بنفس المادة؟'];
-
 let counter = 0;
 const nextId = () => `t${++counter}`;
 
@@ -54,7 +48,8 @@ export default function Assistant() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ register?: string; name?: string; q?: string }>();
-  const [level, setLevel] = useState<Level>('patient');
+  const { role } = useRole();
+  const { level, suggestions } = roleInfo(role ?? 'patient');
   const [text, setText] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -77,6 +72,7 @@ export default function Assistant() {
       )
       .slice(-6);
     setText('');
+    Keyboard.dismiss(); // the answer is what matters now, not the keyboard
     setTurns((all) => [...all, { id: nextId(), role: 'user', text: q }, { id: pendingId, role: 'pending' }]);
     try {
       const answer = await askAssistant({ question: q, level, register_number: params.register ?? null, spoken, history });
@@ -118,19 +114,13 @@ export default function Assistant() {
       </View>
       <DisclaimerBar />
 
-      {/* note 3: answer level; same sources at every level, only wording and depth change */}
-      <View style={[styles.segment, { backgroundColor: c.sf }, cardShadow]}>
-        {LEVELS.map((l) => (
-          <Pressable key={l.key} onPress={() => setLevel(l.key)} style={[styles.segmentItem, level === l.key && { backgroundColor: c.pr }]}>
-            <T size={14} weight={level === l.key ? 700 : 400} color={level === l.key ? c.prt : c.ink2} align="center">
-              {l.label}
-            </T>
-          </Pressable>
-        ))}
-      </View>
-
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView ref={scroll} contentContainerStyle={styles.thread} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scroll}
+          contentContainerStyle={styles.thread}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
           {turns.length === 0 ? (
             <View style={{ gap: 10, paddingTop: 8 }}>
               <T size={15} color={c.ink2}>
@@ -183,13 +173,15 @@ export default function Assistant() {
               {speaker.error}
             </T>
           ) : null}
-          <View style={styles.suggestions}>
-            {SUGGESTIONS.map((s) => (
-              <Pressable key={s} onPress={() => ask(s)} style={[styles.chip, { backgroundColor: c.sf, borderColor: c.ln }]}>
-                <T size={14}>{s}</T>
-              </Pressable>
-            ))}
-          </View>
+          {turns.length === 0 ? (
+            <View style={styles.suggestions}>
+              {suggestions.map((s) => (
+                <Pressable key={s} onPress={() => ask(s)} style={[styles.chip, { backgroundColor: c.sf, borderColor: c.ln }]}>
+                  <T size={14}>{s}</T>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </ScrollView>
 
         <View style={[styles.inputBar, { backgroundColor: c.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -320,8 +312,6 @@ function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; 
 const styles = StyleSheet.create({
   header: { height: 52, flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingHorizontal: 8 },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  segment: { flexDirection: 'row-reverse', borderRadius: radius.md, padding: 3, marginHorizontal: 16, marginTop: 12 },
-  segmentItem: { flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   thread: { padding: 16, gap: 14 },
   userBubble: { alignSelf: 'flex-end', maxWidth: '85%', borderRadius: radius.lg, borderTopRightRadius: 4, paddingVertical: 10, paddingHorizontal: 14 },
   pending: { alignSelf: 'flex-end', borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 14 },

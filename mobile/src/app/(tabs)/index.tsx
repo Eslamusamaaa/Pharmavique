@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DisclaimerBar, Row, T } from '@/components/ui';
 import { useRecentActions, useRecents, type Recent } from '@/state/recents';
+import { roleInfo, useRole } from '@/state/role';
 import { cardShadow, radius, useTheme } from '@/theme';
 
 function openRecent(r: Recent) {
@@ -26,6 +27,8 @@ export default function Home() {
   const { c, isDark } = useTheme();
   const recents = useRecents();
   const { clear } = useRecentActions();
+  const { role } = useRole();
+  const current = roleInfo(role ?? 'patient');
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -37,20 +40,22 @@ export default function Home() {
           accessibilityLabel="Pharmavique"
         />
         <Pressable
-          onPress={() => router.push('/account')}
+          onPress={() => router.push('/role')}
           style={[styles.role, { backgroundColor: c.prs }]}
           accessibilityRole="button"
-          accessibilityLabel="الدور: مريض"
+          accessibilityLabel={`الدور: ${current.label}`}
         >
           <UserCircleIcon size={20} color={c.ink} />
-          <T size={14}>مريض</T>
+          <T size={14} numberOfLines={1} style={{ maxWidth: 150 }}>
+            {current.label}
+          </T>
           <CaretDownIcon size={14} color={c.ink} />
         </Pressable>
       </View>
       <DisclaimerBar />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <T size={28} weight={700} style={{ lineHeight: 39 }}>
-          عن أي دواء تريد أن تعرف؟
+          {current.greeting}
         </T>
         <View style={{ gap: 14 }}>
           <Pressable

@@ -267,3 +267,17 @@ owner keeps; do not add it.
   HTTP 429 "busy" instead of 500.
 - Phone: `.claude/launch.json` has a `phone` entry; the app reads the API address from
   `mobile/.env.local` (`EXPO_PUBLIC_API_URL`, git-ignored, change the IP when the network changes).
+
+### 15b. Pictures, voice search and roles (2026-11-21)
+
+- Picture files were lost in the machine move (the mapping and `images.jsonl` survived).
+  `pharmavique sfda-images-restore` downloads the 2,964 mapped real pictures again from their recorded
+  URLs (polite: robots.txt, one throttle per host) and keeps a file only if its sha256 equals the
+  recorded `content_hash`. Files live in `data/media/images/` (git-ignored). Then
+  `sfda-pictures-load` writes `catalog.product_pictures` (2,964 real, 6,198 generated) and the API
+  serves `GET /v1/products/{register}/picture` (404 for generated cards: the app draws a placeholder).
+  1,922 of the real pictures are `needs_review`; the header `X-Picture-Status` says which.
+- Voice search: `POST /v1/voice/drug-name` takes the transcript and returns the drug name to search
+  for (the chat model, rules as the fallback), so "أنا عايز بنادول" searches "بنادول".
+- The app asks who is using it on first launch (patient, pharmacist, company or warehouse owner),
+  kept on the device only; no sign-in yet. The role picks the assistant's answer level and suggestions.
