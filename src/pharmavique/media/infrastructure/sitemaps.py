@@ -14,11 +14,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from pharmavique.media.application.page_search import SearchResultPage
-from pharmavique.media.domain.matching import is_listing_page
+from pharmavique.media.domain.matching import ImageCandidate, is_listing_page
 from pharmavique.media.infrastructure.web import PoliteWeb
 from pharmavique.shared_kernel.text import normalize_text
 
 _LOC = re.compile(r"<loc>\s*([^<]+?)\s*</loc>")
+_URL_BLOCK = re.compile(r"<url>(.*?)</url>", re.DOTALL)
+_IMAGE_LOC = re.compile(r"<image:loc>\s*([^<]+?)\s*</image:loc>")
 _MAX_DEPTH = 2  # an index of indexes is as deep as shops go
 _QUERY_NOISE = frozenset({"saudi", "arabia", "السعوديه", "ksa"})
 
@@ -30,15 +32,16 @@ class SitemapCollector:
 
     async def collect(self, sitemap_url: str, out_path: Path) -> int:
         """Write every page address under `sitemap_url` to `out_path`; returns how many."""
-        urls: dict[str, None] = {}
+        urls: dict[str, str | None] = {}
         await self._walk(sitemap_url, urls, depth=0)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("w", encoding="utf-8") as handle:
-            for url in urls:
-                handle.write(json.dumps({"url": url}, ensure_ascii=False) + "\n")
+            for url, image in urls.items():
+                row = {"url": url} if image is None else {"url": url, "image": image}
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
         return len(urls)
 
-    async def _walk(self, url: str, found: dict[str, None], depth: int) -> None:
+    async def _walk(self, url: str, found: dict[str, str | None], depth: int) -> None:
         response = await self._web.get(url)
         if response is None or response.status_code != 200:
             return
@@ -49,8 +52,20 @@ class SitemapCollector:
             for child in locations[: self._max_children]:
                 await self._walk(child, found, depth + 1)
             return
-        for location in locations:
-            found.setdefault(location, None)
+        blocks = _URL_BLOCK.findall(response.text)
+        if not blocks:
+            for location in locations:
+                found.setdefault(location, None)
+            return
+        for block in blocks:
+            page = _LOC.search(block)
+            if page is None:
+                continue
+            location = html.unescape(page.group(1))
+            picture = _IMAGE_LOC.search(block)
+            image = html.unescape(picture.group(1)) if picture else None
+            if found.get(location) is None:
+                found[location] = image
 
 
 def _address_tokens(url: str) -> frozenset[str]:
@@ -96,3 +111,29 @@ class SitemapPageSearch:
                 return []
         closest = sorted(matching, key=lambda i: (self._sizes[i] - len(words), self._urls[i]))
         return [SearchResultPage(self._urls[i], "") for i in closest[:limit]]
+
+
+class SitemapPictureReader:
+    """Implements `PageReader` from the pictures sitemaps list for each page: no request at all.
+
+    Shops put each product's picture next to its address in their sitemap (`image:loc`), so a
+    drug's picture is known as soon as its page is found. The reader returns it without opening
+    the page; title and text are left empty, so the match is judged from the address alone.
+    """
+
+    def __init__(self, paths: Sequence[Path]) -> None:
+        self._images: dict[str, str] = {}
+        for path in paths:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(row, dict) and row.get("url") and row.get("image"):
+                    self._images.setdefault(str(row["url"]), str(row["image"]))
+
+    async def read(self, page_url: str) -> ImageCandidate | None:
+        image = self._images.get(page_url)
+        if image is None:
+            return None
+        return ImageCandidate(image_url=image, page_url=page_url, title="", alt_text="")

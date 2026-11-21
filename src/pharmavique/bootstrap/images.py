@@ -37,7 +37,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping import map
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import StoredRecords
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
-from pharmavique.media.application.page_search import PageImageSearch, PageSearch
+from pharmavique.media.application.page_search import PageImageSearch, PageReader, PageSearch
 from pharmavique.media.application.restore import ImageRestorer, RestoreReport, WantedImage
 from pharmavique.media.domain.matching import ProductRef, build_queries
 from pharmavique.media.domain.placeholders import (
@@ -53,7 +53,11 @@ from pharmavique.media.infrastructure.files import (
     JsonlImageRepository,
 )
 from pharmavique.media.infrastructure.search_file import FilePageSearch
-from pharmavique.media.infrastructure.sitemaps import SitemapCollector, SitemapPageSearch
+from pharmavique.media.infrastructure.sitemaps import (
+    SitemapCollector,
+    SitemapPageSearch,
+    SitemapPictureReader,
+)
 from pharmavique.media.infrastructure.web import HttpImageDownloader, PoliteWeb, WebPageReader
 from pharmavique.shared_kernel.currency import Currency
 from pharmavique.shared_kernel.market import Market
@@ -97,6 +101,11 @@ def add_arguments(commands: Any) -> None:
     source.add_argument("--results", help="JSON file: search phrase -> result pages")
     source.add_argument("--sitemaps", help="folder of collected sitemap files (*.jsonl)")
     fetch.add_argument("--retry", action="store_true", help="also work products tried before")
+    fetch.add_argument(
+        "--from-sitemap-pictures",
+        action="store_true",
+        help="take each page's picture from the sitemap file (no page request); needs --sitemaps",
+    )
     fetch.add_argument("--concurrency", type=int, default=6, help="products worked at once")
     fetch.add_argument("--pages-per-query", type=int, default=3, help="pages read per phrase")
     fetch.add_argument("--out", default="data/media", help="folder for pictures and records")
@@ -323,6 +332,13 @@ def _page_search(args: argparse.Namespace) -> PageSearch | None:
     return FilePageSearch(results)
 
 
+def _page_reader(args: argparse.Namespace, web: PoliteWeb) -> PageReader:
+    """Open each product page, or (--from-sitemap-pictures) read its picture from the sitemap."""
+    if args.from_sitemap_pictures and args.sitemaps:
+        return SitemapPictureReader(sorted(Path(args.sitemaps).glob("*.jsonl")))
+    return WebPageReader(web)
+
+
 async def fetch_images(args: argparse.Namespace) -> int:
     refs = _load_or_explain(Path(args.products))
     if refs is None:
@@ -343,8 +359,9 @@ async def fetch_images(args: argparse.Namespace) -> int:
         web = PoliteWeb(
             client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
         )
+        reader = _page_reader(args, web)
         handler = FindProductImagesHandler(
-            PageImageSearch(page_search, WebPageReader(web)),
+            PageImageSearch(page_search, reader),
             HttpImageDownloader(web),
             FileImageStore(out / "images"),
             JsonlImageRepository(out / "images.jsonl"),

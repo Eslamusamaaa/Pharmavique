@@ -6,7 +6,11 @@ from pathlib import Path
 import httpx
 
 from pharmavique.foundation.http.throttle import Throttle
-from pharmavique.media.infrastructure.sitemaps import SitemapCollector, SitemapPageSearch
+from pharmavique.media.infrastructure.sitemaps import (
+    SitemapCollector,
+    SitemapPageSearch,
+    SitemapPictureReader,
+)
 from pharmavique.media.infrastructure.web import PoliteWeb
 
 
@@ -173,3 +177,64 @@ async def test_listing_pages_never_take_the_place_of_product_pages(tmp_path: Pat
     found = await SitemapPageSearch([path]).search("XARELTO Saudi Arabia", 1)
 
     assert [p.url for p in found] == ["https://shop.example.sa/products/xarelto-10mg-10tab"]
+
+
+def pictured_urlset(*pairs: tuple[str, str | None]) -> bytes:
+    body = ""
+    for url, image in pairs:
+        picture = f"<image:image><image:loc>{image}</image:loc></image:image>" if image else ""
+        body += f"<url><loc>{url}</loc>{picture}</url>"
+    return (
+        '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+        f'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">{body}</urlset>'
+    ).encode()
+
+
+async def test_the_picture_a_sitemap_lists_for_a_page_is_kept_with_the_address(
+    tmp_path: Path,
+) -> None:
+    site = Site(
+        {
+            "/sitemap.xml": pictured_urlset(
+                (
+                    "https://shop.example.sa/p/panadol",
+                    "https://cdn.example.sa/panadol.jpg?w=500&amp;h=500",
+                ),
+                ("https://shop.example.sa/p/no-picture", None),
+            )
+        }
+    )
+    out = tmp_path / "shop.jsonl"
+
+    await collector(site).collect("https://shop.example.sa/sitemap.xml", out)
+
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    assert rows == [
+        {
+            "url": "https://shop.example.sa/p/panadol",
+            "image": "https://cdn.example.sa/panadol.jpg?w=500&h=500",
+        },
+        {"url": "https://shop.example.sa/p/no-picture"},
+    ]
+
+
+async def test_the_sitemap_picture_reader_answers_from_the_file_without_any_request(
+    tmp_path: Path,
+) -> None:
+    file = tmp_path / "shop.jsonl"
+    file.write_text(
+        '{"url": "https://shop.example.sa/p/panadol", "image": "https://cdn.example.sa/p.jpg"}\n'
+        '{"url": "https://shop.example.sa/p/none"}\n',
+        encoding="utf-8",
+    )
+    reader = SitemapPictureReader([file])
+
+    found = await reader.read("https://shop.example.sa/p/panadol")
+
+    assert found is not None
+    assert (found.image_url, found.page_url) == (
+        "https://cdn.example.sa/p.jpg",
+        "https://shop.example.sa/p/panadol",
+    )
+    assert await reader.read("https://shop.example.sa/p/none") is None
+    assert await reader.read("https://elsewhere.example/p/x") is None
