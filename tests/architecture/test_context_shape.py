@@ -21,6 +21,7 @@ CONTEXTS = {
     "analytics",
     "assistant",
     "voice",
+    "interactions",
 }
 NON_CONTEXT_PACKAGES = {"shared_kernel", "foundation", "bootstrap"}
 CONTEXT_PACKAGES = {"contracts", "domain", "application", "infrastructure", "presentation"}
