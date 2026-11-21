@@ -26,6 +26,18 @@ htmlcov/
 /uploads/
 /data/lists-trial/
 # Run logs and one-off backups of the crawl and picture jobs (the data files themselves are kept).
+/data/**/*.log
+/data/**/*.stdout
+/data/**/*.stderr
+/data/media-demo/
+# Daily refresh snapshots live in the database, not in git; the committed baseline is
+# lists-1 and full-20261116. Lists that were started and stopped are not part of the dataset.
+/data/lists/*/lists-20*/
+/data/sfda/update-*/
+/data/lists/marketed-products/
+/data/lists/periodic-safety/
+/data/lists/evaluation-reports/
+/data/lists/*/*/crawl.log
 /data/media/*.log
 /data/media/*.stdout
 /data/media/*.prev
@@ -41,3 +53,4 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+/data/knowledge/openfda-interactions/
