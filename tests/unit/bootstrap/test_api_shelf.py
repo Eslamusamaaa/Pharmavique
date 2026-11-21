@@ -133,7 +133,7 @@ async def test_the_features_endpoint_says_whether_the_shelf_scan_is_on() -> None
         assert body == {"shelf_scan": enabled}
 
 
-async def test_the_shelf_scan_is_off_by_default_and_refuses_everyone() -> None:
+async def test_a_switched_off_shelf_scan_refuses_everyone() -> None:
     client, reader = make(False)
     async with client:
         response = await scan_shelf(client, headers=headers(Role.PHARMACIST))

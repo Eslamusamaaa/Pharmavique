@@ -51,9 +51,10 @@ class Settings(BaseSettings):
     jobs_per_user_per_minute: int = 6  # submissions per caller; 0 turns the limit off
     job_max_queue_depth: int = 500  # new jobs are refused (503) while this many are waiting
 
-    # The pharmacist's shelf scan (many boxes in one photo). Off until real shelf photos have been
-    # used to check how well it reads them (Q-32); the box and prescription scans are unaffected.
-    shelf_scan_enabled: bool = False
+    # The pharmacist's shelf scan (many boxes in one photo). On: every box still needs the
+    # pharmacist's confirmation and shows its match score. Its accuracy on real shelf photos is
+    # unmeasured (Q-32, see docs/SCAN_EVALUATION.md); set to false to switch it off.
+    shelf_scan_enabled: bool = True
 
     # Email (verification codes, notification digests). "console" prints messages instead of
     # sending them and is for development only; "smtp" sends through any provider that offers SMTP.
