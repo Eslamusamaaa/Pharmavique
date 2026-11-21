@@ -117,4 +117,5 @@ New question from these answers:
 
 | ID | Question | Why it matters | Proposed default |
 |---|---|---|---|
+| Q-39 | Can we get the exact location of each pharmacy? The SFDA list only gives a city and a Saudi National Address short code (`JJMA3817`). The national address service can turn a short code into coordinates but needs an API key and has its own terms | Without it, "nearby" stops at the city (136 pharmacies in Riyadh are ordered by name) | Keep city precision; the owner decides whether to request a key from the national address service |
 | Q-38 | Which email provider sends the OTPs and notifications, and from which address or domain? | Deliverability needs a verified sender domain (SPF, DKIM); free tiers cap volume, which matters for "very many users" | An `EmailSender` port with an SMTP adapter, so any provider works; for development a local mail catcher |

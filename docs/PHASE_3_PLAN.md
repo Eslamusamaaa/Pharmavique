@@ -22,7 +22,7 @@ patient's location; a "price changed" mark.
 | LASA | Only in docs. `shared_kernel` has the Arabic/Latin normalizer and pg_trgm-compatible trigrams, which the string part can reuse |
 | Daily refresh | `scripts/daily_refresh.ps1` and `scripts/schedule_daily_refresh.ps1` exist; **not registered** on this machine |
 | Redis | Container runs, but **no code uses it** (corrected 2026-11-21: the rate limit and the audio cache live in each API process's memory, which breaks behind several instances). No read cache, no job queue (ADR-002 chose Arq, not built) |
-| Pharmacies | 385 rows with name, phone, address, region. **No coordinates** |
+| Pharmacies | 385 rows with name, phone, region and an address that is **only a city plus a national-address short code** (checked 2026-11-21): no street, no coordinates |
 | Mobile | No `expo-location`, no push library. The role is kept on the device only |
 
 ## 3. Order and why
@@ -156,7 +156,7 @@ location are sensitive: minimum collection, encrypted at rest, never logged, del
 Done means `ruff check`, `ruff format --check`, `mypy src tests`, `lint-imports`, `pytest` pass (real output
 reported), docs and ADRs updated, migrations reversible. Tests before adapters; one commit per unit of work.
 
-New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 company views and the quality board, ADR-012 shared state, read cache and jobs, ADR-013 location handling.
+New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 company views and the quality board, ADR-012 shared state, read cache and jobs, ADR-013 the pharmacy finder and location handling.
 
 ## 5. Questions, each with the default I will use if told "go"
 
@@ -185,6 +185,8 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 | D Company views, operator quality board | Built: `analytics` read model (`analytics-rebuild`), `/v1/company/{market,gaps,radar}` for the company and operator roles, `/v1/operator/quality` for the operator, app screens (`company`, `operator`), the daily refresh rebuilds the model, [ADR-011](adr/ADR-011-company-views-and-quality-board.md). Registry facts only: no sales or demand figures. Not built: a company tenant tied to its marketing-company name; the radar starts at the first rebuild |
 
 | E Performance | Built: shared key-value store, versioned read cache for search and drug pages, rate limit shared across instances, shared spoken-answer links, background jobs (Arq worker or inline) for scans and assistant questions, `scripts/loadtest.py`, measured baselines in [PERFORMANCE.md](PERFORMANCE.md), [ADR-012](adr/ADR-012-shared-state-read-cache-and-jobs.md). Not built: the app does not call the jobs endpoints yet; deployment pieces (load balancer, PgBouncer, replicas, CDN, managed Redis); a load test from separate machines |
+
+| F Nearby pharmacies | Built, at **city precision** ([ADR-013](adr/ADR-013-pharmacy-finder-and-location.md)): `POST /v1/pharmacies/nearby` (position in the body, never kept), `GET /v1/pharmacies` and `/cities`, 33 city points from Nominatim with a region sanity check, `expo-location` foreground permission, the `pharmacies` screen and a home tile. Not possible yet: distance to a pharmacy (needs exact coordinates, Q-39); 2 cities have no point |
 
 ## 7. Proposed start
 
