@@ -189,7 +189,10 @@ async function fileField(uri: string, name: string, type: string): Promise<Blob 
   if (uri.startsWith('blob:') || uri.startsWith('data:') || uri.startsWith('http')) {
     return await (await fetch(uri)).blob();
   }
-  return { uri, name, type };
+  // Expo's fetch cannot send React Native's `{ uri, name, type }` object ("Unsupported FormDataPart
+  // implementation"); it reads a file through `bytes()`, which expo-file-system's File provides.
+  const { File } = await import('expo-file-system');
+  return new File(uri) as unknown as { uri: string; name: string; type: string };
 }
 
 async function postFile<T>(path: string, field: string, uri: string, name: string, type: string): Promise<T> {
