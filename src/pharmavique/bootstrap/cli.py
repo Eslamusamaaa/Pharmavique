@@ -26,6 +26,7 @@ from pharmavique.bootstrap import (
     images,
     interactions_cli,
     knowledge_cli,
+    labels_cli,
     lists_cli,
     pictures_cli,
     search_cli,
@@ -192,6 +193,7 @@ def build_parser() -> argparse.ArgumentParser:
     search_cli.add_arguments(commands)
     lists_cli.add_arguments(commands)
     interactions_cli.add_arguments(commands)
+    labels_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
 
@@ -649,6 +651,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(lists_cli.load(args))
     if args.command == "interactions-load":
         return asyncio.run(interactions_cli.load(args))
+    if args.command == "knowledge-labels":
+        return asyncio.run(labels_cli.labels(args))
     if args.command == "knowledge-build":
         return asyncio.run(knowledge_cli.build(args))
     if args.command == "knowledge-embed":
