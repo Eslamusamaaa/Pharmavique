@@ -7,7 +7,8 @@ import httpx
 from pharmavique.bootstrap.api import create_app
 from pharmavique.catalog.contracts.queries import CardPage, ProductCard
 from pharmavique.interactions.application.check import CheckInteractions
-from pharmavique.interactions.domain.records import InteractionRecord
+from pharmavique.interactions.application.contraindications import ListContraindications
+from pharmavique.interactions.domain.records import ContraindicationRecord, InteractionRecord
 from pharmavique.interactions.domain.severity import Severity
 from pharmavique.shared_kernel.market import Market
 
@@ -105,3 +106,46 @@ async def test_without_a_database_the_endpoint_answers_503() -> None:
         response = await api.post("/v1/interactions/check", json={"register_numbers": ["1", "2"]})
 
     assert response.status_code == 503
+
+
+class FakeContraStore:
+    async def for_ingredients(self, keys: Collection[str]) -> list[ContraindicationRecord]:
+        return [
+            ContraindicationRecord("warfarin", "pregnancy", "MONDO:1", "Pregnancy text.", "medic")
+        ]
+
+
+def contra_client(*cards: ProductCard, enabled: bool = True) -> httpx.AsyncClient:
+    app = create_app(
+        catalog=FakeCatalog(*cards),
+        contraindications=ListContraindications(FakeContraStore()) if enabled else None,
+    )
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+
+
+async def test_a_products_recorded_contraindications_come_with_label_text_and_source() -> None:
+    async with contra_client(card("1", "Coumadin", "WARFARIN SODIUM")) as api:
+        response = await api.get("/v1/interactions/contraindications/1")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["items"] == [
+        {
+            "ingredient": "WARFARIN SODIUM",
+            "disease": "pregnancy",
+            "text": "Pregnancy text.",
+            "source": "medic",
+        }
+    ]
+    assert body["complete"] is False
+    assert "ليست نصيحة" in body["note"]
+
+
+async def test_an_unknown_product_is_a_404_and_no_source_is_a_503() -> None:
+    async with contra_client(card("1", "Coumadin", "WARFARIN")) as api:
+        unknown = await api.get("/v1/interactions/contraindications/999")
+    async with contra_client(enabled=False) as api:
+        down = await api.get("/v1/interactions/contraindications/1")
+
+    assert unknown.status_code == 404
+    assert down.status_code == 503

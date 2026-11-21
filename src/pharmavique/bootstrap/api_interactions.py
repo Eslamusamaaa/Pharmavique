@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from pharmavique.catalog.contracts.queries import CatalogQueries
-from pharmavique.interactions.contracts.queries import InteractionChecks, ProductIngredients
+from pharmavique.interactions.contracts.queries import (
+    ContraindicationChecks,
+    InteractionChecks,
+    ProductIngredients,
+)
 from pharmavique.shared_kernel.market import Market
 
 router = APIRouter(prefix="/v1/interactions", tags=["interactions"])
@@ -113,6 +117,63 @@ async def check(
         ],
         unmatched=[UnmatchedOut(register_number=r, ingredient=i) for r, i in report.unmatched],
         unknown_registers=[r for r in wanted if r not in found],
+        complete=report.complete,
+        note=NOTE_AR,
+    )
+
+
+class ContraindicationOut(BaseModel):
+    ingredient: str  # the registry's name
+    disease: str  # as the source names the condition
+    text: str  # the label text it was taken from
+    source: str
+
+
+class ContraindicationsOut(BaseModel):
+    register_number: str
+    items: list[ContraindicationOut]
+    complete: bool  # always false: a missing record is never a clearance
+    note: str
+
+
+def get_contraindications(request: Request) -> ContraindicationChecks:
+    backend: ContraindicationChecks | None = request.app.state.contraindications
+    if backend is None:
+        raise HTTPException(status_code=503, detail="contraindications are not available")
+    return backend
+
+
+@router.get(
+    "/contraindications/{register_number}",
+    response_model=ContraindicationsOut,
+    summary="Conditions the ingredients of a product are recorded as contraindicated with",
+)
+async def contraindications(
+    register_number: str,
+    checks: Annotated[ContraindicationChecks, Depends(get_contraindications)],
+    catalog: Annotated[CatalogQueries, Depends(get_catalog)],
+) -> ContraindicationsOut:
+    cards = await catalog.get_cards(Market.SA, [register_number])
+    if not cards:
+        raise HTTPException(status_code=404, detail="no product with this register number")
+    card = cards[0]
+    report = await checks.run(
+        [
+            ProductIngredients(
+                card.register_number,
+                card.trade_name_en or card.trade_name_ar or card.register_number,
+                card.ingredient_names,
+            )
+        ]
+    )
+    return ContraindicationsOut(
+        register_number=card.register_number,
+        items=[
+            ContraindicationOut(
+                ingredient=item.ingredient, disease=item.disease, text=item.text, source=item.source
+            )
+            for item in report.items
+        ],
         complete=report.complete,
         note=NOTE_AR,
     )
