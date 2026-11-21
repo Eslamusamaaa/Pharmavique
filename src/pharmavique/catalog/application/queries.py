@@ -7,6 +7,7 @@ from pharmavique.catalog.application.ports import PriceChangeReader, ProductRead
 from pharmavique.catalog.contracts.queries import (
     MAX_EXPORT_PAGE,
     CardPage,
+    DetailsPage,
     IngredientDetail,
     Maker,
     PriceChange,
@@ -99,6 +100,14 @@ class ReadProductCardsHandler:
         # A full page may be the last one; the next call then returns an empty page and ends.
         next_after = cards[-1].register_number if len(cards) == limit else None
         return CardPage(cards=cards, next_after=next_after)
+
+    async def export_details(self, market: Market, after: str | None, limit: int) -> DetailsPage:
+        if not 1 <= limit <= MAX_EXPORT_PAGE:
+            raise ValueError(f"limit must be between 1 and {MAX_EXPORT_PAGE}")
+        found = await self._reader.page(market, after, limit)
+        items = tuple(details_of(product) for product in found)
+        next_after = items[-1].card.register_number if len(items) == limit else None
+        return DetailsPage(items=items, next_after=next_after)
 
     async def get_details(self, market: Market, register_number: str) -> ProductDetails | None:
         found = await self._reader.get_many(market, [register_number])

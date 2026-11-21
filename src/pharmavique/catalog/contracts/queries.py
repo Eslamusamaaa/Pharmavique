@@ -157,6 +157,54 @@ class CatalogListItems(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class DetailsPage:
+    items: tuple[ProductDetails, ...]
+    next_after: str | None  # pass as `after` to get the next page; None after the last page
+
+
+class CatalogDetailsExport(Protocol):
+    """Every product in full (ingredients, strengths, price), for other contexts' read models."""
+
+    async def export_details(self, market: Market, after: str | None, limit: int) -> DetailsPage:
+        """Products of the market in register-number order, `limit` at a time."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class ListQuality:
+    """How one official list is loaded and how well its rows are linked to products."""
+
+    list_name: str
+    rows: int
+    linked_matched: int  # rows with at least one `matched` link
+    linked_possible: int  # rows whose best link is only `possible`
+    unlinked: int  # rows with no link (many lists are not about drugs at all)
+    last_fetched_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogQualityStats:
+    """Counts of what is missing in the catalog. Products are those listed unless stated."""
+
+    market: Market
+    products: int
+    listed: int
+    withdrawn: int
+    listed_without_price: int
+    listed_without_ingredients: int
+    listed_with_missing_strength: int  # some ingredient has no strength
+    listed_without_manufacturer: int
+    listed_with_real_picture: int
+    listed_with_generated_picture: int
+    listed_without_picture: int
+    lists: tuple[ListQuality, ...]
+
+
+class CatalogQuality(Protocol):
+    async def quality_stats(self, market: Market) -> CatalogQualityStats: ...
+
+
 class CatalogIngredients(Protocol):
     """The active ingredient names the catalog knows, for pickers and allergy entry."""
 
