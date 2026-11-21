@@ -34,6 +34,7 @@ CARDS = [
     card("3", "BANADOL 10 MG TAB", None, "SOMETHING ELSE"),
     card("4", "AUGMENTIN 625 MG TAB", "اوجمنتين", "AMOXICILLIN"),
     card("5", "PANADOL EXTRA TAB", None, "PARACETAMOL,CAFFEINE"),
+    card("6", "PANADOLIN TAB", None, "SOMETHING ELSE"),  # only spelled alike: a weaker match
 ]
 
 
@@ -96,3 +97,38 @@ async def test_without_a_database_the_endpoint_says_so() -> None:
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as c:
         assert (await c.get("/v1/products/1/similar-names")).status_code == 503
+
+
+async def test_only_the_strong_matches_are_shown_unless_the_weaker_ones_are_asked_for(
+    client: httpx.AsyncClient,
+) -> None:
+    default = (await client.get("/v1/products/1/similar-names")).json()
+    everything = (await client.get("/v1/products/1/similar-names?include_weaker=true")).json()
+
+    assert {r["register_number"] for r in default["results"]} == {"2", "3"}
+    assert {r["level"] for r in default["results"]} == {"high"}
+    assert default["shown_level"] == "high"
+    assert default["hidden_weaker"] == 1  # PANADOLIN is only spelled alike: counted, not shown
+
+    assert {r["register_number"] for r in everything["results"]} == {"2", "3", "6"}
+    assert everything["shown_level"] == "all"
+    assert everything["hidden_weaker"] == 0
+    weaker = next(r for r in everything["results"] if r["register_number"] == "6")
+    assert weaker["level"] == "medium"
+
+
+async def test_a_drug_whose_only_look_alikes_are_weak_shows_none_by_default(
+    client: httpx.AsyncClient,
+) -> None:
+    body = (await client.get("/v1/products/6/similar-names")).json()
+    assert body["results"] == []
+    assert body["count"] == 0
+    assert body["hidden_weaker"] >= 1
+
+
+async def test_the_limit_applies_to_what_is_shown_not_to_what_is_hidden(
+    client: httpx.AsyncClient,
+) -> None:
+    body = (await client.get("/v1/products/1/similar-names?limit=1")).json()
+    assert body["count"] == 1
+    assert body["hidden_weaker"] == 1

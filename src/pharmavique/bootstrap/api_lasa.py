@@ -21,6 +21,7 @@ from pharmavique.shared_kernel.names import core_name
 router = APIRouter(prefix="/v1", tags=["lasa"])
 
 PAGE = 5000
+WINDOW = 30  # how many look-alikes are ranked before the weaker ones are set aside
 MAX_AGE_SECONDS = 24 * 3600
 NOTE = (
     "These names are spelled or sound like this one. Double-check the name on a label or a "
@@ -73,6 +74,8 @@ class SimilarNamesOut(BaseModel):
     count: int
     results: list[SimilarNameOut]
     reviewed: bool = False
+    shown_level: str = "high"  # "high", or "all" when the weaker matches were asked for
+    hidden_weaker: int = 0  # weaker matches (only spelled alike) that are not shown
     note: str = NOTE
     disclaimer: str = DISCLAIMER
 
@@ -137,21 +140,36 @@ async def similar_names(
     catalog: Annotated[CatalogQueries, Depends(get_catalog)],
     market: Market = Market.SA,
     limit: Annotated[int, Query(ge=1, le=30)] = 10,
+    include_weaker: Annotated[
+        bool, Query(description="also list matches that are only spelled alike")
+    ] = False,
 ) -> SimilarNamesOut:
     cards = await catalog.get_cards(market, [register_number])
     if not cards:
         raise HTTPException(status_code=404, detail="no such drug in the catalog")
     base = cards[0]
     state = await _state(request, catalog, market)
-    found = [("en", m) for m in state.english.similar_to(register_number, limit)] + [
-        ("ar", m) for m in state.arabic.similar_to(register_number, limit)
+    found = [("en", m) for m in state.english.similar_to(register_number, WINDOW)] + [
+        ("ar", m) for m in state.arabic.similar_to(register_number, WINDOW)
     ]
     merged = _merge(found)
-    ranked = sorted(merged.items(), key=lambda kv: (-kv[1][0].score, kv[0]))[:limit]
+    ranked_all = sorted(merged.items(), key=lambda kv: (-kv[1][0].score, kv[0]))
+    # On the real catalog about a quarter of the names had some match, which is too many to be
+    # useful: only the strong ones (they sound alike, or are very close in spelling) show by
+    # default.
+    strong = [kv for kv in ranked_all if kv[1][0].level == "high"]
+    ranked = (ranked_all if include_weaker else strong)[:limit]
+    hidden = 0 if include_weaker else len(ranked_all) - len(strong)
     others = {c.register_number: c for c in await catalog.get_cards(market, [n for n, _ in ranked])}
     results = [
         _out(others[number], base, match, scripts, reasons)
         for number, (match, scripts, reasons) in ranked
         if number in others
     ]
-    return SimilarNamesOut(register_number=register_number, count=len(results), results=results)
+    return SimilarNamesOut(
+        register_number=register_number,
+        count=len(results),
+        results=results,
+        shown_level="all" if include_weaker else "high",
+        hidden_weaker=hidden,
+    )
