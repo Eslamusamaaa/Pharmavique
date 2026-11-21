@@ -64,6 +64,11 @@ class DrugFacts(Protocol):
         self, query: str, register_numbers: Sequence[str], limit: int
     ) -> list[dict[str, Any]]: ...
 
+    async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
+        """Recorded interactions and duplicated ingredients among these products, each with its
+        source, then one `coverage` record naming the ingredients the source cannot judge."""
+        ...
+
 
 class InjectionDetector(Protocol):
     """A learned classifier for manipulation attempts; it adds to the rules, never replaces them."""

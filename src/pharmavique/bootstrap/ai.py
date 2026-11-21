@@ -16,6 +16,8 @@ from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
+from pharmavique.interactions.application.check import CheckInteractions
+from pharmavique.interactions.infrastructure.postgres import PostgresInteractionStore
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibleEmbedder
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
@@ -125,7 +127,10 @@ def build_assistant(
     if model is None:
         return None
     passages = RetrievePassages(PostgresPassageSearch(session_factory), build_embedder(settings))
-    facts = ContractDrugFacts(search, catalog, catalog, equivalence, passages)
+    interactions = CheckInteractions(PostgresInteractionStore(session_factory))
+    facts = ContractDrugFacts(
+        search, catalog, catalog, equivalence, passages, interactions=interactions
+    )
     detector = None
     if settings.groq_api_key is not None and settings.prompt_guard_model:
         detector = GroqPromptGuard(

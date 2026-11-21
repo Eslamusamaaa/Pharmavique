@@ -34,6 +34,23 @@ class FakeFacts:
     ) -> list[dict[str, Any]]:
         return [{"chunk_id": "c9", "title": "DHPC", "text": "...", "source_ref": "https://s/d"}]
 
+    async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
+        return [
+            {
+                "kind": "interaction",
+                "severity": "major",
+                "drugs": ["Coumadin", "Aspirin Protect"],
+                "ingredients": ["WARFARIN SODIUM", "ACETYLSALICYLIC ACID"],
+                "source": "ddinter-2.0",
+                "source_ref": "https://ddinter2.scbdd.com/",
+            },
+            {
+                "kind": "coverage",
+                "not_covered": [],
+                "note": "no record is not a safety verdict",
+            },
+        ]
+
 
 class ScriptedModel:
     """Plays back AI messages; records what the model was shown."""
@@ -70,7 +87,13 @@ async def test_the_runner_calls_tools_and_keeps_only_the_cited_records() -> None
     assert run.text == "المادة الفعالة هي الباراسيتامول [1]."
     assert [c.source_id for c in run.citations] == ["catalog:1-1"]
     assert run.tools_used == ("drug_details", "search_documents")
-    assert model.tools == ["search_drugs", "drug_details", "same_ingredient", "search_documents"]
+    assert model.tools == [
+        "search_drugs",
+        "drug_details",
+        "same_ingredient",
+        "search_documents",
+        "check_interactions",
+    ]
     tool_results = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
     assert '"cite": 1' in tool_results[0].content
     assert '"cite": 2' in tool_results[1].content
@@ -249,3 +272,35 @@ class RateLimitedModel(ScriptedModel):
 async def test_a_provider_rate_limit_becomes_a_busy_error_not_a_crash() -> None:
     with pytest.raises(AssistantBusy):
         await LangGraphAgentRunner(RateLimitedModel(), FakeFacts()).run("سؤال", Level.PATIENT, None)
+
+
+async def test_interaction_findings_are_cited_with_their_source_and_the_prompt_forbids_advice() -> (
+    None
+):
+    model = ScriptedModel(
+        call("check_interactions", {"register_numbers": "1-1, 2-2"}, "a"),
+        AIMessage("المصدر يسجّل تداخلًا شديدًا بين الدوائين [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("ينفع ده مع ده؟", Level.PATIENT, None)
+
+    assert [c.source_id for c in run.citations] == [
+        "interaction:ddinter-2.0:WARFARIN SODIUM|ACETYLSALICYLIC ACID"
+    ]
+    assert run.citations[0].url == "https://ddinter2.scbdd.com/"
+    system = model.seen[0][0].content
+    assert "check_interactions" in system
+    assert "never a safety verdict" in system
+
+
+async def test_fewer_than_two_or_bad_register_numbers_for_interactions_are_a_tool_error() -> None:
+    model = ScriptedModel(
+        call("check_interactions", {"register_numbers": "1-1"}, "a"),
+        AIMessage("محتاج دوائين."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("سؤال", Level.PATIENT, None)
+
+    (result,) = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
+    assert "at least two" in result.content
+    assert run.tool_calls[0].ok is False

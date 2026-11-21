@@ -39,10 +39,12 @@ class Level(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Citation:
-    source_id: str  # "catalog:<register number>" or "document:<chunk id>"
+    source_id: (
+        str  # "catalog:<register number>", "document:<chunk id>" or "interaction:<source>:..."
+    )
     title: str
     url: str | None
-    kind: str  # "catalog" or "document"
+    kind: str  # "catalog", "document" or "interaction"
     published: str | None
 
 

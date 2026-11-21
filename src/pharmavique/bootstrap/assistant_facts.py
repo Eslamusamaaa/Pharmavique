@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries, ProductDetails
+from pharmavique.interactions.contracts.queries import InteractionChecks, ProductIngredients
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
@@ -78,6 +79,7 @@ class ContractDrugFacts:
         equivalence: EquivalenceQueries,
         passages: RetrievePassages,
         market: Market = Market.SA,
+        interactions: InteractionChecks | None = None,
     ) -> None:
         self._search = search
         self._catalog = catalog
@@ -85,6 +87,7 @@ class ContractDrugFacts:
         self._equivalence = equivalence
         self._passages = passages
         self._market = market
+        self._interactions = interactions
 
     async def search_drugs(self, query: str, limit: int) -> list[dict[str, Any]]:
         result = await self._search.search(SearchQuery(query, self._market, limit, False))
@@ -155,3 +158,43 @@ class ContractDrugFacts:
             }
             for p in passages
         ]
+
+    async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
+        if self._interactions is None:
+            raise ValueError("the interaction source is not available")
+        wanted = list(dict.fromkeys(r.strip() for r in register_numbers))
+        cards = await self._catalog.get_cards(self._market, wanted)
+        names = {c.register_number: c.trade_name_en or c.trade_name_ar or "" for c in cards}
+        report = await self._interactions.run(
+            [
+                ProductIngredients(c.register_number, names[c.register_number], c.ingredient_names)
+                for c in cards
+            ]
+        )
+        rows: list[dict[str, Any]] = [
+            {
+                "kind": f.kind,
+                "severity": f.severity,
+                "drugs": [names.get(r, r) for r in f.registers],
+                "registers": list(f.registers),
+                "ingredients": list(f.ingredients),
+                "source": f.source,
+                "source_ref": "https://ddinter2.scbdd.com/" if f.source else None,
+            }
+            for f in report.findings
+        ]
+        rows.append(
+            {
+                "kind": "coverage",
+                "checked_products": [names[c.register_number] for c in cards],
+                "not_found_register_numbers": [r for r in wanted if r not in names],
+                "not_covered": [
+                    {"register_number": r, "ingredient": i} for r, i in report.unmatched
+                ],
+                "note": (
+                    "A missing record is never a safety verdict: the source is incomplete and "
+                    "ingredients listed here could not be judged at all."
+                ),
+            }
+        )
+        return rows
