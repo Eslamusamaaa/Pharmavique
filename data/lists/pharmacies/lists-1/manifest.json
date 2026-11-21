@@ -1,0 +1,41 @@
+{
+  "base_url": "https://www.sfda.gov.sa",
+  "config": {
+    "base_url": "https://www.sfda.gov.sa",
+    "list_patience": 3,
+    "max_list_passes": 8,
+    "max_pages": null,
+    "retries": 3,
+    "retry_wait": 30.0,
+    "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+  },
+  "counts": {
+    "duplicate_rows": 0,
+    "list_pages": 39,
+    "list_pages_fetched": 40,
+    "records_written": 385,
+    "unique_rows": 385
+  },
+  "duplicates": [],
+  "empty_pages": [],
+  "finished_at": "2026-11-21T12:43:09.381218+00:00",
+  "last_page_in_pager": 38,
+  "license_status": "unverified, see docs/DATA_SOURCES.md",
+  "list": "pharmacies",
+  "list_completeness": {
+    "expected": 385,
+    "gap": 0,
+    "passes": 1,
+    "unique": 385
+  },
+  "path": "/en/list_registered_pharmacies",
+  "probed_pages": 38,
+  "resumed_at": [],
+  "run_id": "lists-1",
+  "source": "sfda-list-pharmacies",
+  "started_at": "2026-11-21T12:41:43.408031+00:00",
+  "status": "complete",
+  "title": "Licensed Pharmacies",
+  "trust": "official",
+  "user_agent": "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
+}
