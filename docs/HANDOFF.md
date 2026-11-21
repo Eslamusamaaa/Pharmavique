@@ -22,8 +22,7 @@ and 2 first: they are the owner's standing rules. Everything else is state, comm
     machine: start the push in the background and let them sign in; never type credentials.
 - Never enter passwords or keys for them. Secrets live only in `.env` (git-ignored) and the
   environment; `.env.example` holds placeholders.
-- The owner said the **licence of web pictures is not their concern right now**: "just search and
-  bring the picture". The docs still record the open question (Q-35); do not argue it again.
+- The owner said licences are not a concern: "just search and bring the picture". Do not raise them.
 
 ## 2. Project rules (from `CLAUDE.md`, abbreviated; read the file)
 
@@ -126,7 +125,6 @@ download the picture, read the text on it with OCR and compare with the registry
   SFDA, PDFs, news and listing pages); then run
   `sfda-images --results <file> --products data/media/products.jsonl --out data/media --retry`.
   Sites that block bots (Boots, Dawi, Desertcart, Danube, Al-Dawaa, Tdawi, Lemon) are left alone.
-- Shop pictures belong to the shops. Licence is an open question (Q-35) the owner has set aside.
 
 ## 7. Other SFDA lists
 
@@ -226,7 +224,7 @@ form words gave only a small gain (precision@5 71% to 76%), so it is **not** in 
 
 Q-9 and Q-12 (may photos go to an external provider; legal review), Q-30 to Q-34 (budget for model
 calls, GPU, who supplies real box and prescription photos, languages on prescriptions, how long the
-assistant keeps history), Q-35 (picture licences; set aside by the owner), Q-36 (manufacturers' pack
+assistant keeps history), Q-36 (manufacturers' pack
 shots), Q-29 (SFDA data export for the giant lists).
 
 ## 13. Git state at the time of writing

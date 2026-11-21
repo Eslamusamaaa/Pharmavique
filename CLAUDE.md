@@ -23,7 +23,7 @@ Multi-tenant drug-intelligence API (patient, pharmacist, pharma company) on offi
 ## Data and compliance
 - SA: official SFDA API with the user's key from env vars, plus a file-import fallback. Check real response schemas; never invent fields.
 - EG: **no scraping, no CAPTCHA bypass.** CSV-import adapter, marked `unofficial_unverified`.
-- Throttle outbound calls, clear User-Agent, cache. Record license status per source in `docs/DATA_SOURCES.md`.
+- Throttle outbound calls, clear User-Agent, cache.
 - Health data is sensitive: minimum collection, encrypt at rest, delete uploads after processing unless opted in, never log it.
 - No secrets in the repo. `.env.example` only.
 

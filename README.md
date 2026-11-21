@@ -694,7 +694,7 @@ migrations/           Alembic environment
 | [Domain model](docs/DOMAIN_MODEL.md) | Aggregates, value objects, invariants |
 | [Features](docs/FEATURES.md) | Product decisions |
 | [Phase 2 plan](docs/PHASE_2_PLAN.md) | Application and AI plan with the owner's decisions |
-| [Data sources](docs/DATA_SOURCES.md) | Every source, licence status, probe results |
+| [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
 | [Open questions](docs/OPEN_QUESTIONS.md) | Unknowns waiting for decisions |

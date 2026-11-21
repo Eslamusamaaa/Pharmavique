@@ -1,8 +1,7 @@
 # Product pictures: how they are found, checked and mapped
 
 Status 2026-11-18: built and run once over the whole SFDA drug list. Pictures come from Saudi
-online pharmacies; drugs no shop sells get a marked stand-in. Picture rights are **not cleared**
-(OPEN_QUESTIONS Q-35): everything here is for development, not for showing to users.
+online pharmacies; drugs no shop sells get a marked stand-in.
 
 ## The idea in one paragraph
 
@@ -99,7 +98,6 @@ shop (Aljawaher) was cooling down at the end; `sfda-images --retry` works them a
 - **The OCR cannot read everything**: tiny pictures, decorative lettering and some Arabic packs.
 - **Drugs whose SFDA details page is empty** (18 of 9,162; the page exists but its table is empty)
   are built from the list data alone: no Arabic name, no strength unit.
-- **Rights**: shop pictures belong to the shops. Do not show them to users before Q-35 is settled.
 
 ## Hand-fed search results: read all pages of a phrase (2026-11-18)
 

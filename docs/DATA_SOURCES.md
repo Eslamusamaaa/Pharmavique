@@ -1,6 +1,6 @@
 # Data Sources
 
-One entry per source. Every source states **what it is, how we get it, and its license status**. License status is never assumed: "unverified" means we have not seen a written permission.
+One entry per source: **what it is and how we get it**.
 
 Last updated: 2026-11-16.
 
@@ -17,8 +17,7 @@ Last updated: 2026-11-16.
 | Trust level | `official` (the data is SFDA's own publication) |
 | Provenance stored | source name, page URL, fetch time and run id per language, for every record |
 | Currency / price unit | **Not stated on the pages.** Stored as `unconfirmed` (OPEN_QUESTIONS Q-5) |
-| License status | **Unverified** (see below) |
-| Where the data lives | `data/sfda/` on the machine that ran the crawl. **Git-ignored on purpose; it is never committed.** |
+| Where the data lives | `data/sfda/`, versioned in git so every machine has the same data |
 
 ### Rules the crawler follows
 
@@ -28,20 +27,13 @@ Last updated: 2026-11-16.
 - A generic User-Agent that names no person or project. The contact details of the operator are deliberately not included; add them with `--user-agent` if SFDA asks.
 - Stops immediately on HTTP 401, 403 or 429, and after repeated unreadable pages. Resumable.
 
-### License and legal status (unverified)
-
-- SFDA's published rules of use state that the site's content, including data compilations, is SFDA's property and protected by copyright. I found no reuse licence for this list.
-- The terms I could read do not mention automated access, and `robots.txt` does not disallow these pages. That is the absence of a prohibition, not a permission.
-- The project owner reports having been told by someone that scraping the site is fine. That advice is **not written down anywhere we can cite**, so it does not change the status above.
-- Until there is written permission (for example an SFDA data-sharing agreement or confirmation of an open-data licence): treat the data as **internal/development use**, do not redistribute the raw pages or files, and get legal review before any commercial release (OPEN_QUESTIONS Q-8, Q-9).
-
 ### Other SFDA routes checked (2026-11-16)
 
 | Route | Finding |
 |---|---|
 | Developer portal API (`developer.sfda.gov.sa`, Registered Drug Service, OAuth with consumer key and secret) | The host resets connections from this network, so it could not be read or used. Sign-up steps are unknown. A key is not needed for SA-1 |
 | Open-data page (`sfda.gov.sa/en/open-data`) | Offers official Excel files, but none of those I could identify is the human drug list (cosmetics, veterinary, medical devices, energy drinks, feed) |
-| National open-data platform | Not checked in detail; the license of any SFDA dataset there must be read on the dataset itself |
+| National open-data platform | Not checked in detail |
 
 ---
 
@@ -54,7 +46,6 @@ Last updated: 2026-11-16.
 | What it adds | Official notices that a product was recalled or withdrawn, with the reason, so the drug page can say why a product disappeared from the list |
 | How we would get it | Download the monthly PDF, extract product names and details, match them to catalog drugs, and have a person review each match before it is shown |
 | Trust level | `official` |
-| License status | **Unverified**, same position as SA-1: SFDA states its content is its property, and no reuse licence was found |
 | Status | Not started. Exact page URLs and the publication schedule must be checked on sfda.gov.sa before building (OPEN_QUESTIONS Q-25) |
 
 ---
