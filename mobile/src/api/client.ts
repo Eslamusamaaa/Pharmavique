@@ -250,7 +250,7 @@ export type ScanLine = {
   candidates: ScanCandidate[];
 };
 
-export type ScanResult = { kind: 'box' | 'prescription'; status: 'needs_review' | 'nothing_read'; lines: ScanLine[] };
+export type ScanResult = { kind: 'box' | 'prescription' | 'shelf'; status: 'needs_review' | 'nothing_read'; lines: ScanLine[] };
 
 async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   let response: Response;
@@ -280,14 +280,25 @@ async function fileField(uri: string, name: string, type: string): Promise<Blob 
   return new File(uri) as unknown as { uri: string; name: string; type: string };
 }
 
-async function postFile<T>(path: string, field: string, uri: string, name: string, type: string): Promise<T> {
+export async function postFile<T>(
+  path: string,
+  field: string,
+  uri: string,
+  name: string,
+  type: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<T> {
   const form = new FormData();
   const file = await fileField(uri, name, type);
   if (file instanceof Blob) form.append(field, file, name);
   else form.append(field, file as unknown as Blob);
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, { method: 'POST', body: form, headers: { Accept: 'application/json' } });
+    response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      body: form,
+      headers: { Accept: 'application/json', ...extraHeaders },
+    });
   } catch (error) {
     throw new ApiError('network', null, reason(error));
   }

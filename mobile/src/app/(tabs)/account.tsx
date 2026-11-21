@@ -81,6 +81,17 @@ export default function Account() {
                 </T>
               </Pressable>
             ) : null}
+            {account.role === 'pharmacist' || account.role === 'operator' ? (
+              <Pressable
+                onPress={() => router.push('/shelf')}
+                style={[outline, { borderColor: c.pr }]}
+                accessibilityRole="button"
+              >
+                <T weight={600} color={c.pr}>
+                  مسح الرف
+                </T>
+              </Pressable>
+            ) : null}
             {account.role === 'operator' ? (
               <Pressable
                 onPress={() => router.push('/operator')}

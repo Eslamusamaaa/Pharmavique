@@ -1,7 +1,16 @@
 // The signed-in person's saved medicines, allergies, alerts and digest. Every call carries the access
 // token; the API also limits every query to this person's rows.
 import { accessToken, AuthError } from '@/api/auth';
-import { API_URL, ApiError, type AssistantAnswer, type Level, type Product, type ConversationTurn } from '@/api/client';
+import {
+  API_URL,
+  ApiError,
+  postFile,
+  type AssistantAnswer,
+  type ConversationTurn,
+  type Level,
+  type Product,
+  type ScanResult,
+} from '@/api/client';
 
 export type AllergyMatch = { allergy: string; ingredient: string };
 
@@ -123,6 +132,38 @@ export const askWithMyMedicines = (
   body: { question: string; level: Level; register_number: string; spoken?: boolean; history?: ConversationTurn[] },
   signal?: AbortSignal,
 ) => authed<AssistantAnswer>('POST', '/v1/assistant/ask', { ...body, use_history: true }, signal);
+
+export type ShelfItem = { register_number: string; added_at: string; product: Product | null };
+export type Shelf = { count: number; items: ShelfItem[]; note: string };
+
+/** Optional features this server has switched on (public). */
+export async function getFeatures(signal?: AbortSignal): Promise<{ shelf_scan: boolean }> {
+  try {
+    const response = await fetch(`${API_URL}/v1/features`, { signal, headers: { Accept: 'application/json' } });
+    if (!response.ok) return { shelf_scan: false };
+    return (await response.json()) as { shelf_scan: boolean };
+  } catch {
+    return { shelf_scan: false };
+  }
+}
+
+/** A photo of a shelf: the boxes it proposes, every one for the pharmacist to confirm. */
+export async function scanShelfPhoto(uri: string, mimeType: string): Promise<ScanResult> {
+  const token = await accessToken();
+  if (!token) throw new AuthError('expired');
+  const name = mimeType === 'image/png' ? 'shelf.png' : mimeType === 'image/webp' ? 'shelf.webp' : 'shelf.jpg';
+  return postFile<ScanResult>('/v1/recognition/scan?kind=shelf', 'image', uri, name, mimeType, {
+    Authorization: `Bearer ${token}`,
+  });
+}
+
+export const getShelf = (signal?: AbortSignal) => authed<Shelf>('GET', '/v1/me/shelf', undefined, signal);
+export const confirmShelf = (registerNumbers: string[]) =>
+  authed<{ added: number; already_on_the_shelf: number; unknown: string[] }>('POST', '/v1/me/shelf', {
+    register_numbers: registerNumbers,
+  });
+export const removeFromShelf = (register: string) =>
+  authed<void>('DELETE', `/v1/me/shelf/${encodeURIComponent(register)}`);
 
 export const getAlerts = (signal?: AbortSignal) => authed<Alerts>('GET', '/v1/me/alerts', undefined, signal);
 export const markAlertsRead = (alertId?: string) =>
