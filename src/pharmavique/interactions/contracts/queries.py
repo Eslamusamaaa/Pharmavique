@@ -35,3 +35,22 @@ class InteractionReport:
 
 class InteractionChecks(Protocol):
     async def run(self, products: Sequence[ProductIngredients]) -> InteractionReport: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Contraindication:
+    register_number: str
+    ingredient: str  # the registry's name of the ingredient
+    disease: str  # the source's name of the condition
+    text: str  # the label text the source took it from
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class ContraindicationReport:
+    items: tuple[Contraindication, ...]
+    complete: bool  # always False: a missing record is never a clearance
+
+
+class ContraindicationChecks(Protocol):
+    async def run(self, products: Sequence[ProductIngredients]) -> ContraindicationReport: ...

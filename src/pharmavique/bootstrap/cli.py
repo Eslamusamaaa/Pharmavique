@@ -649,6 +649,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(pictures_cli.load(args))
     if args.command == "sfda-lists-load":
         return asyncio.run(lists_cli.load(args))
+    if args.command == "interactions-load-medic":
+        return asyncio.run(interactions_cli.load_medic(args))
     if args.command == "interactions-load":
         return asyncio.run(interactions_cli.load(args))
     if args.command == "knowledge-labels":

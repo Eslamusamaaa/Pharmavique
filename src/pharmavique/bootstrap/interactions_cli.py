@@ -10,9 +10,14 @@ from typing import Any
 
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
-from pharmavique.interactions.domain.records import InteractionRecord
+from pharmavique.interactions.domain.records import ContraindicationRecord, InteractionRecord
 from pharmavique.interactions.infrastructure.ddinter import SOURCE, read_ddinter
-from pharmavique.interactions.infrastructure.postgres import PostgresInteractionStore
+from pharmavique.interactions.infrastructure.medic import SOURCE as MEDIC_SOURCE
+from pharmavique.interactions.infrastructure.medic import read_contraindications
+from pharmavique.interactions.infrastructure.postgres import (
+    PostgresContraindicationStore,
+    PostgresInteractionStore,
+)
 
 EXIT_OK = 0
 EXIT_NO_DATABASE = 4
@@ -26,6 +31,11 @@ def add_arguments(commands: Any) -> None:
         help="load DDInter's downloaded interaction files into the database (safe to repeat)",
     )
     load.add_argument("--folder", default="data/interactions/ddinter")
+    medic = commands.add_parser(
+        "interactions-load-medic",
+        help="load MeDIC's contraindication list (drug-disease) into the database (safe to repeat)",
+    )
+    medic.add_argument("--file", default="data/interactions/medic/contraindicationList.xlsx")
 
 
 def _snapshot_id(folder: Path) -> str:
@@ -67,4 +77,41 @@ async def load(args: argparse.Namespace) -> int:
     finally:
         await engine.dispose()
     print(f"{SOURCE}: {len(records)} interaction pairs loaded")
+    return EXIT_OK
+
+
+MEDIC_PAGE = "https://medic.renci.org/"
+
+
+def _read_medic(path: Path) -> tuple[list[ContraindicationRecord], str] | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    return read_contraindications(path), f"medic-{digest}"
+
+
+async def load_medic(args: argparse.Namespace) -> int:
+    path = Path(args.file)
+    read = await asyncio.to_thread(_read_medic, path)
+    if read is None:
+        print(f"no MeDIC file at {path}", file=sys.stderr)
+        return EXIT_NO_INPUT
+    records, snapshot_id = read
+    secret = get_settings().database_url
+    if secret is None:
+        print("set PHARMAVIQUE_DATABASE_URL (see .env.example)", file=sys.stderr)
+        return EXIT_NO_DATABASE
+    engine = create_engine(secret.get_secret_value())
+    try:
+        await PostgresContraindicationStore(create_session_factory(engine)).replace_source(
+            MEDIC_SOURCE,
+            records,
+            source_ref=MEDIC_PAGE,
+            snapshot_id=snapshot_id,
+            fetched_at=datetime.now(UTC),
+            trust="unofficial_unverified",
+        )
+    finally:
+        await engine.dispose()
+    print(f"{MEDIC_SOURCE}: {len(records)} drug-disease contraindications loaded")
     return EXIT_OK
