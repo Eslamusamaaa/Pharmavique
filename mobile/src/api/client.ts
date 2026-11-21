@@ -276,3 +276,14 @@ export type InteractionCheck = {
 export function checkInteractions(registerNumbers: string[], signal?: AbortSignal): Promise<InteractionCheck> {
   return postJson<InteractionCheck>('/v1/interactions/check', { register_numbers: registerNumbers }, signal);
 }
+
+export type Contraindications = {
+  register_number: string;
+  items: { ingredient: string; disease: string; text: string; source: string }[];
+  complete: boolean; // always false: a missing record is never a clearance
+  note: string;
+};
+
+export function getContraindications(registerNumber: string, signal?: AbortSignal): Promise<Contraindications> {
+  return getJson<Contraindications>(`/v1/interactions/contraindications/${encodeURIComponent(registerNumber)}`, signal);
+}

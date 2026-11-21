@@ -23,8 +23,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   displayName,
   friendlyError,
+  getContraindications,
   getDrugPage,
   getSameIngredient,
+  type Contraindications,
   type DrugPage,
   type Ingredient,
   type Price,
@@ -67,6 +69,7 @@ export default function DrugScreen() {
   const { register } = useLocalSearchParams<{ register: string }>();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [same, setSame] = useState<SameIngredient[] | null>(null);
+  const [contra, setContra] = useState<Contraindications | null>(null);
   const [sort, setSort] = useState<'price' | 'name'>('price');
 
   useEffect(() => {
@@ -80,6 +83,9 @@ export default function DrugScreen() {
     getSameIngredient(register, controller.signal)
       .then((r) => setSame(r.results))
       .catch(() => setSame([]));
+    getContraindications(register, controller.signal)
+      .then(setContra)
+      .catch(() => setContra(null));
     return () => controller.abort();
   }, [register]);
 
@@ -319,6 +325,21 @@ export default function DrugScreen() {
             {sortedSame.map((r) => (
               <SameRow key={r.register_number} row={r} />
             ))}
+          </View>
+        ) : null}
+
+        {/* contraindications recorded in drug labels (MeDIC): a source's statement, never advice */}
+        {contra && contra.items.length > 0 ? (
+          <View style={{ gap: 10 }}>
+            <H2>حالات لا يُستخدم معها الدواء حسب نشرات الدواء</H2>
+            <Row gap={8} style={{ flexWrap: 'wrap' }}>
+              {Array.from(new Set(contra.items.map((i) => i.disease))).map((disease) => (
+                <Pill key={disease} tone="wn" label={disease} />
+              ))}
+            </Row>
+            <T size={12.5} color={c.ink2}>
+              المصدر: MeDIC (نشرات الدواء الحكومية، مصدر خارجي). {contra.note}
+            </T>
           </View>
         ) : null}
 
