@@ -227,6 +227,24 @@ async def test_the_database_refuses_to_read_or_write_another_persons_shelf_row(
     assert rows == []  # a forgotten WHERE still shows b nothing of a's
 
 
+async def test_alerts_waiting_for_the_email_digest_are_found_and_marked_once_handled(
+    limited: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresWatchlistStore(limited)
+    a, b = uuid4(), uuid4()
+    await store.add_alert(alert(a))
+    await store.add_alert(alert(b))
+    (read_one,) = await store.alerts(b, unread_only=False, limit=5)
+    await store.mark_read(b, read_one.id)  # b already read theirs in the app
+
+    waiting = await store.pending_email_alerts(10)
+    assert [x.user_id for x in waiting] == [a]  # a read alert is not emailed
+
+    await store.mark_emailed([x.id for x in waiting], NOW)
+    assert await store.pending_email_alerts(10) == []
+    assert len(await store.alerts(a, unread_only=False, limit=5)) == 1  # the inbox keeps it
+
+
 async def test_an_alert_is_stored_once_per_event_and_can_be_read(
     limited: async_sessionmaker[AsyncSession],
 ) -> None:

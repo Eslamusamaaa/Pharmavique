@@ -234,6 +234,42 @@ class PostgresWatchlistStore:
                 for r in rows
             ]
 
+    async def pending_email_alerts(self, limit: int) -> list[Alert]:
+        async with self._as_system() as session:
+            rows = await session.execute(
+                text(
+                    "SELECT id, user_id, kind, register_number, event_id, occurred_at, details, "
+                    "created_at, read_at FROM watchlist.alerts "
+                    "WHERE emailed_at IS NULL AND read_at IS NULL "
+                    "ORDER BY created_at, id LIMIT :n"
+                ),
+                {"n": limit},
+            )
+            return [
+                Alert(
+                    id=r.id,
+                    user_id=r.user_id,
+                    kind=AlertKind(r.kind),
+                    register_number=r.register_number,
+                    event_id=r.event_id,
+                    occurred_at=r.occurred_at,
+                    details=r.details,
+                    created_at=r.created_at,
+                    read_at=r.read_at,
+                )
+                for r in rows
+            ]
+
+    async def mark_emailed(self, alert_ids: Iterable[UUID], at: datetime) -> None:
+        ids = list(alert_ids)
+        if not ids:
+            return
+        async with self._as_system() as session:
+            await session.execute(
+                text("UPDATE watchlist.alerts SET emailed_at = :t WHERE id = ANY(:ids)"),
+                {"t": at, "ids": ids},
+            )
+
     async def unread_count(self, user_id: UUID) -> int:
         async with self._as_user(user_id) as session:
             result = await session.execute(

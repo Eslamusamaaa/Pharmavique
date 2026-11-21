@@ -15,6 +15,7 @@ from pharmavique.identity.domain.user import User
 from pharmavique.identity.infrastructure.postgres import (
     PostgresCodeStore,
     PostgresSessionStore,
+    PostgresUserDirectory,
     PostgresUserRepository,
 )
 from pharmavique.shared_kernel.principal import Role
@@ -163,6 +164,32 @@ async def test_codes_go_with_their_user(
 
     assert await codes.latest(account.id) is None
     assert await codes.count_since(account.id, NOW - timedelta(days=1)) == 0
+
+
+async def test_the_directory_gives_addresses_only_for_confirmed_accounts(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users, directory = (
+        PostgresUserRepository(session_factory),
+        PostgresUserDirectory(session_factory),
+    )
+    confirmed, unconfirmed, quiet = (
+        user("a@example.com"),
+        user("b@example.com"),
+        user("c@example.com"),
+    )
+    for account in (confirmed, unconfirmed, quiet):
+        await users.add(account)
+    await users.mark_verified(confirmed.id, NOW)
+    await users.mark_verified(quiet.id, NOW)
+    await users.set_email_notifications(quiet.id, False)
+
+    found = await directory.contacts([confirmed.id, unconfirmed.id, quiet.id, uuid4()])
+
+    assert set(found) == {confirmed.id, quiet.id}  # an unconfirmed address is never offered
+    assert (found[confirmed.id].email, found[confirmed.id].notify) == ("a@example.com", True)
+    assert found[quiet.id].notify is False
+    assert await directory.contacts([]) == {}
 
 
 async def test_the_identity_migration_is_reversible(

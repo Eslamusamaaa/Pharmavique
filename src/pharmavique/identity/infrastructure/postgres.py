@@ -1,5 +1,6 @@
 """PostgreSQL stores over the `identity` schema."""
 
+from collections.abc import Iterable
 from datetime import datetime
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
+from pharmavique.identity.contracts import Contact
 from pharmavique.identity.domain.user import User
 from pharmavique.shared_kernel.principal import Role
 
@@ -95,6 +97,27 @@ class PostgresUserRepository:
                 {"id": user_id, "e": enabled},
             )
             return result.first() is not None
+
+
+class PostgresUserDirectory:
+    """Implements the published `UserDirectory`."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def contacts(self, user_ids: Iterable[UUID]) -> dict[UUID, Contact]:
+        ids = list(user_ids)
+        if not ids:
+            return {}
+        async with self._session_factory() as session:
+            rows = await session.execute(
+                text(
+                    "SELECT id, email, email_notifications FROM identity.users "
+                    "WHERE id = ANY(:ids) AND email_verified_at IS NOT NULL"
+                ),
+                {"ids": ids},
+            )
+            return {r.id: Contact(r.email, r.email_notifications) for r in rows}
 
 
 class PostgresCodeStore:

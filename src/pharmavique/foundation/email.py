@@ -43,6 +43,9 @@ class SmtpEmailSender:
         mime["Subject"] = message.subject
         mime["Date"] = formatdate(localtime=False)
         mime["Message-ID"] = make_msgid(domain=self._sender.rsplit("@", 1)[-1].strip("> "))
+        if message.unsubscribe_url:
+            mime["List-Unsubscribe"] = f"<{message.unsubscribe_url}>"
+            mime["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
         mime.set_content(message.text)
         if message.html:
             mime.add_alternative(message.html, subtype="html")

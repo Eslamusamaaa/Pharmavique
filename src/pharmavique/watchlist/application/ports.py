@@ -1,5 +1,6 @@
 """What the watchlist use cases need from storage. Every per-person call names the person."""
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
@@ -51,3 +52,13 @@ class WatchlistStore(Protocol):
     async def forget(self, user_id: UUID) -> None:
         """Delete everything saved for the person."""
         ...
+
+
+class AlertEmailStore(Protocol):
+    """Alerts the email digest has not handled yet. For the digest job only: it sees everyone."""
+
+    async def pending_email_alerts(self, limit: int) -> list[Alert]:
+        """Unread alerts nobody has emailed or skipped yet, oldest first."""
+        ...
+
+    async def mark_emailed(self, alert_ids: Iterable[UUID], at: datetime) -> None: ...

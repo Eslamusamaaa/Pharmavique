@@ -67,6 +67,8 @@ try {
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them
             Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null
+            # one email per person with their new alerts (only for confirmed addresses that allow it)
+            Invoke-Step "alerts-email" @("notify-emails") @(0, 4) | Out-Null
             # the company views (market map, gaps, radar) read their own copy of the catalog
             Invoke-Step "analytics-rebuild" @("analytics-rebuild") | Out-Null
             # cached search and drug-page answers are now stale

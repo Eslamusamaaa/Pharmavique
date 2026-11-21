@@ -13,6 +13,7 @@ from fastapi import Depends
 
 from pharmavique.bootstrap.api import create_app
 from pharmavique.bootstrap.api_auth import require_roles
+from pharmavique.bootstrap.unsubscribe import make_token
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.application.service import IdentityService
@@ -22,6 +23,7 @@ from pharmavique.shared_kernel.email import EmailError, EmailMessage
 from pharmavique.shared_kernel.principal import Principal, Role
 
 GOOD = "a long enough password"
+UNSUBSCRIBE_SECRET = "u" * 40
 
 
 class Users:
@@ -148,7 +150,11 @@ async def client(outbox: Outbox) -> AsyncIterator[httpx.AsyncClient]:
         Users(), Sessions(), QuickHasher(), tokens, SystemClock(), Codes(), b"k" * 32
     )
     app = create_app(
-        identity=service, token_verifier=tokens, email_sender=outbox, rate_limit_per_minute=0
+        identity=service,
+        token_verifier=tokens,
+        email_sender=outbox,
+        unsubscribe_secret=UNSUBSCRIBE_SECRET,
+        rate_limit_per_minute=0,
     )
 
     @app.get("/test/company-only")
@@ -422,3 +428,40 @@ async def test_email_notifications_can_be_switched_off(
     assert off.status_code == 204
     assert me.json()["email_notifications"] is False
     assert (await client.put("/v1/auth/me/notifications", json={"email": True})).status_code == 401
+
+
+# ---- the unsubscribe link in an email -----------------------------------------------------------
+async def test_the_unsubscribe_link_asks_first_and_then_switches_notifications_off(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    session = (await sign_up(client, outbox)).json()
+    user_id = UUID(session["user"]["id"])
+    token = make_token(UNSUBSCRIBE_SECRET, user_id)
+
+    page = await client.get("/v1/auth/unsubscribe", params={"token": token})
+    still_on = await client.get("/v1/auth/me", headers=bearer(session["access_token"]))
+    done = await client.post("/v1/auth/unsubscribe", params={"token": token})
+    after = await client.get("/v1/auth/me", headers=bearer(session["access_token"]))
+
+    assert page.status_code == 200
+    assert "form" in page.text
+    assert still_on.json()["email_notifications"] is True  # opening the page changes nothing
+    assert done.status_code == 200
+    assert after.json()["email_notifications"] is False
+
+
+async def test_a_forged_or_broken_unsubscribe_link_changes_nothing(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    session = (await sign_up(client, outbox)).json()
+    forged = make_token("some other secret entirely, long enough", UUID(session["user"]["id"]))
+
+    for token in (forged, "garbage", ""):
+        assert (
+            await client.get("/v1/auth/unsubscribe", params={"token": token})
+        ).status_code == 400
+        assert (
+            await client.post("/v1/auth/unsubscribe", params={"token": token})
+        ).status_code == 400
+    me = await client.get("/v1/auth/me", headers=bearer(session["access_token"]))
+    assert me.json()["email_notifications"] is True

@@ -77,6 +77,23 @@ async def test_smtp_sends_over_starttls_with_login_and_a_text_and_html_body() ->
     assert "<b>123456</b>" in smtp.sent.get_body(("html",)).get_content()
 
 
+async def test_a_message_with_an_unsubscribe_link_carries_the_standard_headers() -> None:
+    FakeSmtp.instances.clear()
+    sender = SmtpEmailSender(
+        "localhost",
+        1025,
+        "no-reply@pharmavique.example",
+        starttls=False,
+        connect=FakeSmtp,  # type: ignore[arg-type]
+    )
+    url = "https://pharmavique.example/v1/auth/unsubscribe?token=abc"
+    await sender.send(EmailMessage("me@example.com", "Hi", "x", unsubscribe_url=url))
+
+    sent = FakeSmtp.instances[0].sent
+    assert sent["List-Unsubscribe"] == f"<{url}>"
+    assert sent["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+
+
 async def test_smtp_without_credentials_does_not_log_in() -> None:
     FakeSmtp.instances.clear()
     sender = SmtpEmailSender(

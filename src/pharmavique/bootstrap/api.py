@@ -195,6 +195,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 app.state.token_verifier = tokens
                 app.state.identity = build_identity(settings, session_factory, tokens)
                 app.state.email_sender = build_email_sender(settings)
+                app.state.unsubscribe_secret = settings.jwt_secret.get_secret_value()
             app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
@@ -227,6 +228,7 @@ def create_app(
     list_items: CatalogListItems | None = None,
     identity: IdentityService | None = None,
     email_sender: EmailSender | None = None,
+    unsubscribe_secret: str | None = None,
     watchlist: WatchlistService | None = None,
     shelf: ShelfService | None = None,
     shelf_scan_enabled: bool | None = None,
@@ -267,6 +269,7 @@ def create_app(
     app.state.lasa = None
     app.state.identity = identity
     app.state.email_sender = email_sender
+    app.state.unsubscribe_secret = unsubscribe_secret
     app.state.watchlist = watchlist
     app.state.shelf = shelf
     app.state.ingredients = ingredients

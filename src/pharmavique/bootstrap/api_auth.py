@@ -11,9 +11,11 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from pharmavique.bootstrap.unsubscribe import read_token
 from pharmavique.identity.application.service import IdentityService, Session, UserView
 from pharmavique.identity.contracts import TokenVerifier
 from pharmavique.identity.domain.user import (
@@ -226,6 +228,54 @@ async def resend_code(
         background.add_task(_deliver, sender, message)
     # the same answer whether or not a code was sent: it must not reveal who has an account
     return {"detail": "if this account needs a code, a new one was sent"}
+
+
+_PAGE = (
+    '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    '<title>Pharmavique</title></head><body style="font-family:sans-serif;max-width:32rem;'
+    'margin:3rem auto;padding:0 1rem">{body}</body></html>'
+)
+
+
+def _unsubscribe_secret(request: Request) -> str:
+    secret: str | None = request.app.state.unsubscribe_secret
+    if secret is None:
+        raise HTTPException(status_code=503, detail="accounts are not configured")
+    return secret
+
+
+@router.get("/unsubscribe", response_class=HTMLResponse, summary="Unsubscribe page (from an email)")
+async def unsubscribe_page(request: Request, token: str) -> HTMLResponse:
+    if read_token(_unsubscribe_secret(request), token) is None:
+        return HTMLResponse(
+            _PAGE.format(body="<p>الرابط ده مش صحيح. This link is not valid.</p>"), 400
+        )
+    body = (
+        "<h2>إيقاف رسائل التنبيهات</h2><p>هنوقف إرسال تنبيهات أدويتك على الإيميل. "
+        "التنبيهات هتفضل ظاهرة في التطبيق.</p>"
+        "<p>Stop emailing alerts about your saved medicines? They stay in the app.</p>"
+        f'<form method="post" action="/v1/auth/unsubscribe?token={token}">'
+        '<button type="submit" style="font-size:1rem;padding:.6rem 1.2rem">'
+        "إيقاف · Stop emails</button>"
+        "</form>"
+    )
+    return HTMLResponse(_PAGE.format(body=body))
+
+
+@router.post("/unsubscribe", response_class=HTMLResponse, summary="Turn email notifications off")
+async def unsubscribe(
+    request: Request, token: str, service: Annotated[IdentityService, Depends(get_identity)]
+) -> HTMLResponse:
+    user_id = read_token(_unsubscribe_secret(request), token)
+    if user_id is None:
+        return HTMLResponse(
+            _PAGE.format(body="<p>الرابط ده مش صحيح. This link is not valid.</p>"), 400
+        )
+    await service.set_email_notifications(user_id, False)
+    return HTMLResponse(
+        _PAGE.format(body="<h2>تم الإيقاف</h2><p>Done: no more notification emails.</p>")
+    )
 
 
 @router.put("/me/notifications", status_code=204, summary="Switch email notifications on or off")
