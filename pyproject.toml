@@ -270,6 +270,7 @@ ignore_imports = [
     "pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping -> pharmavique.catalog.contracts.commands",
     "pharmavique.ingestion.infrastructure.adapters.catalog_writer -> pharmavique.catalog.contracts.commands",
     "pharmavique.search.infrastructure.catalog_source -> pharmavique.catalog.contracts.queries",
+    "pharmavique.analytics.infrastructure.catalog_source -> pharmavique.catalog.contracts.queries",
 ]
 unmatched_ignore_imports_alerting = "error"
 
