@@ -30,10 +30,20 @@ const SEVERITY: Record<string, { label: string; tone: 'rd' | 'wn' | 'neutral' | 
 
 type Check = { kind: 'idle' } | { kind: 'loading' } | { kind: 'done'; data: InteractionCheck } | { kind: 'error'; detail: string };
 
-export function InteractionBasket({ title, intro, persist }: { title: string; intro: string; persist: boolean }) {
+export function InteractionBasket({
+  title,
+  intro,
+  persist,
+  initialItems,
+}: {
+  title: string;
+  intro: string;
+  persist: boolean;
+  initialItems?: BasketItem[];
+}) {
   const { c } = useTheme();
   const saved = useSavedBasket();
-  const [local, setLocal] = useState<BasketItem[]>([]);
+  const [local, setLocal] = useState<BasketItem[]>(initialItems ?? []);
   const items = persist ? saved.items : local;
   const setItems = persist ? saved.set : setLocal;
 

@@ -19,8 +19,17 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { displayName, friendlyError, scanImage, type ScanLine, type ScanResult } from '@/api/client';
+import {
+  displayName,
+  friendlyError,
+  scanImage,
+  type ScanCandidate,
+  type ScanLine,
+  type ScanResult,
+} from '@/api/client';
 import { DisclaimerBar, Pill, Row, T } from '@/components/ui';
+import { useSavedBasket, type BasketItem } from '@/state/basket';
+import { useRole } from '@/state/role';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
 
 type Kind = 'box' | 'prescription';
@@ -219,6 +228,54 @@ function Candidates({ line }: { line: ScanLine }) {
   );
 }
 
+// Prescription lines: choose which registry product each read name is (the closest is offered).
+function PickCandidates({
+  line,
+  picked,
+  onPick,
+}: {
+  line: ScanLine;
+  picked: ScanCandidate | null;
+  onPick: (cand: ScanCandidate) => void;
+}) {
+  const { c } = useTheme();
+  if (!line.candidates.length)
+    return (
+      <T size={13} color={c.ink2}>
+        ملقيناش اسم قريب في السجل الرسمي. عدّل الاسم وابحث.
+      </T>
+    );
+  return (
+    <View style={{ gap: 6 }}>
+      <T size={12.5} color={c.ink2}>
+        اختار الدواء الصح من السجل الرسمي
+      </T>
+      {line.candidates.map((cand) => {
+        const on = picked?.register_number === cand.register_number;
+        return (
+          <Pressable
+            key={cand.register_number}
+            onPress={() => onPick(cand)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            style={[styles.candidate, { borderColor: on ? c.pr : c.ln, backgroundColor: on ? c.prs : 'transparent' }]}
+          >
+            <View style={{ flex: 1 }}>
+              <T weight={600}>{displayName(cand)}</T>
+              {cand.trade_name_en ? (
+                <T size={12.5} color={c.ink2} latin align="right">
+                  {cand.trade_name_en}
+                </T>
+              ) : null}
+            </View>
+            {on ? <CheckIcon size={18} color={c.pr} weight="bold" /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 // B7 · confirm what was read (box)
 function BoxReview({ photo, result, onBack }: { photo: string; result: ScanResult; onBack: () => void }) {
   const { c } = useTheme();
@@ -288,7 +345,17 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
   const { c } = useTheme();
   const [names, setNames] = useState(result.lines.map((l) => l.name));
   const [confirmed, setConfirmed] = useState<boolean[]>(result.lines.map(() => false));
+  const [picked, setPicked] = useState<(ScanCandidate | null)[]>(result.lines.map(() => null));
   const count = confirmed.filter(Boolean).length;
+  const { role } = useRole();
+  const basket = useSavedBasket();
+
+  // the products the person confirmed: a line counts once they chose which registry product it is
+  const chosen: BasketItem[] = result.lines.flatMap((_, i) => {
+    const p = confirmed[i] ? picked[i] : null;
+    return p ? [{ register: p.register_number, ar: p.trade_name_ar, en: p.trade_name_en }] : [];
+  });
+  const unique = chosen.filter((item, i) => chosen.findIndex((x) => x.register === item.register) === i);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -331,9 +398,19 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
                 {`تعليمات الجرعة: ${line.dose ?? 'غير واضح'}`}
               </T>
             </Row>
-            <Candidates line={line} />
+            <PickCandidates
+              line={line}
+              picked={picked[i]}
+              onPick={(cand) => setPicked((all) => all.map((p, j) => (j === i ? cand : p)))}
+            />
             <Pressable
-              onPress={() => setConfirmed((all) => all.map((v, j) => (j === i ? !v : v)))}
+              onPress={() => {
+                const turningOn = !confirmed[i];
+                setConfirmed((all) => all.map((v, j) => (j === i ? !v : v)));
+                // confirming a line takes the closest registry product unless one was chosen already
+                if (turningOn && !picked[i] && line.candidates[0])
+                  setPicked((all) => all.map((p, j) => (j === i ? line.candidates[0] : p)));
+              }}
               style={[styles.confirm, { borderColor: c.ok, backgroundColor: confirmed[i] ? c.oks : 'transparent' }]}
             >
               <CheckIcon size={18} color={c.ok} weight="bold" />
@@ -358,6 +435,37 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
             </Pressable>
             <T size={13} color={c.ink2} align="center">
               الصف غير المؤكَّد لن يُبحث عنه
+            </T>
+            <Pressable
+              onPress={() =>
+                router.push({ pathname: '/interactions', params: { items: JSON.stringify(unique) } })
+              }
+              disabled={unique.length < 2}
+              style={[styles.primary, { backgroundColor: c.pr, opacity: unique.length >= 2 ? 1 : 0.5 }]}
+              accessibilityRole="button"
+            >
+              <ShieldCheckIcon size={20} color={c.prt} />
+              <T weight={700} color={c.prt}>{`افحص التداخل بين المؤكَّد (${unique.length})`}</T>
+            </Pressable>
+            {role === 'patient' ? (
+              <Pressable
+                onPress={async () => {
+                  const merged = [...basket.items];
+                  unique.forEach((item) => {
+                    if (!merged.some((m) => m.register === item.register)) merged.push(item);
+                  });
+                  await basket.set(merged);
+                  router.push('/my-medicines');
+                }}
+                disabled={!unique.length}
+                style={[styles.primary, { backgroundColor: c.sf, borderWidth: 1.5, borderColor: c.pr, opacity: unique.length ? 1 : 0.5 }]}
+                accessibilityRole="button"
+              >
+                <T weight={700} color={c.pr}>{`ضيف المؤكَّد لأدويتي (${unique.length})`}</T>
+              </Pressable>
+            ) : null}
+            <T size={12.5} color={c.ink2} align="center">
+              الفحص بيستخدم تداخلات مسجّلة في مصدر خارجي وهو مش نصيحة طبية. عدم ظهور تداخل مش معناه إن الجمع آمن، والصيدلي أو الدكتور هو اللي يقرر.
             </T>
           </>
         ) : null}
