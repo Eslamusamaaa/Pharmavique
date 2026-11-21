@@ -121,6 +121,10 @@ async def submit_scan(
     "/assistant", response_model=TicketOut, status_code=202, summary="Ask in the background"
 )
 async def submit_question(request: Request, body: AskIn, jobs: Jobs) -> TicketOut:
+    if body.use_history:
+        raise HTTPException(
+            status_code=422, detail="your medicines cannot be used in a background job yet"
+        )
     return await _submit(
         request, jobs, ASSISTANT, {}, json.dumps(body.model_dump(mode="json")).encode()
     )

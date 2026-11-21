@@ -20,7 +20,7 @@ from pharmavique.shared_kernel.errors import InvariantViolation
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.principal import Principal
 from pharmavique.watchlist.application.service import WatchlistService
-from pharmavique.watchlist.domain.model import Alert, AlertKind
+from pharmavique.watchlist.domain.model import Alert, AlertKind, MedicineStatus
 
 router = APIRouter(prefix="/v1", tags=["me"])
 
@@ -64,6 +64,8 @@ class AllergyMatchOut(BaseModel):
 class SavedMedicineOut(BaseModel):
     register_number: str
     added_at: str
+    status: str  # "current" (taken now) or "past" (taken before): the person's own record
+    status_changed_at: str | None
     product: ProductOut | None  # None when the registry no longer has it
     allergy_matches: list[AllergyMatchOut]
 
@@ -148,6 +150,10 @@ async def my_medicines(
             SavedMedicineOut(
                 register_number=medicine.register_number,
                 added_at=medicine.added_at.isoformat(),
+                status=medicine.status.value,
+                status_changed_at=(
+                    medicine.status_changed_at.isoformat() if medicine.status_changed_at else None
+                ),
                 product=product,
                 allergy_matches=[
                     AllergyMatchOut(allergy=m.allergy, ingredient=m.ingredient) for m in matches
@@ -170,6 +176,23 @@ async def save_medicine(
         await watchlist.save_medicine(me.user_id, register_number)
     except InvariantViolation as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
+    return Response(status_code=204)
+
+
+class StatusIn(BaseModel):
+    status: MedicineStatus
+
+
+@router.put(
+    "/me/medicines/{register_number}/status",
+    status_code=204,
+    summary="Mark a saved medicine as one I take now, or took before",
+)
+async def set_medicine_status(
+    register_number: str, body: StatusIn, me: Me, watchlist: Watchlist
+) -> Response:
+    if not await watchlist.set_status(me.user_id, register_number, body.status):
+        raise HTTPException(status_code=404, detail="this medicine is not in your list")
     return Response(status_code=204)
 
 

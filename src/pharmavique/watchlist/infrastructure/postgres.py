@@ -9,12 +9,19 @@ here forgot its own `WHERE user_id`. Event handlers that must see every holder o
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pharmavique.watchlist.domain.model import Alert, AlertKind, Allergy, SavedMedicine
+from pharmavique.watchlist.domain.model import (
+    Alert,
+    AlertKind,
+    Allergy,
+    MedicineStatus,
+    SavedMedicine,
+)
 
 _SET_USER = text("SELECT set_config('app.user_id', :user_id, true)")
 _SET_SYSTEM = text("SELECT set_config('app.system', 'on', true)")
@@ -42,7 +49,11 @@ class PostgresWatchlistStore:
             result = await session.execute(
                 text(
                     "INSERT INTO watchlist.saved_medicines (user_id, register_number, added_at) "
-                    "VALUES (:u, :r, :t) ON CONFLICT DO NOTHING RETURNING register_number"
+                    "VALUES (:u, :r, :t) "
+                    "ON CONFLICT (user_id, register_number) DO UPDATE "
+                    "SET status = 'current', status_changed_at = EXCLUDED.added_at "
+                    "WHERE watchlist.saved_medicines.status = 'past' "
+                    "RETURNING register_number"
                 ),
                 {"u": user_id, "r": medicine.register_number, "t": medicine.added_at},
             )
@@ -63,12 +74,31 @@ class PostgresWatchlistStore:
         async with self._as_user(user_id) as session:
             rows = await session.execute(
                 text(
-                    "SELECT register_number, added_at FROM watchlist.saved_medicines "
+                    "SELECT register_number, added_at, status, status_changed_at "
+                    "FROM watchlist.saved_medicines "
                     "WHERE user_id = :u ORDER BY added_at DESC, register_number"
                 ),
                 {"u": user_id},
             )
-            return [SavedMedicine(r.register_number, r.added_at) for r in rows]
+            return [
+                SavedMedicine(
+                    r.register_number, r.added_at, MedicineStatus(r.status), r.status_changed_at
+                )
+                for r in rows
+            ]
+
+    async def set_medicine_status(
+        self, user_id: UUID, register_number: str, status: MedicineStatus, at: datetime
+    ) -> bool:
+        async with self._as_user(user_id) as session:
+            result = await session.execute(
+                text(
+                    "UPDATE watchlist.saved_medicines SET status = :s, status_changed_at = :t "
+                    "WHERE user_id = :u AND register_number = :r RETURNING register_number"
+                ),
+                {"u": user_id, "r": register_number, "s": status.value, "t": at},
+            )
+            return result.first() is not None
 
     # ---- allergies ---------------------------------------------------------------------
     async def add_allergy(self, user_id: UUID, allergy: Allergy) -> bool:
@@ -107,7 +137,10 @@ class PostgresWatchlistStore:
     async def holders_of(self, register_number: str) -> list[UUID]:
         async with self._as_system() as session:
             rows = await session.execute(
-                text("SELECT user_id FROM watchlist.saved_medicines WHERE register_number = :r"),
+                text(
+                    "SELECT user_id FROM watchlist.saved_medicines "
+                    "WHERE register_number = :r AND status = 'current'"
+                ),
                 {"r": register_number},
             )
             return [r.user_id for r in rows]

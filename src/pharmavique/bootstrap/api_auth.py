@@ -101,6 +101,17 @@ async def current_principal(
     return principal
 
 
+async def optional_principal(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Principal | None:
+    """The signed-in caller, or None when no token was sent. A token that was sent but is not
+    valid is still a 401: it is never silently treated as "anonymous"."""
+    if credentials is None:
+        return None
+    return await current_principal(request, credentials)
+
+
 def require_roles(*roles: Role) -> Callable[[Principal], Coroutine[Any, Any, Principal]]:
     """A dependency that lets only these roles through (403 for any other signed-in caller)."""
     allowed = frozenset(roles)

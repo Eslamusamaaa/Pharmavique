@@ -19,6 +19,7 @@ from pharmavique.watchlist.domain.model import (
     AlertKind,
     Allergy,
     AllergyMatch,
+    MedicineStatus,
     SavedMedicine,
     allergy_matches,
     ingredient_key,
@@ -64,6 +65,17 @@ class WatchlistService:
         if len(await self._store.medicines(user_id)) >= MAX_MEDICINES:
             raise InvariantViolation(f"the list holds at most {MAX_MEDICINES} medicines")
         return await self._store.add_medicine(user_id, SavedMedicine(number, self._clock.now()))
+
+    async def set_status(self, user_id: UUID, register_number: str, status: MedicineStatus) -> bool:
+        return await self._store.set_medicine_status(
+            user_id, register_number.strip(), status, self._clock.now()
+        )
+
+    async def current_medicines(self, user_id: UUID) -> list[SavedMedicine]:
+        """What the person takes now: the only medicines a new drug is compared with."""
+        return [
+            m for m in await self._store.medicines(user_id) if m.status is MedicineStatus.CURRENT
+        ]
 
     async def remove_medicine(self, user_id: UUID, register_number: str) -> bool:
         return await self._store.remove_medicine(user_id, register_number.strip())

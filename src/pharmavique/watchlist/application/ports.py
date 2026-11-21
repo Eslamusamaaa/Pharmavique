@@ -1,14 +1,22 @@
 """What the watchlist use cases need from storage. Every per-person call names the person."""
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from pharmavique.watchlist.domain.model import Alert, Allergy, SavedMedicine
+from pharmavique.watchlist.domain.model import Alert, Allergy, MedicineStatus, SavedMedicine
 
 
 class WatchlistStore(Protocol):
     async def add_medicine(self, user_id: UUID, medicine: SavedMedicine) -> bool:
-        """False when the medicine was already saved."""
+        """False when the medicine was already saved as a current one. Saving a past medicine
+        again makes it current."""
+        ...
+
+    async def set_medicine_status(
+        self, user_id: UUID, register_number: str, status: MedicineStatus, at: datetime
+    ) -> bool:
+        """False when the person has not saved this medicine."""
         ...
 
     async def remove_medicine(self, user_id: UUID, register_number: str) -> bool: ...
@@ -24,7 +32,8 @@ class WatchlistStore(Protocol):
     async def allergies(self, user_id: UUID) -> list[Allergy]: ...
 
     async def holders_of(self, register_number: str) -> list[UUID]:
-        """Everyone who saved this medicine. For event handlers only, never for an API caller."""
+        """Everyone who currently takes this medicine (a past one raises no alert). For event
+        handlers only, never for an API caller."""
         ...
 
     async def add_alert(self, alert: Alert) -> bool:

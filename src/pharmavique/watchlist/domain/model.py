@@ -26,10 +26,19 @@ class AlertKind(StrEnum):
     RELISTED = "relisted"
 
 
+class MedicineStatus(StrEnum):
+    """The person's own record: a medicine they take now, or one they took before."""
+
+    CURRENT = "current"
+    PAST = "past"
+
+
 @dataclass(frozen=True, slots=True)
 class SavedMedicine:
     register_number: str
     added_at: datetime
+    status: MedicineStatus = MedicineStatus.CURRENT
+    status_changed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

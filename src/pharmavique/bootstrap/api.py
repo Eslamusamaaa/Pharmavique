@@ -23,6 +23,7 @@ from pharmavique.bootstrap import (
     api_company,
     api_compare,
     api_drugs,
+    api_history,
     api_interactions,
     api_jobs,
     api_lasa,
@@ -326,6 +327,7 @@ def create_app(
     app.include_router(api_compare.router)
     app.include_router(api_lasa.router)
     app.include_router(api_me.router)
+    app.include_router(api_history.router)
     app.include_router(api_company.router)
     app.include_router(api_operator.router)
     app.include_router(api_pharmacies.router)

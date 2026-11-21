@@ -242,3 +242,13 @@ async def test_a_deep_queue_refuses_new_jobs_with_retry_after() -> None:
         response = await submit_scan(c)
     assert response.status_code == 503
     assert response.headers["retry-after"] == "5"
+
+
+async def test_my_medicines_cannot_be_used_in_a_background_job_yet(
+    rig: tuple[httpx.AsyncClient, InlineJobQueue],
+) -> None:
+    client, _ = rig
+    response = await client.post(
+        "/v1/jobs/assistant", json={"question": "x", "register_number": "1", "use_history": True}
+    )
+    assert response.status_code == 422

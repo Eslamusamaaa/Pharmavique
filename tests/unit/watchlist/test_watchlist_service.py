@@ -13,6 +13,7 @@ from pharmavique.watchlist.domain.model import (
     Alert,
     AlertKind,
     Allergy,
+    MedicineStatus,
     SavedMedicine,
     allergy_matches,
 )
@@ -33,9 +34,20 @@ class Store:
 
     async def add_medicine(self, user_id: UUID, medicine: SavedMedicine) -> bool:
         mine = self.meds.setdefault(user_id, {})
-        if medicine.register_number in mine:
+        existing = mine.get(medicine.register_number)
+        if existing is not None and existing.status is MedicineStatus.CURRENT:
             return False
         mine[medicine.register_number] = medicine
+        return True
+
+    async def set_medicine_status(
+        self, user_id: UUID, register_number: str, status: MedicineStatus, at: datetime
+    ) -> bool:
+        mine = self.meds.get(user_id, {})
+        found = mine.get(register_number)
+        if found is None:
+            return False
+        mine[register_number] = SavedMedicine(register_number, found.added_at, status, at)
         return True
 
     async def remove_medicine(self, user_id: UUID, register_number: str) -> bool:
@@ -58,7 +70,11 @@ class Store:
         return list(self.alg.get(user_id, {}).values())
 
     async def holders_of(self, register_number: str) -> list[UUID]:
-        return [u for u, m in self.meds.items() if register_number in m]
+        return [
+            u
+            for u, m in self.meds.items()
+            if register_number in m and m[register_number].status is MedicineStatus.CURRENT
+        ]
 
     async def add_alert(self, alert: Alert) -> bool:
         if any(

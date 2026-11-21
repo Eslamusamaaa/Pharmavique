@@ -8,7 +8,7 @@ production. Isolation is checked at the database, not only in the repository's o
 import asyncio
 import secrets
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -19,7 +19,13 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker
 
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
-from pharmavique.watchlist.domain.model import Alert, AlertKind, Allergy, SavedMedicine
+from pharmavique.watchlist.domain.model import (
+    Alert,
+    AlertKind,
+    Allergy,
+    MedicineStatus,
+    SavedMedicine,
+)
 from pharmavique.watchlist.infrastructure.postgres import PostgresWatchlistStore
 
 pytestmark = pytest.mark.integration
@@ -146,6 +152,38 @@ async def test_holders_are_found_across_people_for_event_handlers_only(
         await store.add_medicine(user, SavedMedicine(register, NOW))
 
     assert sorted(await store.holders_of("111")) == sorted([a, b])
+
+
+async def test_a_medicine_can_be_marked_past_and_only_current_ones_have_holders(
+    limited: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresWatchlistStore(limited)
+    me, other = uuid4(), uuid4()
+    await store.add_medicine(me, SavedMedicine("111", NOW))
+    await store.add_medicine(other, SavedMedicine("111", NOW))
+
+    later = NOW + timedelta(days=1)
+    assert await store.set_medicine_status(me, "111", MedicineStatus.PAST, later) is True
+    assert await store.set_medicine_status(me, "999", MedicineStatus.PAST, later) is False
+
+    (mine,) = await store.medicines(me)
+    assert (mine.status, mine.status_changed_at) == (MedicineStatus.PAST, later)
+    assert (await store.medicines(other))[0].status is MedicineStatus.CURRENT  # not touched
+    assert await store.holders_of("111") == [other]  # a past medicine raises no alert
+
+
+async def test_saving_a_past_medicine_again_makes_it_current_and_saving_a_current_one_does_not(
+    limited: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresWatchlistStore(limited)
+    me = uuid4()
+    await store.add_medicine(me, SavedMedicine("111", NOW))
+    assert await store.add_medicine(me, SavedMedicine("111", NOW)) is False  # already current
+    await store.set_medicine_status(me, "111", MedicineStatus.PAST, NOW)
+
+    assert await store.add_medicine(me, SavedMedicine("111", NOW + timedelta(days=2))) is True
+    (saved,) = await store.medicines(me)
+    assert saved.status is MedicineStatus.CURRENT
 
 
 async def test_an_alert_is_stored_once_per_event_and_can_be_read(
