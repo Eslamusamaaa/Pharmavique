@@ -101,6 +101,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Saved medicines, allergies, alerts, weekly digest, price-changed mark | Done | `watchlist` context under row-level security, the catalog outbox relay, alerts for price changes, withdrawals and relistings ([ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md)). Shortage and safety-notice alerts are not built yet |
 | Company views, operator board | Done | `analytics` read model rebuilt from the catalog: market map per ingredient, thin and missing strengths and forms, change radar; operator data-quality board ([ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md)). Registry facts only, no sales or demand figures |
 | Nearby licensed pharmacies | Done, at city precision | By city from the SFDA list, using the person's position once and never keeping it; the list has no street or coordinates, so no distance to a pharmacy and never a stock claim ([ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md)) |
+| Medicine history as memory | Done | A signed-in patient's saved medicines (current or past) are compared with any new drug, with recorded interactions from DDInter and openFDA, and with their allergies; never advice, and the language model never sees the list ([ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md)) |
 
 ## 3. Screens and UI design
 
@@ -628,6 +629,9 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/jobs/{id}` | The job's state and, when done, the same JSON as the direct endpoint |
 | POST | `/v1/pharmacies/nearby` | Licensed pharmacies by city, nearest city first; the position is in the body and is never stored, logged or cached |
 | GET | `/v1/pharmacies/cities`, `/v1/pharmacies?city=&region=&q=` | Cities with pharmacies, and a search with no position |
+| PUT | `/v1/me/medicines/{n}/status` | Mark a saved medicine as one I take now (`current`) or took before (`past`) |
+| GET | `/v1/me/history/check/{n}` | A drug against the medicines I take now: recorded interactions, duplicate ingredients, my allergies (never advice) |
+| GET | `/v1/me/history/interactions` | Recorded interactions among the medicines I take now |
 | GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
@@ -758,6 +762,7 @@ migrations/           Alembic environment
 | [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
 | [ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md) | Company views and the operator's quality board |
 | [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md) | Shared state, read cache and background jobs |
+| [ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md) | The patient's medicine history checked against a new drug |
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |

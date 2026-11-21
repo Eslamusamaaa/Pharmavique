@@ -188,6 +188,8 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 
 | F Nearby pharmacies | Built, at **city precision** ([ADR-013](adr/ADR-013-pharmacy-finder-and-location.md)): `POST /v1/pharmacies/nearby` (position in the body, never kept), `GET /v1/pharmacies` and `/cities`, 33 city points from Nominatim with a region sanity check, `expo-location` foreground permission, the `pharmacies` screen and a home tile. Not possible yet: distance to a pharmacy (needs exact coordinates, Q-39); 2 cities have no point |
 
+| H Patient history as memory | Built ([ADR-014](adr/ADR-014-medicine-history-as-memory.md)): current and past medicines, `GET /v1/me/history/check/{n}` and `/interactions`, the assistant can attach the check (`use_history`, the model never sees the medicines), drug page card, my list status toggle and a card of interactions among my current medicines. Checked on real data (aspirin with warfarin: major, ddinter-2.0). Not built: the person's conditions, a timeline, history inside background jobs |
+
 ## 7. Proposed start
 
 Wave A first (four independent items, no decisions needed), then B, because C and D wait on it. After
