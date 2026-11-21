@@ -1,6 +1,7 @@
 """The drug page endpoints (B8): full details with provenance, and same-ingredient products."""
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -11,6 +12,7 @@ from pharmavique.bootstrap.api import create_app
 from pharmavique.catalog.contracts.queries import (
     IngredientDetail,
     Maker,
+    PriceChange,
     PriceDetail,
     ProductCard,
     ProductDetails,
@@ -132,3 +134,30 @@ async def test_without_a_database_the_drug_page_says_so() -> None:
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as c:
         assert (await c.get("/v1/products/1/details")).status_code == 503
+
+
+async def test_the_drug_page_shows_the_last_price_change_when_there_is_one() -> None:
+    changed = replace(
+        PRODUCTS["1"],
+        price_change=PriceChange(
+            old=PriceDetail(Decimal("5"), "SAR", "owner_assumption"),
+            new=PriceDetail(Decimal("7.25"), "SAR", "owner_assumption"),
+            changed_at=datetime(2026, 11, 20, 3, 0, tzinfo=UTC),
+        ),
+    )
+
+    class WithChange(FakeDetails):
+        async def get_details(self, market: Market, register_number: str) -> ProductDetails | None:
+            return changed if register_number == "1" else PRODUCTS.get(register_number)
+
+    app = create_app(details=WithChange(), equivalence=CompareProductsHandler())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        with_change = (await c.get("/v1/products/1/details")).json()
+        without = (await c.get("/v1/products/2/details")).json()
+
+    assert with_change["price_change"]["old_price"]["amount"] == "5"
+    assert with_change["price_change"]["new_price"]["amount"] == "7.25"
+    assert with_change["price_change"]["changed_at"].startswith("2026-11-20")
+    assert without["price_change"] is None

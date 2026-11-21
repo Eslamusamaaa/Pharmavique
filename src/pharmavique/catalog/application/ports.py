@@ -2,6 +2,8 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Protocol
 
 from pharmavique.catalog.domain.product import ListingStatus, Product, ProductData
@@ -49,6 +51,23 @@ class ProductReader(Protocol):
         self, market: Market, names: Sequence[str], limit: int
     ) -> list[StoredProduct]:
         """Products whose ingredient names, compared case-insensitively, are exactly `names`."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class PricePair:
+    old_amount: Decimal
+    old_currency_code: str | None
+    old_currency_basis: str
+    new_amount: Decimal
+    new_currency_code: str | None
+    new_currency_basis: str
+    changed_at: datetime
+
+
+class PriceChangeReader(Protocol):
+    async def last_change(self, market: Market, register_number: str) -> PricePair | None:
+        """The latest change between two different recorded prices, or None when there is none."""
         ...
 
 

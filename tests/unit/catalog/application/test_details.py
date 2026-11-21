@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from pharmavique.catalog.application.ports import StoredProduct
+from pharmavique.catalog.application.ports import PricePair, StoredProduct
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.domain.product import ListingStatus, ProductData
 from pharmavique.catalog.domain.values import (
@@ -141,3 +141,44 @@ async def test_same_ingredients_of_an_unknown_product_is_empty() -> None:
     handler = ReadProductCardsHandler(FakeReader())
 
     assert await handler.same_ingredients(Market.SA, "9-9", limit=10) == ()
+
+
+class FakePriceChanges:
+    def __init__(self, pair: PricePair | None) -> None:
+        self.pair = pair
+
+    async def last_change(self, market: Market, register_number: str) -> PricePair | None:
+        return self.pair
+
+
+async def test_a_recorded_price_change_is_part_of_the_details() -> None:
+    pair = PricePair(
+        Decimal("5"), "SAR", "owner_assumption", Decimal("6.5"), "SAR", "owner_assumption", FETCHED
+    )
+    handler = ReadProductCardsHandler(FakeReader(stored("1-1")), FakePriceChanges(pair))
+
+    details = await handler.get_details(Market.SA, "1-1")
+
+    assert details is not None
+    assert details.price_change is not None
+    assert (details.price_change.old.amount, details.price_change.new.amount) == (
+        Decimal("5"),
+        Decimal("6.5"),
+    )
+    assert details.price_change.changed_at == FETCHED
+
+
+async def test_no_recorded_change_means_no_price_change_not_a_zero() -> None:
+    handler = ReadProductCardsHandler(FakeReader(stored("1-1")), FakePriceChanges(None))
+
+    details = await handler.get_details(Market.SA, "1-1")
+
+    assert details is not None
+    assert details.price_change is None
+
+
+async def test_without_a_price_history_reader_the_details_still_work() -> None:
+    details = await ReadProductCardsHandler(FakeReader(stored("1-1"))).get_details(Market.SA, "1-1")
+
+    assert details is not None
+    assert details.price_change is None

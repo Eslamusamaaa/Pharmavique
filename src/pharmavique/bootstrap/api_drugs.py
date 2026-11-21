@@ -160,6 +160,12 @@ class PriceOut(BaseModel):
     currency_basis: str  # always shown: "owner_assumption" means SAR is assumed, not stated
 
 
+class PriceChangeOut(BaseModel):
+    old_price: PriceOut
+    new_price: PriceOut
+    changed_at: str  # when our snapshots recorded the new price
+
+
 class ProvenanceOut(BaseModel):
     source: str | None
     source_ref: str | None
@@ -192,6 +198,7 @@ class DrugPageOut(BaseModel):
     marketing_company_country: str | None
     manufacturers: list[MakerOut]
     price: PriceOut | None
+    price_change: PriceChangeOut | None = None
     provenance: ProvenanceOut
     disclaimer: str = DISCLAIMER
 
@@ -228,6 +235,25 @@ def _price(details: ProductDetails) -> PriceOut | None:
         return None
     return PriceOut(
         amount=_amount(p.amount), currency_code=p.currency_code, currency_basis=p.currency_basis
+    )
+
+
+def _price_change(details: ProductDetails) -> PriceChangeOut | None:
+    change = details.price_change
+    if change is None:
+        return None
+    return PriceChangeOut(
+        old_price=PriceOut(
+            amount=_amount(change.old.amount),
+            currency_code=change.old.currency_code,
+            currency_basis=change.old.currency_basis,
+        ),
+        new_price=PriceOut(
+            amount=_amount(change.new.amount),
+            currency_code=change.new.currency_code,
+            currency_basis=change.new.currency_basis,
+        ),
+        changed_at=change.changed_at.isoformat(),
     )
 
 
@@ -296,6 +322,7 @@ async def drug_page(
         marketing_company_country=found.marketing_company_country,
         manufacturers=[MakerOut(name=m.name, country=m.country) for m in found.manufacturers],
         price=_price(found),
+        price_change=_price_change(found),
         provenance=ProvenanceOut(
             source=found.source,
             source_ref=found.source_ref,

@@ -49,6 +49,16 @@ class PriceDetail:
 
 
 @dataclass(frozen=True, slots=True)
+class PriceChange:
+    """The last time the registered price changed: from what, to what, and when (from our own
+    snapshots, so it only exists once two different prices have been recorded)."""
+
+    old: PriceDetail
+    new: PriceDetail
+    changed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class Maker:
     name: str
     country: str | None
@@ -79,6 +89,7 @@ class ProductDetails:
     source_ref: str | None
     fetched_at: datetime | None
     trust: str | None
+    price_change: PriceChange | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,4 +154,16 @@ class CatalogListItems(Protocol):
         self, market: Market, register_number: str, list_names: Sequence[str]
     ) -> tuple[ListItem, ...]:
         """Linked rows of these lists, `matched` links first. Empty when none are linked."""
+        ...
+
+
+class CatalogIngredients(Protocol):
+    """The active ingredient names the catalog knows, for pickers and allergy entry."""
+
+    async def find_ingredients(self, market: Market, prefix: str, limit: int) -> tuple[str, ...]:
+        """Ingredient names starting with `prefix` (case-insensitive), alphabetical."""
+        ...
+
+    async def is_ingredient(self, market: Market, name: str) -> bool:
+        """Whether some product has an ingredient with this name (case-insensitive)."""
         ...

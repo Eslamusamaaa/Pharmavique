@@ -1,13 +1,15 @@
 """The catalog's read side: product cards for other contexts."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 
-from pharmavique.catalog.application.ports import ProductReader, StoredProduct
+from pharmavique.catalog.application.ports import PriceChangeReader, ProductReader, StoredProduct
 from pharmavique.catalog.contracts.queries import (
     MAX_EXPORT_PAGE,
     CardPage,
     IngredientDetail,
     Maker,
+    PriceChange,
     PriceDetail,
     ProductCard,
     ProductDetails,
@@ -77,8 +79,11 @@ def details_of(stored: StoredProduct) -> ProductDetails:
 class ReadProductCardsHandler:
     """Implements `CatalogQueries` over a `ProductReader`."""
 
-    def __init__(self, reader: ProductReader) -> None:
+    def __init__(
+        self, reader: ProductReader, price_changes: PriceChangeReader | None = None
+    ) -> None:
         self._reader = reader
+        self._price_changes = price_changes
 
     async def get_cards(
         self, market: Market, register_numbers: Sequence[str]
@@ -97,7 +102,20 @@ class ReadProductCardsHandler:
 
     async def get_details(self, market: Market, register_number: str) -> ProductDetails | None:
         found = await self._reader.get_many(market, [register_number])
-        return details_of(found[0]) if found else None
+        if not found:
+            return None
+        details = details_of(found[0])
+        if self._price_changes is None:
+            return details
+        pair = await self._price_changes.last_change(market, register_number)
+        if pair is None:
+            return details
+        change = PriceChange(
+            old=PriceDetail(pair.old_amount, pair.old_currency_code, pair.old_currency_basis),
+            new=PriceDetail(pair.new_amount, pair.new_currency_code, pair.new_currency_basis),
+            changed_at=pair.changed_at,
+        )
+        return replace(details, price_change=change)
 
     async def same_ingredients(
         self, market: Market, register_number: str, limit: int
