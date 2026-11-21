@@ -21,7 +21,7 @@ patient's location; a "price changed" mark.
 | Shortage and safety lists | Loaded and linked to products (`catalog/domain/list_linking.py`), so shortage to substitutes needs only a query and a screen |
 | LASA | Only in docs. `shared_kernel` has the Arabic/Latin normalizer and pg_trgm-compatible trigrams, which the string part can reuse |
 | Daily refresh | `scripts/daily_refresh.ps1` and `scripts/schedule_daily_refresh.ps1` exist; **not registered** on this machine |
-| Redis | Used for rate limits and the audio cache only; no read cache for search or product pages; no job queue (ADR-002 chose Arq, not built) |
+| Redis | Container runs, but **no code uses it** (corrected 2026-11-21: the rate limit and the audio cache live in each API process's memory, which breaks behind several instances). No read cache, no job queue (ADR-002 chose Arq, not built) |
 | Pharmacies | 385 rows with name, phone, address, region. **No coordinates** |
 | Mobile | No `expo-location`, no push library. The role is kept on the device only |
 
@@ -128,6 +128,19 @@ the patient's history and checks every new question against it:
 - Sensitive: health data, opt-in, never logged, deleted with the account, behind row-level security as now.
   Needs the legal review (Q-9) before real users. Depends on: B, C (done) and the `interactions` data.
 
+### Wave I: email verification and email notifications (added 2026-11-21, from the owner's answers)
+
+- Sign-up with email and password as today, then an **OTP sent to the email** that must be entered before
+  the account is verified; the same OTP step at sign-in when the owner wants it (default: verification at
+  sign-up, and again for a new device later). OTP: random, hashed at rest, short expiry, few attempts,
+  resend limit.
+- An `EmailSender` port with one adapter. **Which email provider and which sending address or domain is an
+  owner decision** (Q-38 in `OPEN_QUESTIONS.md`); the key goes in an environment variable, never in the repo.
+- Notifications: the in-app inbox (the alerts of Wave C, extended to every kind of message) plus an email
+  for what needs attention (price change or withdrawal of a saved medicine, a shortage). Per-user switch,
+  a digest instead of one email per event, unsubscribe link. Queue-backed so a slow mail server never
+  blocks a request (Wave E).
+
 ### Wave G: shelf scan
 
 Extend the box scan to many boxes in one photo: detect each box, read the name, match the registry, show a
@@ -149,12 +162,13 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 
 | ID | Question | Default |
 |---|---|---|
-| Q-13 | Own accounts or an external identity provider? Patient login method? | Own accounts, email and password, short-lived JWT plus refresh. Phone OTP later (needs an SMS provider and cost) |
+| Q-13 | Own accounts or an external identity provider? Patient login method? | **Answered 2026-11-21:** own accounts, email and password like any site, then an OTP emailed to verify (Wave I). Short-lived JWT plus refresh stays |
 | Q-14 | Tenant isolation | Row-level security plus repository filters |
-| Q-18 | Alert channels | In-app list first; Expo push next behind the port |
+| Q-18 | Alert channels | **Answered 2026-11-21:** email, plus an in-app inbox; email for what needs attention. No push (Wave I) |
 | Q-23 | Maps provider and geocoding | One-time geocoding with OpenStreetMap's Nominatim (free, one request a second); directions through the phone's maps app; no key |
-| Q-11 | Load targets | None invented; first run measures, you set the numbers |
-| Q-9 | Legal review of health and location data | Not blocking development; **must happen before real users**, since accounts, medicine lists and location are now collected |
+| Q-11 | Load targets | **Answered 2026-11-21:** build for a very large number of users. Architecture scales horizontally (stateless instances, shared Redis, queue); no invented numbers, the load test reports measured baselines |
+| Q-9 | Legal review of health and location data | **Answered 2026-11-21:** this is a proof of concept, not production; the owner will say when it becomes production. Not blocking |
+| Q-12 | Vision model | **Answered 2026-11-21:** reuse the vision models already configured for the box scan (`vision_models`, through OpenRouter) |
 | New | Is an account required to use search and the assistant? | No: open; the account is for saved data only |
 | New | Who is the first `operator`? | The owner's account, created by a CLI command, not by sign-up |
 

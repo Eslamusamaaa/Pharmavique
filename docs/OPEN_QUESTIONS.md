@@ -102,3 +102,19 @@ Per the working agreements, anything unknown is recorded here instead of being a
 ## C. Not yet written
 
 `docs/DATA_SOURCES.md` (license status per source) and `docs/GLOSSARY.md` are Phase 0 deliverables in the brief but outside this review step. They will be drafted after you approve this set, and the glossary needs your input on Arabic/English drug terminology.
+
+## D. Answers given by the owner (2026-11-21)
+
+| ID | Answer |
+|---|---|
+| Q-9 | The project is a proof of concept, not production. Legal review waits until the owner says it is going to production |
+| Q-11 | Build for a very large number of users. No invented numbers; the load test reports measured baselines |
+| Q-12 | Reuse the vision model(s) already configured for the box scan (`vision_models`) |
+| Q-13 | Email and password, then an OTP sent to the email as verification (Phase 3 plan, Wave I) |
+| Q-18 | Notifications by email, plus an in-app inbox; email for what needs attention. No push |
+
+New question from these answers:
+
+| ID | Question | Why it matters | Proposed default |
+|---|---|---|---|
+| Q-38 | Which email provider sends the OTPs and notifications, and from which address or domain? | Deliverability needs a verified sender domain (SPF, DKIM); free tiers cap volume, which matters for "very many users" | An `EmailSender` port with an SMTP adapter, so any provider works; for development a local mail catcher |
