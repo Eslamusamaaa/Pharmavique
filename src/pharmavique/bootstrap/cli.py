@@ -32,6 +32,7 @@ from pharmavique.bootstrap import (
     labels_cli,
     lists_cli,
     pictures_cli,
+    places_cli,
     relay_cli,
     search_cli,
     worker_cli,
@@ -202,6 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     relay_cli.add_arguments(commands)
     analytics_cli.add_arguments(commands)
     cache_cli.add_arguments(commands)
+    places_cli.add_arguments(commands)
     worker_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
@@ -661,6 +663,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(lists_cli.load(args))
     if args.command == "outbox-relay":
         return asyncio.run(relay_cli.run(args))
+    if args.command == "geocode-cities":
+        return asyncio.run(places_cli.geocode(args))
     if args.command == "worker":
         return asyncio.run(worker_cli.run(args))
     if args.command == "cache-invalidate":
