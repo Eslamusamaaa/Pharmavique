@@ -28,6 +28,7 @@ from pharmavique.bootstrap import (
     api_lasa,
     api_me,
     api_operator,
+    api_pharmacies,
     api_pictures,
     api_recognition,
     api_shortage,
@@ -50,10 +51,12 @@ from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
     CatalogIngredients,
     CatalogListItems,
+    CatalogPharmacies,
     CatalogQuality,
     CatalogQueries,
 )
 from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
+from pharmavique.catalog.infrastructure.persistence.pharmacies import SqlAlchemyPharmacyReader
 from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
 from pharmavique.catalog.infrastructure.persistence.price_changes import (
     SqlAlchemyIngredientReader,
@@ -184,6 +187,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 SystemClock(),
             )
             app.state.quality = SqlAlchemyQualityReader(session_factory)
+            app.state.pharmacies = SqlAlchemyPharmacyReader(session_factory)
             app.state.refresh_history = FileRefreshHistory(Path(settings.refresh_dir))
             if settings.jwt_secret is not None:
                 tokens = JwtAccessTokens(settings.jwt_secret.get_secret_value())
@@ -235,6 +239,7 @@ def create_app(
     job_max_queue_depth: int | None = None,
     analytics: AnalyticsService | None = None,
     quality: CatalogQuality | None = None,
+    pharmacies: CatalogPharmacies | None = None,
     refresh_history: FileRefreshHistory | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
@@ -267,6 +272,8 @@ def create_app(
     app.state.token_verifier = token_verifier
     app.state.analytics = analytics
     app.state.quality = quality
+    app.state.pharmacies = pharmacies
+    app.state.pharmacy_directories = {}
     app.state.refresh_history = refresh_history
     app.state.interactions = interactions
     app.state.contraindications = contraindications
@@ -321,6 +328,7 @@ def create_app(
     app.include_router(api_me.router)
     app.include_router(api_company.router)
     app.include_router(api_operator.router)
+    app.include_router(api_pharmacies.router)
     app.include_router(api_pictures.router)
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
