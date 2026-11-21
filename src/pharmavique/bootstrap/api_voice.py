@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from pharmavique.voice.application.extract import ExtractDrugName
 from pharmavique.voice.application.speak import MAX_AUDIO_BYTES, MAX_TEXT, Speak, Transcribe
 from pharmavique.voice.infrastructure.audio_cache import AudioCache
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
@@ -24,6 +25,16 @@ class TranscriptOut(BaseModel):
 class SpeakIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
     as_link: bool = False  # True: answer with a one-time link the app's audio player can open
+
+
+class DrugNameIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)  # what the person said, as transcribed
+
+
+class DrugNameOut(BaseModel):
+    query: str  # what to search for: the drug name, not the whole sentence
+    name: str | None  # the name the model found; None when the rules cleaned the text instead
+    understood: bool
 
 
 class SpokenLinkOut(BaseModel):
@@ -94,3 +105,17 @@ async def audio(key: str, request: Request) -> Response:
         raise HTTPException(status_code=404, detail="this audio link has expired")
     content, media_type = found
     return Response(content=content, media_type=media_type, headers={"Cache-Control": "no-store"})
+
+
+@router.post(
+    "/drug-name",
+    response_model=DrugNameOut,
+    summary="The drug name inside a spoken request, to search for",
+)
+async def drug_name(body: DrugNameIn, request: Request) -> DrugNameOut:
+    extract: ExtractDrugName = request.app.state.extract_name
+    try:
+        spoken = await extract.run(body.text)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return DrugNameOut(query=spoken.query, name=spoken.name, understood=spoken.understood)

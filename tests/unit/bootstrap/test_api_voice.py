@@ -81,3 +81,23 @@ async def test_a_spoken_answer_can_be_fetched_once_by_a_short_lived_link() -> No
 async def test_an_unknown_audio_link_is_a_404() -> None:
     async with client(create_app(speak=Speak(FakeTTS()))) as c:
         assert (await c.get("/v1/voice/audio/abc")).status_code == 404
+
+
+class NamingModel:
+    async def extract(self, text: str) -> str | None:
+        return "بنادول"
+
+
+async def test_the_drug_name_endpoint_returns_what_to_search_for() -> None:
+    async with client(create_app(name_extractor=NamingModel())) as c:
+        response = await c.post("/v1/voice/drug-name", json={"text": "أنا عايز بنادول"})
+
+    assert response.status_code == 200
+    assert response.json() == {"query": "بنادول", "name": "بنادول", "understood": True}
+
+
+async def test_the_drug_name_endpoint_still_cleans_the_text_without_a_model() -> None:
+    async with client(create_app()) as c:
+        response = await c.post("/v1/voice/drug-name", json={"text": "انا عايز بروفين"})
+
+    assert response.json() == {"query": "بروفين", "name": None, "understood": False}

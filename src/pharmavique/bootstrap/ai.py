@@ -30,6 +30,7 @@ from pharmavique.voice.application.ports import TextToSpeech
 from pharmavique.voice.application.speak import Speak, Transcribe
 from pharmavique.voice.infrastructure.elevenlabs_speech import ElevenLabsTextToSpeech
 from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
+from pharmavique.voice.infrastructure.llm_name import LlmDrugNameExtractor
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -65,6 +66,12 @@ def build_chat_model(settings: Settings) -> Any | None:
         # The free tier allows 8,000 tokens a minute: wait out short limits instead of failing.
         max_retries=4,
     )
+
+
+def build_name_extractor(settings: Settings) -> LlmDrugNameExtractor | None:
+    """The model that picks the drug name out of a spoken request; None without a key."""
+    model = build_chat_model(settings)
+    return None if model is None else LlmDrugNameExtractor(model)
 
 
 def build_tts(settings: Settings) -> TextToSpeech | None:

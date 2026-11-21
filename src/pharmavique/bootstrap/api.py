@@ -21,7 +21,12 @@ from pharmavique.bootstrap import (
     health,
     observability,
 )
-from pharmavique.bootstrap.ai import build_assistant, build_scanner, build_voice
+from pharmavique.bootstrap.ai import (
+    build_assistant,
+    build_name_extractor,
+    build_scanner,
+    build_voice,
+)
 from pharmavique.bootstrap.api_pictures import PictureLookup
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
@@ -35,6 +40,8 @@ from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
 from pharmavique.substitution.application.compare import CompareProductsHandler
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
+from pharmavique.voice.application.extract import ExtractDrugName
+from pharmavique.voice.application.ports import DrugNameExtractor
 from pharmavique.voice.application.speak import Speak, Transcribe
 from pharmavique.voice.infrastructure.audio_cache import AudioCache
 
@@ -54,6 +61,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if all(backend is None for backend in injected):
         settings = get_settings()
         app.state.transcribe, app.state.speak = build_voice(settings)
+        app.state.extract_name = ExtractDrugName(build_name_extractor(settings))
         secret = settings.database_url
         if secret is not None:
             engine = create_engine(secret.get_secret_value())
@@ -90,6 +98,7 @@ def create_app(
     transcribe: Transcribe | None = None,
     scanner: ScanImage | None = None,
     pictures: PictureLookup | None = None,
+    name_extractor: DrugNameExtractor | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -110,6 +119,7 @@ def create_app(
     app.state.transcribe = transcribe
     app.state.scanner = scanner
     app.state.pictures = pictures
+    app.state.extract_name = ExtractDrugName(name_extractor)
     app.state.metrics = observability.Metrics()
     app.state.audio_cache = AudioCache()
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)

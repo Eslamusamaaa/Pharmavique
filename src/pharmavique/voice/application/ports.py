@@ -21,3 +21,11 @@ class TextToSpeech(Protocol):
     async def synthesize(self, segments: Sequence[str]) -> bytes:
         """One audio file speaking every segment in order."""
         ...
+
+
+class DrugNameExtractor(Protocol):
+    """Picks the medicine name out of a spoken request (a language model)."""
+
+    async def extract(self, text: str) -> str | None:
+        """The name as spoken, or None when no medicine is named."""
+        ...
