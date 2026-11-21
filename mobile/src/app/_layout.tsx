@@ -33,6 +33,8 @@ export default function RootLayout() {
         <Stack.Screen name="role" />
         <Stack.Screen name="drug/[register]" />
         <Stack.Screen name="assistant" />
+        <Stack.Screen name="interactions" />
+        <Stack.Screen name="my-medicines" />
         <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>
     </SafeAreaProvider>

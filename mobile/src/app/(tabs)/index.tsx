@@ -9,6 +9,7 @@ import {
   MicrophoneIcon,
   ScanIcon,
   UserCircleIcon,
+  WarningIcon,
 } from 'phosphor-react-native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -103,6 +104,23 @@ export default function Home() {
               </T>
             </View>
           </Pressable>
+          {role === 'pharmacist' || role === 'patient' ? (
+            <Pressable
+              onPress={() => router.push(role === 'pharmacist' ? '/interactions' : '/my-medicines')}
+              style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+              accessibilityRole="button"
+            >
+              <WarningIcon size={26} color={c.pr} />
+              <View style={{ flex: 1 }}>
+                <T weight={700}>{role === 'pharmacist' ? 'فحص التداخل بين الأدوية' : 'أدويتي والتداخل بينها'}</T>
+                <T size={13} color={c.ink2}>
+                  {role === 'pharmacist'
+                    ? 'أضف دوائين أو أكثر لترى التداخلات المسجّلة'
+                    : 'أضف أدويتك لتعرف إن كان بينها تداخل مسجّل'}
+                </T>
+              </View>
+            </Pressable>
+          ) : null}
         </View>
         {recents.length > 0 ? (
           <View style={{ gap: 6 }}>

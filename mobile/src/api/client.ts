@@ -255,3 +255,24 @@ export function scanImage(uri: string, mimeType: string, kind: 'box' | 'prescrip
   const name = mimeType === 'image/png' ? 'scan.png' : mimeType === 'image/webp' ? 'scan.webp' : 'scan.jpg';
   return postFile(`/v1/recognition/scan?kind=${kind}`, 'image', uri, name, mimeType);
 }
+
+export type InteractionFinding = {
+  kind: 'interaction' | 'duplicate_ingredient';
+  severity: 'major' | 'moderate' | 'minor' | 'unknown' | null; // as the source rates it
+  registers: [string, string];
+  ingredients: [string, string];
+  source: string | null;
+};
+
+export type InteractionCheck = {
+  products: { register_number: string; trade_name_ar: string | null; trade_name_en: string | null; ingredients: string[] }[];
+  findings: InteractionFinding[];
+  unmatched: { register_number: string; ingredient: string }[]; // ingredients the source cannot judge
+  unknown_registers: string[];
+  complete: boolean; // always false: "nothing found" is never "safe"
+  note: string;
+};
+
+export function checkInteractions(registerNumbers: string[], signal?: AbortSignal): Promise<InteractionCheck> {
+  return postJson<InteractionCheck>('/v1/interactions/check', { register_numbers: registerNumbers }, signal);
+}
