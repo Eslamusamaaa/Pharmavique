@@ -58,7 +58,11 @@ function Get-RowCount([string]$path) {
 try {
     if ($Steps -contains "drugs") {
         $run = "update-$stamp"
-        if ((Invoke-Step "drugs-update" @("sfda-update", "--recheck", "$Recheck", "--run-id", $run)) -eq 0) {
+        # compare with the last complete update; on a fresh clone there is none yet, so the
+        # committed full crawl is the baseline
+        $update = @("sfda-update", "--recheck", "$Recheck", "--run-id", $run)
+        if (-not (Test-Path (Join-Path $root "data\sfda\latest.json"))) { $update += @("--baseline", "full-20261116") }
+        if ((Invoke-Step "drugs-update" $update) -eq 0) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             $changes = Join-Path $root "data\sfda\$run\changes.md"
