@@ -8,9 +8,10 @@ contracts. Nothing here is medical advice.
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
+from pharmavique.bootstrap.cached_response import cached_json
 from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
     CatalogQueries,
@@ -103,6 +104,7 @@ def get_catalog(request: Request) -> CatalogQueries:
 
 @router.get("/search", response_model=SearchOut, summary="Find drugs by name or register number")
 async def search(
+    request: Request,
     q: Annotated[
         str, Query(min_length=1, max_length=200, description="a name or a register number")
     ],
@@ -111,6 +113,22 @@ async def search(
     market: Market = Market.SA,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
     include_withdrawn: bool = False,
+) -> Response:
+    async def compute() -> SearchOut:
+        return await _search(q, search_backend, catalog, market, limit, include_withdrawn)
+
+    return await cached_json(
+        request, "search", [q, market.value, str(limit), str(include_withdrawn)], compute
+    )
+
+
+async def _search(
+    q: str,
+    search_backend: ProductSearch,
+    catalog: CatalogQueries,
+    market: Market,
+    limit: int,
+    include_withdrawn: bool,
 ) -> SearchOut:
     result = await search_backend.search(SearchQuery(q, market, limit, include_withdrawn))
     cards = await catalog.get_cards(market, [m.register_number for m in result.matches])
@@ -132,14 +150,18 @@ async def search(
     "/products/{register_number}", response_model=ProductOut, summary="One drug by register number"
 )
 async def product(
+    request: Request,
     register_number: str,
     catalog: Annotated[CatalogQueries, Depends(get_catalog)],
     market: Market = Market.SA,
-) -> ProductOut:
-    cards = await catalog.get_cards(market, [register_number])
-    if not cards:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    return _product(cards[0])
+) -> Response:
+    async def compute() -> ProductOut:
+        cards = await catalog.get_cards(market, [register_number])
+        if not cards:
+            raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        return _product(cards[0])
+
+    return await cached_json(request, "product", [register_number, market.value], compute)
 
 
 # ---- drug page (B8): full details and same-ingredient products ---------------------------------
@@ -289,9 +311,19 @@ def get_equivalence(request: Request) -> EquivalenceQueries:
     summary="The drug page: every registry field with its source and fetch date",
 )
 async def drug_page(
+    request: Request,
     register_number: str,
     details_backend: Annotated[CatalogDetails, Depends(get_details)],
     market: Market = Market.SA,
+) -> Response:
+    async def compute() -> DrugPageOut:
+        return await _drug_page(details_backend, market, register_number)
+
+    return await cached_json(request, "page", [register_number, market.value], compute)
+
+
+async def _drug_page(
+    details_backend: CatalogDetails, market: Market, register_number: str
 ) -> DrugPageOut:
     found = await details_backend.get_details(market, register_number)
     if found is None:

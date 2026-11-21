@@ -61,6 +61,8 @@ from pharmavique.catalog.infrastructure.persistence.quality import SqlAlchemyQua
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.foundation.kv import KeyValueStore, RedisStore, redis_client
+from pharmavique.foundation.read_cache import ReadCache
 from pharmavique.identity.application.service import IdentityService
 from pharmavique.identity.contracts import TokenVerifier
 from pharmavique.identity.infrastructure.passwords import ScryptPasswordHasher
@@ -85,14 +87,31 @@ from pharmavique.substitution.contracts.queries import EquivalenceQueries
 from pharmavique.voice.application.extract import ExtractDrugName
 from pharmavique.voice.application.ports import DrugNameExtractor
 from pharmavique.voice.application.speak import Speak, Transcribe
-from pharmavique.voice.infrastructure.audio_cache import AudioCache
+from pharmavique.voice.infrastructure.audio_cache import LocalAudioStore, SharedAudioStore
 from pharmavique.watchlist.application.service import WatchlistService
 from pharmavique.watchlist.infrastructure.postgres import PostgresWatchlistStore
+
+
+def use_shared_store(app: FastAPI, store: KeyValueStore, cache_ttl_seconds: int) -> None:
+    """Everything the API instances must share lives in one store: the rate limit, the read
+    cache and spoken-answer links. Without a store each instance keeps its own, which is only
+    right for a single instance."""
+    metrics: observability.Metrics = app.state.metrics
+    app.state.kv = store
+    app.state.read_cache = ReadCache(
+        store,
+        ttl_seconds=cache_ttl_seconds,
+        observer=lambda namespace, result: metrics.inc(
+            "pharmavique_cache_total", {"namespace": namespace, "result": result}
+        ),
+    )
+    app.state.audio_cache = SharedAudioStore(store)
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = None
+    redis_store: RedisStore | None = None
     injected = (
         app.state.search,
         app.state.catalog,
@@ -106,10 +125,20 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if all(backend is None for backend in injected):
         settings = get_settings()
         app.state.transcribe, app.state.speak = build_voice(settings)
+        if settings.redis_url is not None and app.state.kv is None:
+            # short timeouts: a slow Redis must cost a request milliseconds, never seconds
+            redis_store = RedisStore(
+                redis_client(settings.redis_url.get_secret_value(), timeout=0.25)
+            )
+            use_shared_store(app, redis_store, settings.cache_ttl_seconds)
         app.state.extract_name = ExtractDrugName(build_name_extractor(settings))
         secret = settings.database_url
         if secret is not None:
-            engine = create_engine(secret.get_secret_value())
+            engine = create_engine(
+                secret.get_secret_value(),
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+            )
             session_factory = create_session_factory(engine)
             app.state.search = SearchProductsHandler(PostgresSearchIndex(session_factory))
             catalog = ReadProductCardsHandler(
@@ -159,6 +188,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if engine is not None:
             await engine.dispose()
+        if redis_store is not None:
+            await redis_store.close()
 
 
 def create_app(
@@ -180,11 +211,13 @@ def create_app(
     watchlist: WatchlistService | None = None,
     ingredients: CatalogIngredients | None = None,
     token_verifier: TokenVerifier | None = None,
+    store: KeyValueStore | None = None,
     analytics: AnalyticsService | None = None,
     quality: CatalogQuality | None = None,
     refresh_history: FileRefreshHistory | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
+    trusted_proxy_hops: int | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -218,8 +251,12 @@ def create_app(
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
     app.state.metrics = observability.Metrics()
-    app.state.audio_cache = AudioCache()
+    app.state.audio_cache = LocalAudioStore()
+    app.state.kv = None
+    app.state.read_cache = None
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
+    if store is not None:
+        use_shared_store(app, store, get_settings().cache_ttl_seconds)
     settings = get_settings()
     app.add_middleware(
         RateLimitMiddleware,
@@ -229,6 +266,10 @@ def create_app(
         heavy=settings.heavy_rate_limit_per_minute
         if heavy_rate_limit_per_minute is None
         else heavy_rate_limit_per_minute,
+        store=lambda: app.state.kv,
+        trusted_proxy_hops=settings.trusted_proxy_hops
+        if trusted_proxy_hops is None
+        else trusted_proxy_hops,
     )
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:

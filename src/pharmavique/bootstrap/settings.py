@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     # endpoints that cost money or CPU (assistant, voice, scan).
     rate_limit_per_minute: int = 300
     heavy_rate_limit_per_minute: int = 30
+    # How many reverse proxies of ours sit in front of the API; 0 = none (use the socket address).
+    # With 1, the last X-Forwarded-For entry is the caller's address, as our balancer wrote it.
+    trusted_proxy_hops: int = 0
+
+    # Shared read cache (needs PHARMAVIQUE_REDIS_URL). Entries also expire on their own.
+    cache_ttl_seconds: int = 600
+    # Database connections per API process; with many instances put PgBouncer in front.
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
 
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"

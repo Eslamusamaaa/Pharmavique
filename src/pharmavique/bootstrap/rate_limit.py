@@ -1,8 +1,10 @@
 """Request limits per client address, so one caller cannot exhaust the API or the AI budget.
 
 Two windows of one minute: a general one, and a lower one for the endpoints that cost money or
-CPU (assistant, voice, scan). The counts live in this process, which is enough for one API
-instance; behind several instances the same rule moves to Redis (ADR-004, step 6).
+CPU (assistant, voice, scan). When a shared store is available the counts live there, so the
+limit holds across every API instance; if the store is down each instance falls back to counting
+for itself (a limit that is too loose for a moment, never an outage). Behind a load balancer the
+client address is read from X-Forwarded-For, trusting only the entry our own balancer appended.
 """
 
 import math
@@ -13,6 +15,8 @@ from collections.abc import Awaitable, Callable
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
+from pharmavique.foundation.kv import KeyValueStore, StoreUnavailable
 
 HEAVY_PREFIXES = ("/v1/assistant", "/v1/voice", "/v1/recognition", "/v1/auth")
 EXEMPT_PATHS = frozenset({"/health", "/ready"})
@@ -64,29 +68,66 @@ class SlidingWindow:
                 del self._hits[client]
 
 
+def client_address(request: Request, trusted_proxy_hops: int) -> str:
+    """The caller's address. With `trusted_proxy_hops` = n, the n-th entry from the right of
+    X-Forwarded-For (the one our own balancer appended); entries further left can be forged."""
+    if trusted_proxy_hops > 0:
+        forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",")]
+        forwarded = [p for p in forwarded if p]
+        if len(forwarded) >= trusted_proxy_hops:
+            return forwarded[-trusted_proxy_hops]
+    return request.client.host if request.client else "unknown"
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: object, *, general: int, heavy: int) -> None:
+    def __init__(
+        self,
+        app: object,
+        *,
+        general: int,
+        heavy: int,
+        store: Callable[[], KeyValueStore | None] | None = None,
+        trusted_proxy_hops: int = 0,
+    ) -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self._general = SlidingWindow(general) if general > 0 else None
         self._heavy = SlidingWindow(heavy) if heavy > 0 else None
+        self._limits = {"general": general, "heavy": heavy}
+        self._store = store
+        self._hops = trusted_proxy_hops
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         path = request.url.path
-        client = request.client.host if request.client else "unknown"
+        client = client_address(request, self._hops)
         if path not in EXEMPT_PATHS:
-            for window in self._windows(path):
-                if not window.allow(client):
+            for scope, window in self._windows(path):
+                wait = await self._check(scope, window, client)
+                if wait is not None:
                     return JSONResponse(
                         {"detail": "too many requests, try again shortly"},
                         status_code=429,
-                        headers={"Retry-After": str(window.retry_after(client))},
+                        headers={"Retry-After": str(wait)},
                     )
         return await call_next(request)
 
-    def _windows(self, path: str) -> list[SlidingWindow]:
-        windows = [self._general] if self._general is not None else []
+    async def _check(self, scope: str, window: SlidingWindow, client: str) -> int | None:
+        """None when allowed, else the seconds to wait."""
+        store = self._store() if self._store is not None else None
+        if store is not None:
+            try:
+                count, left = await store.window_hit(f"pv:rl:{scope}:{client}", 60)
+            except StoreUnavailable:
+                pass  # fall back to this process's own count below
+            else:
+                return None if count <= self._limits[scope] else left
+        if window.allow(client):
+            return None
+        return window.retry_after(client)
+
+    def _windows(self, path: str) -> list[tuple[str, SlidingWindow]]:
+        windows = [("general", self._general)] if self._general is not None else []
         if self._heavy is not None and path.startswith(HEAVY_PREFIXES):
-            windows.append(self._heavy)
+            windows.append(("heavy", self._heavy))
         return windows

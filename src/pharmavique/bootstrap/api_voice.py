@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from pharmavique.voice.application.extract import ExtractDrugName
 from pharmavique.voice.application.speak import MAX_AUDIO_BYTES, MAX_TEXT, Speak, Transcribe
-from pharmavique.voice.infrastructure.audio_cache import AudioCache
+from pharmavique.voice.infrastructure.audio_cache import AudioStore
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"])
@@ -90,8 +90,8 @@ async def speak(
     except SpeechError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
     if body.as_link:
-        cache: AudioCache = request.app.state.audio_cache
-        key = cache.put(audio.content, audio.media_type)
+        cache: AudioStore = request.app.state.audio_cache
+        key = await cache.put(audio.content, audio.media_type)
         link = SpokenLinkOut(url=f"/v1/voice/audio/{key}", media_type=audio.media_type)
         return Response(content=link.model_dump_json(), media_type="application/json")
     return Response(content=audio.content, media_type=audio.media_type)
@@ -99,8 +99,8 @@ async def speak(
 
 @router.get("/audio/{key}", summary="Fetch a spoken answer once by its short-lived link")
 async def audio(key: str, request: Request) -> Response:
-    cache: AudioCache = request.app.state.audio_cache
-    found = cache.take(key)
+    cache: AudioStore = request.app.state.audio_cache
+    found = await cache.take(key)
     if found is None:
         raise HTTPException(status_code=404, detail="this audio link has expired")
     content, media_type = found
