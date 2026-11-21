@@ -1,9 +1,9 @@
 """Environment-driven configuration. Secrets come from the environment only, never from code."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -85,6 +85,20 @@ class Settings(BaseSettings):
     elevenlabs_model: str = "eleven_v3"
     tts_model: str = "canopylabs/orpheus-arabic-saudi"
     tts_voice: str = "noura"  # Saudi voices: abdullah, fahad, sultan, lulwa, noura, aisha
+
+    @field_validator(
+        "database_url",
+        "redis_url",
+        "jwt_secret",
+        "openrouter_api_key",
+        "groq_api_key",
+        "elevenlabs_api_key",
+        mode="before",
+    )
+    @classmethod
+    def _empty_means_unset(cls, value: Any) -> Any:
+        """`PHARMAVIQUE_REDIS_URL=` (set but empty) is the same as not setting it."""
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache
