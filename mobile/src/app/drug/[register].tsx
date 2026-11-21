@@ -474,6 +474,7 @@ export default function DrugScreen() {
             ))}
             <T size={12.5} color={c.ink2}>
               الأسماء دي متشابهة في الكتابة أو النطق. اتأكد من اسم الدواء على العلبة أو الروشتة. القائمة محسوبة من الأسماء بس ولسه ما راجعهاش صيدلي.
+              {similar.hidden_weaker ? ` فيه ${similar.hidden_weaker} أسماء تانية أقل تشابهًا مش معروضة.` : ''}
             </T>
           </View>
         ) : null}

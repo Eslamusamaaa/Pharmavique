@@ -123,6 +123,8 @@ export type SimilarNames = {
     same_ingredients: boolean;
     ingredients: string[];
   }[];
+  shown_level?: 'high' | 'all'; // only the strong matches by default
+  hidden_weaker?: number; // weaker matches (only spelled alike) that are not shown
   reviewed: boolean;
   note: string;
 };
