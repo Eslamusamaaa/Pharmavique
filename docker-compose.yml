@@ -36,6 +36,14 @@ services:
       timeout: 3s
       retries: 10
 
+  # The product pictures are not in git: this data-only image copies them into the `mediadata`
+  # volume and exits (docker/media/Dockerfile, scripts/build_media_image.sh).
+  media:
+    image: ghcr.io/eslamusamaaa/pharmavique-media:latest
+    restart: "no"
+    volumes:
+      - mediadata:/target
+
   api:
     build: .
     restart: unless-stopped
@@ -43,14 +51,20 @@ services:
       PHARMAVIQUE_ENVIRONMENT: dev
       PHARMAVIQUE_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pharmavique}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pharmavique}
       PHARMAVIQUE_REDIS_URL: redis://redis:6379/0
+      PHARMAVIQUE_MEDIA_DIR: /media
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - mediadata:/media/images:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      media:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
   redisdata:
+  mediadata:
