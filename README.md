@@ -28,7 +28,7 @@
 
 1. [Overview](#1-overview)
 2. [Project status](#2-project-status)
-3. [Screens](#3-screens)
+3. [Screens and UI design](#3-screens-and-ui-design)
 4. [Features in depth](#4-features-in-depth)
 5. [AI layer](#5-ai-layer)
 6. [Guardrails and anti-hallucination](#6-guardrails-and-anti-hallucination)
@@ -99,72 +99,10 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
 | Accounts, roles, watchlist alerts, analytics | Planned | Bounded contexts exist as skeletons; the API has no sign-in yet |
 
-## 3. Screens
+## 3. Screens and UI design
 
-All phone screens below are shown at the same size (390 × 844 points). Wireframes live in
-[`pharmavique-wireframes/`](pharmavique-wireframes/); open `Pharmavique Wireframes.dc.html` over HTTP
-(for example `python -m http.server`) for the interactive canvas with clickable flows.
-
-### 3.1 Wireframe and running app, side by side
-
-The running app uses real SFDA data. Light and dark themes follow the design tokens in section 3.4.
-
-| Screen | Wireframe | App, light | App, dark |
-|:---:|:---:|:---:|:---:|
-| Home | <img src="docs/media/wireframes/B1.png" width="200"> | <img src="docs/media/app/home.png" width="200"> | <img src="docs/media/app/home-dark.png" width="200"> |
-| Search results | <img src="docs/media/wireframes/B3.png" width="200"> | <img src="docs/media/app/search.png" width="200"> | <img src="docs/media/app/search-dark.png" width="200"> |
-| Drug page | <img src="docs/media/wireframes/B8.png" width="200"> | <img src="docs/media/app/drug.png" width="200"> | <img src="docs/media/app/drug-dark.png" width="200"> |
-| Equivalents and compare | <img src="docs/media/wireframes/B11.png" width="200"> | <img src="docs/media/app/drug-same-ingredient.png" width="200"> | <img src="docs/media/app/drug-same-ingredient-dark.png" width="200"> |
-| Assistant | <img src="docs/media/wireframes/B16.png" width="200"> | <img src="docs/media/app/assistant.png" width="200"> | <img src="docs/media/app/assistant-dark.png" width="200"> |
-| Voice search | <img src="docs/media/wireframes/B5.png" width="200"> | <img src="docs/media/app/voice.png" width="200"> | <img src="docs/media/app/voice-dark.png" width="200"> |
-| Box scan review | <img src="docs/media/wireframes/B7.png" width="200"> | <img src="docs/media/app/scan-review.png" width="200"> | <img src="docs/media/app/scan-review-dark.png" width="200"> |
-
-### 3.2 Wireframe gallery: patient
-
-| Splash | Introduction | Role choice | Typing with suggestions |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/media/wireframes/A1.png" width="200"> | <img src="docs/media/wireframes/A2.png" width="200"> | <img src="docs/media/wireframes/A3.png" width="200"> | <img src="docs/media/wireframes/B4.png" width="200"> |
-
-| Voice search | Box scan | Scan result | Price history |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/media/wireframes/B5.png" width="200"> | <img src="docs/media/wireframes/B6.png" width="200"> | <img src="docs/media/wireframes/B7.png" width="200"> | <img src="docs/media/wireframes/B12.png" width="200"> |
-
-| My medication list | Alerts | Assistant | Safety check |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/media/wireframes/B14.png" width="200"> | <img src="docs/media/wireframes/B15.png" width="200"> | <img src="docs/media/wireframes/B16.png" width="200"> | <img src="docs/media/wireframes/B20.png" width="200"> |
-
-| Recall detail | Patient safety center | Account | Data and trust |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/media/wireframes/B21.png" width="200"> | <img src="docs/media/wireframes/B22.png" width="200"> | <img src="docs/media/wireframes/E1.png" width="200"> | <img src="docs/media/wireframes/E2.png" width="200"> |
-
-### 3.3 Wireframe gallery: pharmacist
-
-| Prescription capture | Prescription review | Shelf scan | Scan summary |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/media/wireframes/C1.png" width="200"> | <img src="docs/media/wireframes/C2.png" width="200"> | <img src="docs/media/wireframes/C4.png" width="200"> | <img src="docs/media/wireframes/C6.png" width="200"> |
-
-| Desktop drug page | Pharmacist workspace (desktop) |
-|:---:|:---:|
-| <img src="docs/media/wireframes/B10.png" width="420"> | <img src="docs/media/wireframes/C7.png" width="420"> |
-
-### 3.4 Design system
-
-| Token | Light | Dark | Use |
-|---|---|---|---|
-| `bg` | `#F5F9F8` | `#0F2427` | Canvas |
-| `sf` | `#FFFFFF` | `#173236` | Surfaces (cards, bars) |
-| `ink` | `#0F2427` | `#E7F1F1` | Primary text |
-| `ink2` | `#4B6365` | `#9FB7B8` | Secondary text (WCAG AA on `bg`) |
-| `pr` | `#0D4450` | `#3CC8C4` | Brand primary (deep teal) |
-| `prs` | `#E4F1F1` | `#14393C` | Primary soft (disclaimer bar, chips) |
-| `ok` | `#17703F` | `#74D79B` | Official data |
-| `wn` | `#8A5800` | `#F3C455` | Unverified, or needs a pharmacist's check |
-| `rd` | `#B3261E` | `#FF9D95` | Safety alert or recall |
-| `or` | `#A04600` | `#FFB67F` | Shortage |
-
-- Type: IBM Plex Sans Arabic for Arabic text, Inter for Latin drug names and digits; base size 16, line height 1.7 for Arabic.
-- Radius: 8, 12, 16, 24 (sheets), pill. Card elevation: two soft shadows. Touch targets are at least 44 points.
-- Semantic colors always come with an icon and a label, never color alone. Layout is right to left.
+The wireframes, the running app's screens next to them and the design system (colors, type, spacing) are in
+their own folder: **[`pharmavique-wireframes/`](pharmavique-wireframes/README.md)**.
 
 ## 4. Features in depth
 
@@ -775,6 +713,7 @@ migrations/           Alembic environment
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
+| [UI design and wireframes](pharmavique-wireframes/README.md) | Wireframes, app screens, design system |
 | [Data layout](data/README.md) | Every data folder: source, size, rebuild command |
 | [Security policy](SECURITY.md) | Reporting, protections, known limits |
 | [Open questions](docs/OPEN_QUESTIONS.md) | Unknowns waiting for decisions |
