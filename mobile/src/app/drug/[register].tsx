@@ -30,6 +30,7 @@ import {
   type Price,
   type SameIngredient,
 } from '@/api/client';
+import { DrugPicture } from '@/components/DrugPicture';
 import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
 import { cardShadow, radius, useTheme } from '@/theme';
 
@@ -150,6 +151,9 @@ export default function DrugScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}>
         {/* name, register number, trust badge, fetched date and source, status chips */}
         <View style={{ gap: 6 }}>
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <DrugPicture register={d.register_number} size={168} />
+          </View>
           <T size={28} weight={700} style={{ lineHeight: 36 }}>
             {displayName(d)}
           </T>

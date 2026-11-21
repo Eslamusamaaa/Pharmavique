@@ -64,6 +64,9 @@ export type SameIngredient = {
   form_family: string;
 };
 
+/** The picture of a product; the API answers 404 when the drug has none. */
+export const pictureUrl = (register: string) => `${API_URL}/v1/products/${encodeURIComponent(register)}/picture`;
+
 export class ApiError extends Error {
   constructor(
     message: string,

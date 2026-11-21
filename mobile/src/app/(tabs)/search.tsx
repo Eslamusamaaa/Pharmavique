@@ -8,7 +8,6 @@ import {
   MagnifyingGlassIcon,
   MicrophoneIcon,
   SortDescendingIcon,
-  TextAaIcon,
   XCircleIcon,
   XIcon,
 } from 'phosphor-react-native';
@@ -17,6 +16,7 @@ import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { displayName, fold, friendlyError, searchDrugs, type SearchHit } from '@/api/client';
+import { DrugPicture } from '@/components/DrugPicture';
 import { Card, DisclaimerBar, Loading, Message, Pill, Row, T } from '@/components/ui';
 import { useRecentActions, useRecents } from '@/state/recents';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
@@ -36,16 +36,6 @@ function valueOf(hit: SearchHit, key: FilterKey): string | null {
   if (key === 'form') return hit.dosage_form_ar ?? hit.dosage_form_en;
   if (key === 'company') return hit.marketing_company;
   return hit.legal_status ? LEGAL_AR[hit.legal_status] ?? hit.legal_status : null;
-}
-
-/** Factual hint of what matched (wireframe B3 note: "Match hint is factual"). */
-function matchHint(hit: SearchHit, query: string): string {
-  const q = fold(query);
-  if (hit.exact) return 'تطابق تام';
-  const names = [hit.trade_name_ar, hit.trade_name_en].filter(Boolean).map((n) => fold(n as string));
-  if (names.some((n) => n.startsWith(q) || n.split(/\s+/).includes(q))) return 'تطابق الاسم';
-  if (hit.ingredients.some((i) => fold(i).includes(q))) return 'نفس المادة الفعالة';
-  return 'تطابق جزئي';
 }
 
 /** "Did you mean": shown only when no result name contains what was typed (a misspelling). */
@@ -280,7 +270,7 @@ export default function Search() {
                   </Row>
                 </Row>
               }
-              renderItem={({ item }) => <ResultCard hit={item} hint={matchHint(item, submitted)} onPress={() => openDrug(item)} />}
+              renderItem={({ item }) => <ResultCard hit={item} onPress={() => openDrug(item)} />}
             />
           )}
         </>
@@ -354,30 +344,32 @@ export default function Search() {
   }
 }
 
-function ResultCard({ hit, hint, onPress }: { hit: SearchHit; hint: string; onPress: () => void }) {
+function ResultCard({ hit, onPress }: { hit: SearchHit; onPress: () => void }) {
   const { c } = useTheme();
   const meta = [hit.dosage_form_ar ?? hit.dosage_form_en, hit.marketing_company].filter(Boolean).join(' · ');
   return (
     <Pressable onPress={onPress} style={({ pressed }) => pressed && { opacity: 0.75 }}>
-      <Card style={{ gap: 4 }}>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <T size={18} weight={700} style={{ flex: 1 }}>
-            {displayName(hit)}
-          </T>
-          <Pill label={hint} tone="muted" radiusSize={radius.sm} icon={<TextAaIcon size={12} color={c.ink2} />} />
+      <Card>
+        <Row gap={12} style={{ alignItems: 'flex-start' }}>
+          <DrugPicture register={hit.register_number} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <T size={18} weight={700}>
+              {displayName(hit)}
+            </T>
+            {hit.trade_name_en && hit.trade_name_ar ? (
+              <T size={14} color={c.ink2} latin align="right">
+                {hit.trade_name_en}
+              </T>
+            ) : null}
+            <T size={15} weight={700} latin align="right">
+              {hit.ingredients.join(' + ')}
+            </T>
+            <T size={14} color={c.ink2}>
+              {meta}
+            </T>
+            {hit.listing_status !== 'listed' ? <Pill label="غير مدرج حاليًا" tone="rd" /> : null}
+          </View>
         </Row>
-        {hit.trade_name_en && hit.trade_name_ar ? (
-          <T size={14} color={c.ink2} latin align="right">
-            {hit.trade_name_en}
-          </T>
-        ) : null}
-        <T size={15} weight={700} latin align="right">
-          {hit.ingredients.join(' + ')}
-        </T>
-        <T size={14} color={c.ink2}>
-          {meta}
-        </T>
-        {hit.listing_status !== 'listed' ? <Pill label="غير مدرج حاليًا" tone="rd" /> : null}
       </Card>
     </Pressable>
   );
