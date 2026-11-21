@@ -13,6 +13,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKeyConstraint,
     Index,
     Integer,
@@ -184,3 +185,23 @@ class OutboxRow(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CityLocationRow(Base):
+    """One point per city, found once by a geocoder (the pharmacy list has no finer place)."""
+
+    __tablename__ = "city_locations"
+    __table_args__ = (
+        CheckConstraint("latitude between -90 and 90", name="ck_city_locations_lat"),
+        CheckConstraint("longitude between -180 and 180", name="ck_city_locations_lon"),
+    )
+
+    market: Mapped[str] = mapped_column(String(2), primary_key=True)
+    city_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    city: Mapped[str] = mapped_column(Text)
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(Text)
+    source_ref: Mapped[str] = mapped_column(Text)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    trust: Mapped[str] = mapped_column(String(32))
