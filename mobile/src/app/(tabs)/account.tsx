@@ -70,6 +70,28 @@ export default function Account() {
                 قائمتي وتنبيهاتي
               </T>
             </Pressable>
+            {account.role === 'company' || account.role === 'operator' ? (
+              <Pressable
+                onPress={() => router.push('/company')}
+                style={[outline, { borderColor: c.pr }]}
+                accessibilityRole="button"
+              >
+                <T weight={600} color={c.pr}>
+                  شاشة الشركات
+                </T>
+              </Pressable>
+            ) : null}
+            {account.role === 'operator' ? (
+              <Pressable
+                onPress={() => router.push('/operator')}
+                style={[outline, { borderColor: c.pr }]}
+                accessibilityRole="button"
+              >
+                <T weight={600} color={c.pr}>
+                  جودة البيانات
+                </T>
+              </Pressable>
+            ) : null}
             <Pressable onPress={() => signOut()} style={[outline, { borderColor: c.pr }]} accessibilityRole="button">
               <T weight={600} color={c.pr}>
                 تسجيل الخروج

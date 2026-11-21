@@ -30,7 +30,7 @@ export type Digest = { days: number; counts: Record<string, number>; summary: st
 
 export type AllergyCheck = { register_number: string; matches: AllergyMatch[]; checked_allergies: number; note: string };
 
-async function authed<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function authed<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const token = await accessToken();
   if (!token) throw new AuthError('expired');
   let response: Response;
