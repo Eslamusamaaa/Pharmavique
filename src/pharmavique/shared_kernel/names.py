@@ -6,6 +6,8 @@ work from the brand part: form words, numbers and units are dropped. Shared by `
 `media`, which must not import each other.
 """
 
+import re
+
 from pharmavique.shared_kernel.text import normalize_text
 
 # Words in a registry trade name that describe the form or the strength, not the brand. Shops do
@@ -18,12 +20,16 @@ NAME_NOISE = frozenset(
         "drop", "oral", "film", "coated", "powder", "solution", "for", "per", "and", "with",
         "sachet", "sachets", "spray", "lotion", "infusion", "iv", "mg", "mcg", "g", "ml", "iu",
         "gm", "gms", "coted", "plastic", "single", "dose", "pack", "each",
+        "release", "modified", "prolonged", "extended", "chewable", "gastro", "resistant",
+        "hard", "soft", "gelatin", "gelatine", "eye", "sol", "soln", "solu", "inf", "conc",
         "اقراص", "قرص", "كبسول", "شراب", "معلق", "كريم", "مرهم", "لبوس", "حقن", "محلول", "للحقن",
         "ميكروجرام", "ميكرولتر", "مجم", "ملجم", "مل", "جم",
     }
 )  # fmt: skip
 # Whole words that are noise only as written (a lone "C" or "U" elsewhere may be part of a name)
 NAME_NOISE_RAW = frozenset({"f.c", "fc", "f.c.", "f.c.tablet", "u"})
+# "F.C", "F-C" and "FC" (film coated) in any spelling, with or without a trailing form word
+_FILM_COATED = re.compile(r"^f[.\-]?c(?:[.\-]?(?:tab|tabs|tablet|tablets|cap))?\.?$", re.IGNORECASE)
 
 
 def core_name(name: str | None) -> str:
@@ -40,6 +46,7 @@ def core_name(name: str | None) -> str:
         and not any(char.isdigit() for char in normalized)
         and not set(normalized.split()) <= NAME_NOISE
         and word.lower().strip("()[],") not in NAME_NOISE_RAW
+        and not _FILM_COATED.match(word.strip("()[],"))
     ]
     return " ".join(kept) or raw
 

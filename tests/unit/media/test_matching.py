@@ -5,6 +5,8 @@ of being Saudi", not "the pixels are this exact pack". A stronger check (reading
 OCR) can replace it later behind the same verdicts.
 """
 
+import pytest
+
 from pharmavique.media.domain.matching import (
     ImageCandidate,
     MatchVerdict,
@@ -278,3 +280,24 @@ def test_more_registry_noise_words_are_dropped_from_the_brand() -> None:
     assert core_name("EDYST F.C.TABLET") == "EDYST"
     assert core_name("SINGLE DOSE PLASTIC U") == "SINGLE DOSE PLASTIC U"  # only noise: kept as is
     assert core_name("VITAMIN C 1000") == "VITAMIN C"  # a lone C is part of a real name
+
+
+@pytest.mark.parametrize(
+    ("registry_name", "brand"),
+    [
+        ("TOPAMAX 25MG-TAB. F.C.TAB.", "TOPAMAX"),
+        ("SOLOTIK 50MG F-C TABLETS", "SOLOTIK"),
+        ("LAMUCON 500 mg F.C.TAB", "LAMUCON"),
+        ("VASTAREL MR 35MG MODIFIED RELEASE TABLET", "VASTAREL MR"),
+        ("URITAB XL 10MG EXTENDED RELEASE TABLETS", "URITAB XL"),
+        ("GAMCET 0.4MG PROLONGED RELEASE F.C.TABLET", "GAMCET"),
+        ("ASACOL 800MG GASTRO-RESISTANT TABLETS", "ASACOL"),
+        ("CYMBALTA 60MG HARD GASTRO-RESISTANT CAP", "CYMBALTA"),
+        ("XERACTAN 10 MG SOFT GELATIN CAPSULE", "XERACTAN"),
+        ("ANTACID JEDCO 480MG CHEWABLE TABLETS", "ANTACID JEDCO"),
+        ("PENTOLATE 1% EYE DROPS", "PENTOLATE"),
+        ("DIAPAM 10MG/2ML SOL. FOR INJ./INF", "DIAPAM"),
+    ],
+)
+def test_form_words_left_over_in_registry_names_are_dropped(registry_name: str, brand: str) -> None:
+    assert core_name(registry_name) == brand
