@@ -192,6 +192,8 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 
 | G Pharmacist shelf scan | Built **behind a flag, off by default** ([ADR-015](adr/ADR-015-shelf-scan.md)): `kind=shelf` on the scan endpoint (pharmacists only), every box for review with its score, a confirmed shelf list under row-level security that also raises alerts, `GET /v1/features`, the `shelf` screen. **Not measured**: no real shelf photos exist (Q-32), so its accuracy is unknown |
 
+| I Email confirmation and email notifications | Built ([ADR-016](adr/ADR-016-email-confirmation-and-notifications.md)): sign-up emails a six-digit code and gives no session until it is entered, resend with limits, `EmailSender` port with SMTP and console adapters, one digest email per person of new alerts (`notify-emails`, run by the daily refresh), a switch in the account screen, signed unsubscribe link with one-click headers, app screens (`verify-email`, notification switch). Run end to end on the development database. **Still the owner's:** the SMTP provider, the sending domain and `PUBLIC_URL` (Q-38) |
+
 ## 7. Proposed start
 
 Wave A first (four independent items, no decisions needed), then B, because C and D wait on it. After

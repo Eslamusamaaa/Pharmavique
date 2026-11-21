@@ -103,6 +103,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Nearby licensed pharmacies | Done, at city precision | By city from the SFDA list, using the person's position once and never keeping it; the list has no street or coordinates, so no distance to a pharmacy and never a stock claim ([ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md)) |
 | Medicine history as memory | Done | A signed-in patient's saved medicines (current or past) are compared with any new drug, with recorded interactions from DDInter and openFDA, and with their allergies; never advice, and the language model never sees the list ([ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md)) |
 | Pharmacist shelf scan | Built, off by default | Many boxes in one photo, every box for review, a confirmed shelf list; **accuracy not measured** because no real shelf photos exist yet ([ADR-015](docs/adr/ADR-015-shelf-scan.md)) |
+| Email confirmation and notifications | Done (provider is the owner's choice) | Sign-up emails a six-digit code; one digest email per person of new alerts; a switch and an unsubscribe link ([ADR-016](docs/adr/ADR-016-email-confirmation-and-notifications.md)). Needs an SMTP provider and a sending domain in production (Q-38) |
 
 ## 3. Screens and UI design
 
@@ -553,6 +554,9 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
 | `SHELF_SCAN_ENABLED` | `false` | Switch on the pharmacist's shelf scan (many boxes in one photo); off until it has been tried on real shelf photos |
+| `EMAIL_BACKEND` | `console` | `console` prints emails in the API output (development only, refused in prod); `smtp` sends through any provider |
+| `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_STARTTLS` | sender, none, `587`, none, none, `true` | The SMTP provider (the password only from the environment) |
+| `PUBLIC_URL` | empty | The https address of the API, for the unsubscribe link in emails |
 | `REDIS_URL` | none | Redis connection: shared rate limit, read cache, audio links, job queue (use `127.0.0.1`, not `localhost`, on Windows) |
 | `CACHE_TTL_SECONDS` | `600` | How long a cached search or drug-page answer lives at most |
 | `TRUSTED_PROXY_HOPS` | `0` | Reverse proxies of ours in front of the API (1 behind one load balancer) |
@@ -590,6 +594,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique worker` | Run background jobs (scans, assistant) from the Redis queue; the API needs `PHARMAVIQUE_JOB_BACKEND=arq` |
 | `pharmavique cache-invalidate` | Make cached search and drug-page answers stale (the daily refresh and the relay do it) |
 | `pharmavique geocode-cities` | Find one point per city that has licensed pharmacies (OpenStreetMap, one request a second, city names only); run once, rerun when a city appears |
+| `pharmavique notify-emails` | Email each person one digest of their new alerts (confirmed addresses that allow it); the daily refresh runs it |
 | `pharmavique analytics-rebuild` | Rebuild the company views' read model from the catalog (the daily refresh runs it) |
 | `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
 | `pharmavique sfda-diff --old A --new B` | Changes between two runs |
@@ -634,6 +639,9 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | PUT | `/v1/me/medicines/{n}/status` | Mark a saved medicine as one I take now (`current`) or took before (`past`) |
 | GET | `/v1/me/history/check/{n}` | A drug against the medicines I take now: recorded interactions, duplicate ingredients, my allergies (never advice) |
 | GET | `/v1/me/history/interactions` | Recorded interactions among the medicines I take now |
+| POST | `/v1/auth/verify-email`, `/v1/auth/resend-code` | Confirm the email with the emailed code (this opens the first session); ask for a new code (always the same answer) |
+| PUT | `/v1/auth/me/notifications` | Switch notification emails on or off |
+| GET, POST | `/v1/auth/unsubscribe?token=` | The link in a notification email: asks first, then switches email notifications off |
 | GET | `/v1/features` | Which optional features this server has switched on |
 | GET, POST | `/v1/me/shelf`, DELETE `/v1/me/shelf/{n}` | A pharmacist's shelf list: the medicines they confirmed after a shelf scan (pharmacists only) |
 | GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
@@ -766,6 +774,7 @@ migrations/           Alembic environment
 | [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
 | [ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md) | Company views and the operator's quality board |
 | [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md) | Shared state, read cache and background jobs |
+| [ADR-016](docs/adr/ADR-016-email-confirmation-and-notifications.md) | Email confirmation with a one-time code, and email notifications |
 | [ADR-015](docs/adr/ADR-015-shelf-scan.md) | The pharmacist's shelf scan, behind a flag |
 | [ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md) | The patient's medicine history checked against a new drug |
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
