@@ -88,7 +88,9 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Guardrails | Done | Emergency detection, injection rules plus a learned classifier, dose and stop rules, numeric grounding check |
 | Observability | Done | Structured events, Prometheus metrics, request ids |
 | Voice | Done | Whisper speech-to-text; Saudi Arabic text-to-speech through ElevenLabs or Groq |
-| Box and prescription scan | Done | Vision model with automatic fallback across models, registry matching, mandatory review |
+| Box and prescription scan | Done | Vision model with automatic fallback across models, registry matching, mandatory review; a prescription's confirmed products can be checked for interactions together. Measured on generated pictures only ([SCAN_EVALUATION.md](docs/SCAN_EVALUATION.md)) |
+| Shortage to substitutes, compare two drugs, similar-name warnings | Done | The drug page shows an SFDA shortage with same-ingredient products, two drugs side by side with a computed verdict, and look-alike sound-alike names (only the strong matches by default, unreviewed by a pharmacist) |
+| Scale: shared cache, shared rate limit, background jobs | Done | Redis-backed read cache with a data version, rate limit and audio links shared by every instance, scan and assistant jobs through Arq workers, load-test baselines ([ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md), [PERFORMANCE.md](docs/PERFORMANCE.md)). Deployment pieces (load balancer, PgBouncer, replicas, CDN) are not built |
 | Knowledge base (RAG) | Done | 10,000+ cited chunks with embeddings: SFDA documents and US label sections per active ingredient |
 | SFDA lists | Done | Safety lists, shortages, approvals, companies (6,135) and licensed pharmacies (385), loaded and linked to products |
 | Interaction check | Done | 234,757 recorded drug pairs (DDInter), duplicated ingredients, `POST /v1/interactions/check` |
@@ -102,7 +104,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Company views, operator board | Done | `analytics` read model rebuilt from the catalog: market map per ingredient, thin and missing strengths and forms, change radar; operator data-quality board ([ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md)). Registry facts only, no sales or demand figures |
 | Nearby licensed pharmacies | Done, at city precision | By city from the SFDA list, using the person's position once and never keeping it; the list has no street or coordinates, so no distance to a pharmacy and never a stock claim ([ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md)) |
 | Medicine history as memory | Done | A signed-in patient's saved medicines (current or past) are compared with any new drug, with recorded interactions from DDInter and openFDA, and with their allergies; never advice, and the language model never sees the list ([ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md)) |
-| Pharmacist shelf scan | Built, off by default | Many boxes in one photo, every box for review, a confirmed shelf list; **accuracy not measured** because no real shelf photos exist yet ([ADR-015](docs/adr/ADR-015-shelf-scan.md)) |
+| Pharmacist shelf scan | Done, on by default | Many boxes in one photo, every box for review, a confirmed shelf list. Run for real on generated pictures (32 of 32 names read, an upper bound); **not measured on real shelves** because no real photos exist yet ([ADR-015](docs/adr/ADR-015-shelf-scan.md), [SCAN_EVALUATION.md](docs/SCAN_EVALUATION.md)) |
 | Email confirmation and notifications | Done (provider is the owner's choice) | Sign-up emails a six-digit code; one digest email per person of new alerts; a switch and an unsubscribe link ([ADR-016](docs/adr/ADR-016-email-confirmation-and-notifications.md)). Needs an SMTP provider and a sending domain in production (Q-38) |
 
 ## 3. Screens and UI design
@@ -186,6 +188,19 @@ Strength normalization is exact (fractions, not floats): 500 mg equals 0.5 g, 12
 
 Measured on a real box photo: `nvidia/nemotron-3.5-super-vl:free` read it correctly in about 6 seconds,
 and the first registry candidate was the exact product with a score of 1.0.
+
+**Prescriptions.** After the lines are read the person confirms each one and picks which registry product
+it is (the closest is offered). The confirmed products can then be checked for interactions together, or
+(for a patient) added to "my medicines". Doses are never read.
+
+**Shelf (pharmacists).** `kind=shelf` reads many boxes in one photo; each is proposed with up to three
+registry candidates and its match score, and only the boxes the pharmacist confirms join the shelf list.
+
+**How well it works.** `scripts/scan_eval.py` measures the scans on labelled photos or on pictures it draws
+from real registry names. On drawn, clean pictures the names were read 100% of the time (4 of 4 boxes,
+12 of 12 prescription lines, 32 of 32 shelf boxes), with no invented lines and no dose read. That is an
+upper bound; real photos (glare, angles, handwriting) are not measured yet. Details and how to measure
+real photos: [docs/SCAN_EVALUATION.md](docs/SCAN_EVALUATION.md).
 
 ### 4.7 SFDA safety intelligence
 
@@ -327,9 +342,9 @@ checked on every run and in CI.
 | `recognition` | Box and prescription reading, candidates, review rules | Done |
 | `media` | Product picture pipeline (shop sitemaps, OCR verification, placeholders) | Done |
 | `interactions` | Ingredient name matching, drug-drug pairs, contraindications, duplicate ingredients | Done |
-| `identity` | Accounts, tenants, roles | Planned |
-| `watchlist` | Alerts on a user's medicines (recalls, price changes) | Planned |
-| `analytics` | Company analytics and the operator's quality board | Built (read model, company and operator endpoints) |
+| `identity` | Accounts, roles, tenant ids, sessions, email confirmation codes | Done |
+| `watchlist` | Saved medicines (current and past), allergies, alerts, a pharmacist's shelf list, under row-level security | Done |
+| `analytics` | Company market map, gaps and change radar, and the operator's quality board | Done |
 
 Shared building blocks: `shared_kernel` (market, currency, money, provenance, Arabic and Latin text
 normalization), `foundation` (database engine, throttling, robots rules, concurrency helpers) and
@@ -356,6 +371,8 @@ flowchart LR
     ingestion -- commands through the anti-corruption layer --> catalog
     search -- read contract --> catalog
     catalog -- domain events through the outbox --> watchlist
+    catalog -- domain events through the outbox --> analytics
+    analytics -- full export and quality counts --> catalog
     bootstrap{{bootstrap}} --> assistant
     bootstrap --> recognition
     assistant -. DrugFacts port .-> search
@@ -553,7 +570,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
-| `SHELF_SCAN_ENABLED` | `false` | Switch on the pharmacist's shelf scan (many boxes in one photo); off until it has been tried on real shelf photos |
+| `SHELF_SCAN_ENABLED` | `true` | The pharmacist's shelf scan (many boxes in one photo); every box is still confirmed by the pharmacist. Set `false` to switch it off |
 | `EMAIL_BACKEND` | `console` | `console` prints emails in the API output (development only, refused in prod); `smtp` sends through any provider |
 | `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_STARTTLS` | sender, none, `587`, none, none, `true` | The SMTP provider (the password only from the environment) |
 | `PUBLIC_URL` | empty | The https address of the API, for the unsubscribe link in emails |
@@ -594,6 +611,8 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique worker` | Run background jobs (scans, assistant) from the Redis queue; the API needs `PHARMAVIQUE_JOB_BACKEND=arq` |
 | `pharmavique cache-invalidate` | Make cached search and drug-page answers stale (the daily refresh and the relay do it) |
 | `pharmavique geocode-cities` | Find one point per city that has licensed pharmacies (OpenStreetMap, one request a second, city names only); run once, rerun when a city appears |
+| `uv run python scripts/scan_eval.py --kind shelf --synthetic 4` | Measure the box, prescription or shelf scan on drawn pictures, or on labelled photos (`--folder`) |
+| `uv run python scripts/loadtest.py --scenario mixed --concurrency 50` | Measure the read API under load (no targets are assumed) |
 | `pharmavique notify-emails` | Email each person one digest of their new alerts (confirmed addresses that allow it); the daily refresh runs it |
 | `pharmavique analytics-rebuild` | Rebuild the company views' read model from the catalog (the daily refresh runs it) |
 | `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
@@ -715,8 +734,11 @@ uv run pytest                    # unit, architecture and integration tests
 cd mobile && npx tsc --noEmit    # the app's types
 ```
 
-- More than 900 automated tests (83% line coverage): unit tests per layer, architecture tests, and
-  integration tests against a real PostgreSQL.
+- About 1,340 automated tests (83% line coverage on the unit tests): unit tests per layer, architecture
+  tests, and about 70 integration tests against a real PostgreSQL and Redis. CI runs the tests that need
+  no database (`-m "not integration"`); the integration tests are run on a developer machine with
+  `docker compose up -d db redis` and are part of "done".
+- CI also runs `ruff check .` over the whole repository (scripts included), not only `src` and `tests`.
 - Tests come before adapters, and every bug fix starts with a failing test.
 - Every port has a fake adapter, so AI behaviour (tool calls, citations, guardrails, fallbacks) is tested
   with scripted models and mock HTTP transports, without network access or keys.
@@ -779,6 +801,8 @@ migrations/           Alembic environment
 | [ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md) | The patient's medicine history checked against a new drug |
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
+| [Scan evaluation](docs/SCAN_EVALUATION.md) | How the box, prescription and shelf scans were measured, and how to measure real photos |
+| [Hand-off](docs/HANDOFF.md) | Where the project stands, how to run it, what is done and what is next: start here when taking over |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
@@ -790,11 +814,26 @@ migrations/           Alembic environment
 
 ## 19. Roadmap
 
-1. Schedule the daily refresh and show changes (price changes, new and withdrawn drugs) to pharmacists and companies.
-2. Accounts, tenants and roles with sign-in on the API; alerts on a user's medicines through the outbox relay.
-3. Drug-food and drug-condition notes beyond the contraindication list; ingredient allergy in "my medicines".
-4. Shared storage for pictures; the app uses the jobs endpoints; email verification and notifications; the patient's medicine history as memory.
-5. Egypt as a CSV-import adapter marked unverified.
+Built so far: the registry, search, drug pages, equivalence, the assistant and voice, the scans (box,
+prescription, shelf), interactions, accounts with email confirmation, saved medicines and alerts (in the
+app and by email), the patient's medicine history, company and operator views, nearby pharmacies by city,
+the shared cache, queue and load test. What is next, in the order that matters:
+
+1. **Run the app on a real phone** and fix what shows. The app has only been type-checked.
+2. **Owner decisions and set-up:** the sending address and SMTP provider (Q-38), `PHARMAVIQUE_JWT_SECRET`,
+   scheduling the daily refresh, finding out why the 2026-11-21 `drugs-update` step exited with code 3.
+3. **Real photos** (Q-32): label a set of real shelf, box and prescription photos and measure the scans
+   with `scripts/scan_eval.py`; have a pharmacist review a sample of the similar-name warnings (Q-26).
+4. **Alerts for new shortages and safety notices** (the list loader needs to emit events), class allergies,
+   password reset and changing the email address.
+5. **Exact pharmacy locations** from the national address service (Q-39), if the owner wants distance to
+   a pharmacy and not only to its city.
+6. **The app uses the jobs endpoints** for scans and assistant questions, and a company account tied to
+   its registered name.
+7. **Deployment for many users:** load balancer, PgBouncer, a read replica, managed Redis with failover, a
+   CDN, shared storage for pictures, and a load test from separate machines.
+8. **Egypt** as a CSV-import adapter marked unverified (no scraping), and the legal review once the
+   project is meant for real users.
 
 ## 20. Disclaimer
 

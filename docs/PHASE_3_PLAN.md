@@ -190,9 +190,11 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 
 | H Patient history as memory | Built ([ADR-014](adr/ADR-014-medicine-history-as-memory.md)): current and past medicines, `GET /v1/me/history/check/{n}` and `/interactions`, the assistant can attach the check (`use_history`, the model never sees the medicines), drug page card, my list status toggle and a card of interactions among my current medicines. Checked on real data (aspirin with warfarin: major, ddinter-2.0). Not built: the person's conditions, a timeline, history inside background jobs |
 
-| G Pharmacist shelf scan | Built **behind a flag, off by default** ([ADR-015](adr/ADR-015-shelf-scan.md)): `kind=shelf` on the scan endpoint (pharmacists only), every box for review with its score, a confirmed shelf list under row-level security that also raises alerts, `GET /v1/features`, the `shelf` screen. **Not measured**: no real shelf photos exist (Q-32), so its accuracy is unknown |
+| G Pharmacist shelf scan | Built, **on by default since 2026-11-22** ([ADR-015](adr/ADR-015-shelf-scan.md)): `kind=shelf` on the scan endpoint (pharmacists only), every box for review with its score, a confirmed shelf list under row-level security that also raises alerts, `GET /v1/features`, the `shelf` screen. Run for real on generated pictures (32 of 32 names read; an upper bound, see [SCAN_EVALUATION.md](SCAN_EVALUATION.md)); **not measured on real shelves**: no real photos exist (Q-32) |
 
 | I Email confirmation and email notifications | Built ([ADR-016](adr/ADR-016-email-confirmation-and-notifications.md)): sign-up emails a six-digit code and gives no session until it is entered, resend with limits, `EmailSender` port with SMTP and console adapters, one digest email per person of new alerts (`notify-emails`, run by the daily refresh), a switch in the account screen, signed unsubscribe link with one-click headers, app screens (`verify-email`, notification switch). Run end to end on the development database. **Still the owner's:** the SMTP provider, the sending domain and `PUBLIC_URL` (Q-38) |
+
+| C2 Prescription scan, finished | The prescription review now lets the person pick the registry product for each confirmed line, then **check interactions across the whole prescription** (opens the interaction check with those products) or, for a patient, add them to their medicines. Doses are never read (0 of 12 lines in the generated-picture run); names were read 12 of 12 on clean printed prescriptions. Handwriting is unmeasured |
 
 ## 7. Proposed start
 

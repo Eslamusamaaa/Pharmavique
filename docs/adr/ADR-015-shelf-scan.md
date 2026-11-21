@@ -1,8 +1,9 @@
 # ADR-015: the pharmacist's shelf scan
 
-Status: accepted, 2026-11-21, **shipped behind a flag, off by default** (owner asked for it; Q-12
-answered: use the vision model already configured for the box scan; Q-32 still open: no real shelf
-photos exist yet).
+Status: accepted, 2026-11-21. It shipped behind a flag that was off; **on 2026-11-22 the flag was
+turned on by default** after the pipeline was run for real on generated pictures (owner asked for it
+to be finished; Q-12 answered: use the vision model already configured for the box scan; Q-32 still
+open: no real shelf photos exist yet). `PHARMAVIQUE_SHELF_SCAN_ENABLED=false` switches it off.
 
 ## Context
 
@@ -19,9 +20,9 @@ no shelf photos to measure with.
   same candidate matching against the registry, up to 40 lines, and one line per distinct name and
   strength (the same box seen twice is one line). Every line needs review, its match score is always
   shown, and no dose is ever read.
-- **Off by default** (`PHARMAVIQUE_SHELF_SCAN_ENABLED`, `GET /v1/features` tells the app). When off the
-  endpoint answers 404 for `kind=shelf`; the box and prescription scans are unaffected. The owner
-  switches it on to try it on real photos.
+- **A flag** (`PHARMAVIQUE_SHELF_SCAN_ENABLED`, on by default since 2026-11-22; `GET /v1/features` tells
+  the app). When off the endpoint answers 404 for `kind=shelf`; the box and prescription scans are
+  unaffected.
 - **Pharmacists only**: a signed-in pharmacist (or the operator) is needed, otherwise 401 or 403.
 - **Nothing is added automatically.** The app shows each proposed box with up to three registry
   candidates and their scores; the pharmacist ticks the right one and confirms. Only confirmed medicines
@@ -34,10 +35,19 @@ no shelf photos to measure with.
   a withdrawal), because the alert handler's holder lookup includes it.
 - The photo is read in memory and dropped; nothing about a shelf is stored but the confirmed list.
 
+## Measured on 2026-11-22 (generated pictures only)
+
+`scripts/scan_eval.py` drew shelves of eight clean printed boxes from real registry names and ran the
+real vision models: 32 of 32 names read, no invented lines, the right brand first for 32 of 32 and the
+exact register number first for 21 of 32 (66%; a brand often has several register numbers, so the
+pharmacist's confirmation picks the product), about 12 seconds a picture. **This is an upper bound**:
+clean text on flat colour, no glare, angle, clutter or handwriting. See
+[SCAN_EVALUATION.md](../SCAN_EVALUATION.md).
+
 ## Consequences
 
-- Until real photos exist the accuracy is unknown. The first thing to do when the flag is turned on is
-  to run a set of real shelf photos, label them, and measure how many boxes are read, how many are
+- Until real photos exist the accuracy on real shelves is unknown. The first thing to do is to run a
+  set of real shelf photos, label them, and measure how many boxes are read, how many are
   matched to the right register number and how many are missed (Q-32); thresholds and the 40-line cap
   are guesses until then.
 - Names that look alike (LASA) matter more on a shelf than anywhere: the screen shows the score, but
