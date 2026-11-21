@@ -69,6 +69,8 @@ try {
             Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null
             # the company views (market map, gaps, radar) read their own copy of the catalog
             Invoke-Step "analytics-rebuild" @("analytics-rebuild") | Out-Null
+            # cached search and drug-page answers are now stale
+            Invoke-Step "cache-invalidate" @("cache-invalidate") | Out-Null
             $changes = Join-Path $root "data\sfda\$run\changes.md"
             if (Test-Path $changes) { Copy-Item $changes (Join-Path $logs "drug-changes.md") -Force }
         }
@@ -91,6 +93,7 @@ try {
             }
             if ($loadable.Count -gt 0) {
                 Invoke-Step "lists-load" @("sfda-lists-load", "--lists", ($loadable -join ","), "--run-id", $run) | Out-Null
+                Invoke-Step "cache-invalidate-lists" @("cache-invalidate") | Out-Null
             }
         }
     }

@@ -24,6 +24,7 @@ import httpx
 
 from pharmavique.bootstrap import (
     analytics_cli,
+    cache_cli,
     identity_cli,
     images,
     interactions_cli,
@@ -199,6 +200,7 @@ def build_parser() -> argparse.ArgumentParser:
     identity_cli.add_arguments(commands)
     relay_cli.add_arguments(commands)
     analytics_cli.add_arguments(commands)
+    cache_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
@@ -657,6 +659,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(lists_cli.load(args))
     if args.command == "outbox-relay":
         return asyncio.run(relay_cli.run(args))
+    if args.command == "cache-invalidate":
+        return asyncio.run(cache_cli.invalidate(args))
     if args.command == "analytics-rebuild":
         return asyncio.run(analytics_cli.rebuild(args))
     if args.command == "create-operator":
