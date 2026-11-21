@@ -621,6 +621,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return images.run_verify(args)
     if args.command == "sfda-images-map":
         return images.run_map(args)
+    if args.command == "sfda-images-restore":
+        return asyncio.run(images.restore_images(args))
     if args.command == "sfda-images-report":
         return images.report_coverage(args)
     if args.command == "sfda-diff":

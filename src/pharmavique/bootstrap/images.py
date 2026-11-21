@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections import Counter
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -37,6 +38,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import Snaps
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import StoredRecords
 from pharmavique.media.application.handlers import FindImagesReport, FindProductImagesHandler
 from pharmavique.media.application.page_search import PageImageSearch, PageSearch
+from pharmavique.media.application.restore import ImageRestorer, RestoreReport, WantedImage
 from pharmavique.media.domain.matching import ProductRef, build_queries
 from pharmavique.media.domain.placeholders import (
     FORMS,
@@ -144,6 +146,20 @@ def add_arguments(commands: Any) -> None:
     )
     mapping.add_argument("--products", default=DEFAULT_PRODUCTS)
     mapping.add_argument("--out", default="data/media")
+
+    restore = commands.add_parser(
+        "sfda-images-restore",
+        help="download again the picture files that are missing, from the URLs recorded for them",
+    )
+    restore.add_argument("--out", default="data/media")
+    restore.add_argument(
+        "--delay", type=float, default=1.0, help="seconds between requests per site"
+    )
+    restore.add_argument("--jitter", type=float, default=0.5)
+    restore.add_argument("--user-agent", default=DEFAULT_USER_AGENT)
+    restore.add_argument(
+        "--all", action="store_true", help="every recorded picture, not only the mapped ones"
+    )
 
     report = commands.add_parser(
         "sfda-images-report", help="how many drugs have a picture; write the list of those without"
@@ -703,5 +719,69 @@ def run_map(args: argparse.Namespace) -> int:
         f"(confirmed by the text on the box: {summary['confirmed']}, "
         f"not confirmed: {summary['unverified']}) | no real picture, generated card: "
         f"{summary['missing']}"
+    )
+    return EXIT_OK
+
+
+async def restore_images(args: argparse.Namespace) -> int:
+    """Download again every recorded picture whose file is missing, keeping only exact matches."""
+    out = Path(args.out)
+    images = out / "images.jsonl"
+    if not images.is_file():
+        print(f"no {images}: nothing is recorded to restore", file=sys.stderr)
+        return EXIT_NO_INPUT
+    recorded = [
+        json.loads(line) for line in images.read_text(encoding="utf-8").splitlines() if line
+    ]
+    mapped: set[str] | None = None
+    mapping = out / "mapping.jsonl"
+    if not args.all and mapping.is_file():
+        mapped = {
+            str(row["picture"]).replace("\\", "/").split("images/", 1)[-1]
+            for row in (
+                json.loads(x) for x in mapping.read_text(encoding="utf-8").splitlines() if x
+            )
+            if row.get("picture_kind") == "real"
+        }
+    wanted = [
+        WantedImage(row["storage_key"], row["image_url"], row["content_hash"])
+        for row in recorded
+        if mapped is None or row["storage_key"] in mapped
+    ]
+    root = out / "images"
+    started = time.monotonic()
+
+    def show(report: RestoreReport) -> None:
+        done = report.restored + len(report.unavailable) + len(report.changed)
+        if done % 100 == 0:
+            print(
+                f"{done}/{len(wanted)} done in {int(time.monotonic() - started)}s: "
+                f"{report.restored} restored, {len(report.unavailable)} unavailable, "
+                f"{len(report.changed)} changed",
+                flush=True,
+            )
+
+    async with httpx.AsyncClient(timeout=40.0, follow_redirects=True) as client:
+        web = PoliteWeb(
+            client, lambda: Throttle(args.delay, args.jitter), user_agent=args.user_agent
+        )
+        report = await ImageRestorer(
+            HttpImageDownloader(web),
+            FileImageStore(root),
+            lambda key: (root / key).is_file(),
+        ).run(wanted, show)
+        blocked = sorted(web.blocked_hosts)
+    print(
+        f"{len(wanted)} wanted: {report.restored} restored, {report.already_there} already there, "
+        f"{len(report.unavailable)} unavailable, {len(report.changed)} changed (hash differs)"
+    )
+    if blocked:
+        print(f"sites that blocked us and were left alone: {', '.join(blocked)}")
+    (out / "restore-report.json").write_text(
+        json.dumps(
+            {"unavailable": report.unavailable, "changed": report.changed, "blocked": blocked},
+            indent=2,
+        ),
+        encoding="utf-8",
     )
     return EXIT_OK
