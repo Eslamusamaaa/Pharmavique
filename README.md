@@ -97,7 +97,8 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Mobile app | Done for the core journeys | Home, search, drug page with pictures, assistant, voice search, box and prescription scan, first-launch role choice, interaction check (pharmacist) and "my medicines" (patient) |
 | Daily refresh | Built, to be scheduled | `scripts/daily_refresh.ps1` re-reads drugs, prices, fast lists and pictures and loads the difference |
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
-| Accounts, roles, watchlist alerts, analytics | Planned | Bounded contexts exist as skeletons; the API has no sign-in yet |
+| Accounts and roles | Done | Email and password, roles patient, pharmacist, company, operator, refresh-token rotation with replay detection, sign-in screens in the app ([ADR-009](docs/adr/ADR-009-identity-and-sessions.md)) |
+| Watchlist alerts, company views, operator board | Planned | `watchlist` and `analytics` are still skeletons; see the [Phase 3 plan](docs/PHASE_3_PLAN.md) |
 
 ## 3. Screens and UI design
 
@@ -546,6 +547,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
 | `REDIS_URL` | none | Redis connection |
+| `JWT_SECRET` | none | Signs access tokens, at least 32 random characters; without it the account endpoints answer 503 |
 | `CORS_ORIGINS` | local app origins | Browser origins allowed to call the API |
 | `RATE_LIMIT_PER_MINUTE` | `300` | Requests per minute per client address; `0` turns it off |
 | `HEAVY_RATE_LIMIT_PER_MINUTE` | `30` | The same for the assistant, voice and scan endpoints |
@@ -572,6 +574,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 |---|---|
 | `pharmavique sfda-scrape --run-id ID` | Full crawl of the registered drugs list (resumable) |
 | `pharmavique sfda-update --run-id ID` | Incremental refresh against the latest run |
+| `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
 | `pharmavique sfda-diff --old A --new B` | Changes between two runs |
 | `pharmavique sfda-load --run-id ID [--from-records]` | Load a run into the catalog |
 | `pharmavique sfda-lists [--lists a,b]` | Crawl the other SFDA lists |
@@ -591,6 +594,12 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/v1/auth/register` | Create an account (role patient, pharmacist or company); returns a session |
+| POST | `/v1/auth/login` | Sign in; returns a session (access token valid 15 minutes, refresh token 30 days, used once) |
+| POST | `/v1/auth/refresh` | Swap a refresh token for a new session |
+| POST | `/v1/auth/logout` | End the session of a refresh token |
+| GET | `/v1/auth/me` | The signed-in account (Bearer token) |
+| DELETE | `/v1/auth/me` | Delete the account and its sessions |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/v1/search?q=&limit=&include_withdrawn=` | Find drugs by name, ingredient or register number |
@@ -598,6 +607,9 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/products/{register_number}/details` | Drug page: every field with provenance |
 | GET | `/v1/products/{register_number}/same-ingredient` | Same ingredient set, cheapest first, with verdict |
 | GET | `/v1/products/{register_number}/picture` | The drug's real pharmacy picture (404 when it has none) |
+| GET | `/v1/products/{register_number}/shortage` | Whether SFDA lists the drug as short (with how sure the link is) and the same-ingredient products, each with its computed verdict |
+| GET | `/v1/products/{register_number}/similar-names` | Drugs whose names are spelled or sound alike (informational, not reviewed by a pharmacist yet) |
+| GET | `/v1/compare?a=&b=` | Two drugs side by side: facts, the fields that differ, and the computed equivalence verdict |
 | POST | `/v1/interactions/check` | Recorded interactions and duplicated ingredients among 2 to 20 products |
 | GET | `/v1/interactions/contraindications/{register_number}` | Conditions the product's ingredients are contraindicated with, with label text and source |
 | POST | `/v1/assistant/ask` | Cited answer to a question |
@@ -712,6 +724,8 @@ migrations/           Alembic environment
 | [Domain model](docs/DOMAIN_MODEL.md) | Aggregates, value objects, invariants |
 | [Features](docs/FEATURES.md) | Product decisions |
 | [Phase 2 plan](docs/PHASE_2_PLAN.md) | Application and AI plan with the owner's decisions |
+| [Phase 3 plan](docs/PHASE_3_PLAN.md) | Accounts, alerts, company views, scale, shortages, compare, LASA, pharmacies |
+| [ADR-009](docs/adr/ADR-009-identity-and-sessions.md) | Accounts, roles and sessions |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
