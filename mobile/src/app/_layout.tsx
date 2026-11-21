@@ -32,6 +32,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="role" />
         <Stack.Screen name="sign-in" />
+        <Stack.Screen name="verify-email" />
         <Stack.Screen name="drug/[register]" />
         <Stack.Screen name="compare" />
         <Stack.Screen name="assistant" />

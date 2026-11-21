@@ -7,13 +7,30 @@ import { API_URL } from '@/api/client';
 
 export type AccountRole = 'patient' | 'pharmacist' | 'company' | 'operator';
 
-export type Account = { id: string; email: string; role: AccountRole; tenant_id: string | null };
+export type Account = {
+  id: string;
+  email: string;
+  role: AccountRole;
+  tenant_id: string | null;
+  email_verified: boolean;
+  email_notifications: boolean; // may we email them about their saved medicines
+};
 
 type SessionBody = { access_token: string; refresh_token: string; expires_in: number; user: Account };
 
 export class AuthError extends Error {
   constructor(
-    public kind: 'wrong_login' | 'email_taken' | 'invalid' | 'unavailable' | 'network' | 'expired' | 'unknown',
+    public kind:
+      | 'wrong_login'
+      | 'email_taken'
+      | 'invalid'
+      | 'unavailable'
+      | 'network'
+      | 'expired'
+      | 'email_not_verified'
+      | 'wrong_code'
+      | 'code_locked'
+      | 'unknown',
     public detail?: string,
   ) {
     super(kind);
@@ -79,6 +96,9 @@ async function adopt(response: Response): Promise<Account> {
   if (!response.ok) {
     const detail = await readError(response);
     if (response.status === 401) throw new AuthError('wrong_login', detail);
+    if (response.status === 403 && detail === 'email_not_verified') throw new AuthError('email_not_verified', detail);
+    if (response.status === 400) throw new AuthError('wrong_code', detail);
+    if (response.status === 429) throw new AuthError('code_locked', detail);
     if (response.status === 409) throw new AuthError('email_taken', detail);
     if (response.status === 422) throw new AuthError('invalid', detail);
     if (response.status === 503) throw new AuthError('unavailable', detail);
@@ -91,8 +111,49 @@ async function adopt(response: Response): Promise<Account> {
   return session.user;
 }
 
-export async function signUp(email: string, password: string, role: Exclude<AccountRole, 'operator'>): Promise<Account> {
-  return adopt(await post('/v1/auth/register', { email, password, role }));
+/** Creates the account and emails a code. There is no session until the code is entered. */
+export async function signUp(
+  email: string,
+  password: string,
+  role: Exclude<AccountRole, 'operator'>,
+): Promise<{ email: string }> {
+  const response = await post('/v1/auth/register', { email, password, role });
+  if (!response.ok) {
+    const detail = await readError(response);
+    if (response.status === 409) throw new AuthError('email_taken', detail);
+    if (response.status === 422) throw new AuthError('invalid', detail);
+    if (response.status === 503) throw new AuthError('unavailable', detail);
+    throw new AuthError('unknown', detail);
+  }
+  return { email: ((await response.json()) as { email: string }).email };
+}
+
+/** The emailed code confirms the address and opens the first session. */
+export async function verifyEmail(email: string, code: string): Promise<Account> {
+  return adopt(await post('/v1/auth/verify-email', { email, code: code.trim() }));
+}
+
+/** Ask for a new code. The answer is always the same, so it never says whether an account exists. */
+export async function resendCode(email: string): Promise<void> {
+  await post('/v1/auth/resend-code', { email });
+}
+
+/** Switch notification emails on or off for the signed-in account. */
+export async function setEmailNotifications(enabled: boolean): Promise<void> {
+  const token = await accessToken();
+  if (!token) throw new AuthError('expired');
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/v1/auth/me/notifications`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email: enabled }),
+    });
+  } catch {
+    throw new AuthError('network');
+  }
+  if (!response.ok) throw new AuthError('unknown', await readError(response));
+  if (current) publish({ ...current, email_notifications: enabled });
 }
 
 export async function signIn(email: string, password: string): Promise<Account> {
@@ -171,6 +232,12 @@ export function arabicAuthError(error: unknown): string {
       return 'مش قادر أوصل للسيرفر. اتأكد من النت';
     case 'expired':
       return 'الجلسة انتهت. سجّل الدخول تاني';
+    case 'email_not_verified':
+      return 'لازم تأكّد الإيميل الأول بالرمز اللي اتبعتلك';
+    case 'wrong_code':
+      return 'الرمز غلط أو انتهت صلاحيته';
+    case 'code_locked':
+      return 'غلطت في الرمز مرات كتير. اطلب رمز جديد';
     default:
       return 'حصلت مشكلة. جرّب تاني.';
   }

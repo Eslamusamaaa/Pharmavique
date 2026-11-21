@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { arabicAuthError, signIn, signUp } from '@/api/auth';
+import { arabicAuthError, AuthError, resendCode, signIn, signUp } from '@/api/auth';
 import { DisclaimerBar, T } from '@/components/ui';
 import { ROLES, type Role } from '@/state/role';
 import { radius, useTheme } from '@/theme';
@@ -25,11 +25,22 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'in') await signIn(email, password);
-      else await signUp(email, password, role);
+      if (mode === 'in') {
+        await signIn(email, password);
+      } else {
+        const made = await signUp(email, password, role);
+        router.replace({ pathname: '/verify-email', params: { email: made.email } });
+        return;
+      }
       if (router.canGoBack()) router.back();
       else router.replace('/account');
     } catch (e) {
+      if (e instanceof AuthError && e.kind === 'email_not_verified') {
+        // right password, address not confirmed yet: send a fresh code and ask for it
+        await resendCode(email.trim()).catch(() => undefined);
+        router.replace({ pathname: '/verify-email', params: { email: email.trim().toLowerCase() } });
+        return;
+      }
       setError(arabicAuthError(e));
     } finally {
       setBusy(false);

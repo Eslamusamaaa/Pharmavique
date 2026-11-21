@@ -2,10 +2,10 @@
 import { router } from 'expo-router';
 import { UserCircleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { arabicAuthError, deleteAccount, signOut } from '@/api/auth';
+import { arabicAuthError, deleteAccount, setEmailNotifications, signOut } from '@/api/auth';
 import { DisclaimerBar, T } from '@/components/ui';
 import { useAccount } from '@/state/auth';
 import { roleInfo, useRole } from '@/state/role';
@@ -61,6 +61,19 @@ export default function Account() {
             <T size={15} color={c.ink2} align="center">
               {ROLE_LABEL[account.role] ?? account.role}
             </T>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12, alignSelf: 'stretch' }}>
+              <View style={{ flex: 1 }}>
+                <T weight={600}>تنبيهات على الإيميل</T>
+                <T size={12.5} color={c.ink2}>
+                  رسالة واحدة بتغيّر سعر أو سحب أي دواء محفوظ. التنبيهات بتفضل ظاهرة في التطبيق في كل الأحوال.
+                </T>
+              </View>
+              <Switch
+                value={account.email_notifications}
+                onValueChange={(on) => setEmailNotifications(on).catch((e: unknown) => setMessage(arabicAuthError(e)))}
+                accessibilityLabel="تنبيهات على الإيميل"
+              />
+            </View>
             <Pressable
               onPress={() => router.push('/my-list')}
               style={[outline, { borderColor: c.pr, backgroundColor: c.pr, marginTop: 8 }]}
