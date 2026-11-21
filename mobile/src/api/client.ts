@@ -246,6 +246,11 @@ export async function speakLink(text: string): Promise<string> {
   return `${API_URL}${url}`;
 }
 
+/** The drug name inside a spoken request ("أنا عايز بنادول" -> "بنادول"), to search for. */
+export function extractDrugName(text: string): Promise<{ query: string; name: string | null; understood: boolean }> {
+  return postJson('/v1/voice/drug-name', { text });
+}
+
 export function scanImage(uri: string, mimeType: string, kind: 'box' | 'prescription'): Promise<ScanResult> {
   const name = mimeType === 'image/png' ? 'scan.png' : mimeType === 'image/webp' ? 'scan.webp' : 'scan.jpg';
   return postFile(`/v1/recognition/scan?kind=${kind}`, 'image', uri, name, mimeType);

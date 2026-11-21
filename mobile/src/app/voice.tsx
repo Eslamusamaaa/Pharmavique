@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { extractDrugName } from '@/api/client';
 import { Row, T } from '@/components/ui';
 import { useRecentActions } from '@/state/recents';
 import { useVoiceInput } from '@/state/voice';
@@ -24,6 +25,7 @@ export default function VoiceSearch() {
   const mic = useVoiceInput();
   const { add } = useRecentActions();
   const [heard, setHeard] = useState('');
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
     mic.start();
@@ -33,7 +35,18 @@ export default function VoiceSearch() {
 
   const finish = async () => {
     const text = await mic.stop();
-    if (text) setHeard(text);
+    if (!text) return;
+    setHeard(text);
+    // "أنا عايز بنادول" is searched as "بنادول": the model picks the drug name out of the sentence.
+    setExtracting(true);
+    try {
+      const { query } = await extractDrugName(text);
+      if (query.trim()) setHeard(query.trim());
+    } catch {
+      // keep what was heard: the person can still edit it and search
+    } finally {
+      setExtracting(false);
+    }
   };
 
   const retry = async () => {
@@ -54,7 +67,7 @@ export default function VoiceSearch() {
   };
 
   const listening = mic.state === 'listening';
-  const transcribing = mic.state === 'transcribing';
+  const transcribing = mic.state === 'transcribing' || extracting;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
@@ -94,7 +107,7 @@ export default function VoiceSearch() {
         {/* note 1: the transcript is shown and editable; nothing is searched until "ابحث" */}
         <View style={[styles.transcript, { backgroundColor: c.sf }, cardShadow]}>
           <T size={13} color={c.ink2}>
-            ما سمعناه (يمكنك التعديل)
+            اسم الدواء (يمكنك التعديل)
           </T>
           <Row gap={8}>
             <TextInput
