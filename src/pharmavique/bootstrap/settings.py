@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     # for example PHARMAVIQUE_CORS_ORIGINS='["http://localhost:8081"]'. Native apps need none.
     cors_origins: list[str] = ["http://localhost:8081", "http://127.0.0.1:8081"]
 
+    # Requests per minute per client address; 0 turns a limit off. The heavy limit covers the
+    # endpoints that cost money or CPU (assistant, voice, scan).
+    rate_limit_per_minute: int = 300
+    heavy_rate_limit_per_minute: int = 30
+
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
 

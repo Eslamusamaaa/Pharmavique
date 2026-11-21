@@ -29,6 +29,7 @@ from pharmavique.bootstrap.ai import (
     build_voice,
 )
 from pharmavique.bootstrap.api_pictures import PictureLookup
+from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
@@ -113,6 +114,8 @@ def create_app(
     name_extractor: DrugNameExtractor | None = None,
     interactions: InteractionChecks | None = None,
     contraindications: ContraindicationChecks | None = None,
+    rate_limit_per_minute: int | None = None,
+    heavy_rate_limit_per_minute: int | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -139,6 +142,16 @@ def create_app(
     app.state.metrics = observability.Metrics()
     app.state.audio_cache = AudioCache()
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
+    settings = get_settings()
+    app.add_middleware(
+        RateLimitMiddleware,
+        general=settings.rate_limit_per_minute
+        if rate_limit_per_minute is None
+        else rate_limit_per_minute,
+        heavy=settings.heavy_rate_limit_per_minute
+        if heavy_rate_limit_per_minute is None
+        else heavy_rate_limit_per_minute,
+    )
     origins = get_settings().cors_origins if cors_origins is None else cors_origins
     if origins:
         app.add_middleware(
