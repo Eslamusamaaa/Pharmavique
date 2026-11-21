@@ -15,6 +15,7 @@ from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.bootstrap import (
     api_assistant,
     api_drugs,
+    api_interactions,
     api_pictures,
     api_recognition,
     api_voice,
@@ -34,6 +35,9 @@ from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
 from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.interactions.application.check import CheckInteractions
+from pharmavique.interactions.contracts.queries import InteractionChecks
+from pharmavique.interactions.infrastructure.postgres import PostgresInteractionStore
 from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.search.application.handlers import SearchProductsHandler
 from pharmavique.search.contracts.queries import ProductSearch
@@ -80,6 +84,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
             app.state.pictures = SqlAlchemyPictureStore(session_factory)
+            app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
     try:
         yield
     finally:
@@ -99,6 +104,7 @@ def create_app(
     scanner: ScanImage | None = None,
     pictures: PictureLookup | None = None,
     name_extractor: DrugNameExtractor | None = None,
+    interactions: InteractionChecks | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -119,6 +125,7 @@ def create_app(
     app.state.transcribe = transcribe
     app.state.scanner = scanner
     app.state.pictures = pictures
+    app.state.interactions = interactions
     app.state.extract_name = ExtractDrugName(name_extractor)
     app.state.metrics = observability.Metrics()
     app.state.audio_cache = AudioCache()
@@ -135,6 +142,7 @@ def create_app(
     app.include_router(observability.router)
     app.include_router(api_drugs.router)
     app.include_router(api_pictures.router)
+    app.include_router(api_interactions.router)
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)
