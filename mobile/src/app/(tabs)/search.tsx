@@ -53,7 +53,7 @@ function didYouMean(hits: SearchHit[], query: string): string | null {
 
 export default function Search() {
   const { c } = useTheme();
-  const params = useLocalSearchParams<{ q?: string; focus?: string; voice?: string }>();
+  const params = useLocalSearchParams<{ q?: string; focus?: string; voice?: string; compareWith?: string }>();
   const [text, setText] = useState(params.q ?? '');
   const [submitted, setSubmitted] = useState(params.q ?? '');
   const [focused, setFocused] = useState(!params.q);
@@ -121,6 +121,11 @@ export default function Search() {
   };
 
   const openDrug = (hit: SearchHit) => {
+    if (params.compareWith) {
+      if (params.compareWith === hit.register_number) return; // a drug is not compared with itself
+      router.replace({ pathname: '/compare', params: { a: params.compareWith, b: hit.register_number } });
+      return;
+    }
     add({ ar: displayName(hit), en: hit.trade_name_en, register: hit.register_number, query: text });
     router.push({ pathname: '/drug/[register]', params: { register: hit.register_number } });
   };
@@ -180,6 +185,13 @@ export default function Search() {
         </View>
       </View>
       <DisclaimerBar />
+      {params.compareWith ? (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <T size={13.5} weight={600} color={c.pr}>
+            اختار الدواء التاني للمقارنة
+          </T>
+        </View>
+      ) : null}
 
       {typing ? (
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.suggest}>

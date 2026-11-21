@@ -26,11 +26,15 @@ import {
   getContraindications,
   getDrugPage,
   getSameIngredient,
+  getShortage,
+  getSimilarNames,
   type Contraindications,
   type DrugPage,
   type Ingredient,
   type Price,
   type SameIngredient,
+  type Shortage,
+  type SimilarNames,
 } from '@/api/client';
 import { DrugPicture } from '@/components/DrugPicture';
 import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
@@ -70,6 +74,8 @@ export default function DrugScreen() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [same, setSame] = useState<SameIngredient[] | null>(null);
   const [contra, setContra] = useState<Contraindications | null>(null);
+  const [shortage, setShortage] = useState<Shortage | null>(null);
+  const [similar, setSimilar] = useState<SimilarNames | null>(null);
   const [sort, setSort] = useState<'price' | 'name'>('price');
 
   useEffect(() => {
@@ -86,8 +92,19 @@ export default function DrugScreen() {
     getContraindications(register, controller.signal)
       .then(setContra)
       .catch(() => setContra(null));
+    getShortage(register, controller.signal)
+      .then(setShortage)
+      .catch(() => setShortage(null));
+    getSimilarNames(register, controller.signal)
+      .then(setSimilar)
+      .catch(() => setSimilar(null));
     return () => controller.abort();
   }, [register]);
+
+  const shortageSet = useMemo(
+    () => new Set((shortage?.substitutes ?? []).filter((s) => s.also_on_shortage_list).map((s) => s.register_number)),
+    [shortage],
+  );
 
   const sortedSame = useMemo(() => {
     if (!same) return [];
@@ -216,6 +233,42 @@ export default function DrugScreen() {
           </Row>
         </View>
 
+        {/* SFDA's shortage list: what it says and how sure the link is. Never "switch". */}
+        {shortage && shortage.status !== 'not_listed' ? (
+          <View
+            style={[
+              styles.banner,
+              { borderColor: shortage.status === 'listed_in_shortage' ? c.wn : c.ink2, backgroundColor: c.sf },
+            ]}
+          >
+            <Row gap={8}>
+              <WarningIcon size={20} color={shortage.status === 'listed_in_shortage' ? c.wn : c.ink2} weight="fill" />
+              <T weight={700} style={{ flex: 1 }}>
+                {shortage.status === 'listed_in_shortage'
+                  ? 'الهيئة مدرجة الدواء ده في قائمة النواقص'
+                  : 'الهيئة سجّلت إن نقص الدواء ده اتحل'}
+              </T>
+            </Row>
+            {shortage.items.some((i) => i.confidence === 'possible') ? (
+              <T size={13} color={c.ink2}>
+                ربط الدواء بسجل النقص محتمل وبيحتاج مراجعة الصيدلي.
+              </T>
+            ) : null}
+            {shortage.status === 'listed_in_shortage' ? (
+              <T size={13} color={c.ink2}>
+                المنتجات اللي بنفس المادة الفعالة تحت. الصيدلي أو الدكتور هو اللي يقرر لو ينفع تحل محله.
+              </T>
+            ) : null}
+            {shortage.items[0]?.source_ref ? (
+              <Pressable onPress={() => Linking.openURL(shortage.items[0].source_ref)}>
+                <T size={12.5} weight={600} color={c.pr}>
+                  المصدر: قائمة النواقص في هيئة الغذاء والدواء
+                </T>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* note 3: placeholder, hatched, labelled so it never reads as the product's box */}
         <View style={[styles.placeholder, { borderColor: c.ink2, backgroundColor: c.prs }]}>
           <PillIcon size={48} color={c.ink2} />
@@ -323,8 +376,37 @@ export default function DrugScreen() {
               ))}
             </View>
             {sortedSame.map((r) => (
-              <SameRow key={r.register_number} row={r} />
+              <SameRow key={r.register_number} row={r} onShortage={shortageSet.has(r.register_number)} />
             ))}
+          </View>
+        ) : null}
+
+        {/* look-alike names: a prompt to double-check the name, computed from spelling and sound only */}
+        {similar && similar.results.length > 0 ? (
+          <View style={{ gap: 10 }}>
+            <H2>أسماء متشابهة، اتأكد من الاسم</H2>
+            {similar.results.map((r) => (
+              <Pressable
+                key={r.register_number}
+                onPress={() => router.push({ pathname: '/drug/[register]', params: { register: r.register_number } })}
+              >
+                <Card style={{ gap: 6 }}>
+                  <T weight={700}>{displayName(r)}</T>
+                  {r.trade_name_en ? (
+                    <T size={13} color={c.ink2} latin align="right">
+                      {r.trade_name_en}
+                    </T>
+                  ) : null}
+                  <Pill
+                    tone={r.same_ingredients ? 'neutral' : 'wn'}
+                    label={r.same_ingredients ? 'نفس المادة الفعالة' : 'مادة فعالة مختلفة'}
+                  />
+                </Card>
+              </Pressable>
+            ))}
+            <T size={12.5} color={c.ink2}>
+              الأسماء دي متشابهة في الكتابة أو النطق. اتأكد من اسم الدواء على العلبة أو الروشتة. القائمة محسوبة من الأسماء بس ولسه ما راجعهاش صيدلي.
+            </T>
           </View>
         ) : null}
 
@@ -402,7 +484,11 @@ export default function DrugScreen() {
             حفظ في قائمتي
           </T>
         </Pressable>
-        <Pressable style={[styles.actionAlt, { borderColor: c.pr }]} accessibilityRole="button">
+        <Pressable
+          onPress={() => router.push({ pathname: '/search', params: { compareWith: d.register_number, focus: '1' } })}
+          style={[styles.actionAlt, { borderColor: c.pr }]}
+          accessibilityRole="button"
+        >
           <ColumnsIcon size={20} color={c.pr} />
           <T weight={600} color={c.pr}>
             قارن
@@ -416,7 +502,7 @@ export default function DrugScreen() {
   );
 }
 
-function SameRow({ row }: { row: SameIngredient }) {
+function SameRow({ row, onShortage }: { row: SameIngredient; onShortage: boolean }) {
   const { c } = useTheme();
   const strength = row.ingredients
     .map((i) => (i.strength ? `${i.strength} ${unitAr(i.unit)}` : null))
@@ -456,6 +542,7 @@ function SameRow({ row }: { row: SameIngredient }) {
           {meta}
         </T>
         <Pill label={tier.label} tone={tier.tone} radiusSize={radius.md} icon={tier.icon} />
+        {onShortage ? <Pill tone="wn" label="مدرج هو كمان في قائمة النواقص" radiusSize={radius.md} /> : null}
       </Card>
     </Pressable>
   );
@@ -474,6 +561,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
   },
+  banner: { borderWidth: 1.5, borderRadius: radius.lg, padding: 14, gap: 6 },
   ingredient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', rowGap: 16 },
   fact: { width: '50%', paddingLeft: 12, gap: 2 },

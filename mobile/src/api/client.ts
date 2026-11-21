@@ -108,6 +108,79 @@ export function getSameIngredient(
   return getJson(`/v1/products/${encodeURIComponent(registerNumber)}/same-ingredient?limit=30`, signal);
 }
 
+/** Drugs whose names are spelled or sound alike. A warning to double-check, never advice. */
+export type SimilarNames = {
+  register_number: string;
+  count: number;
+  results: {
+    register_number: string;
+    trade_name_en: string | null;
+    trade_name_ar: string | null;
+    level: 'high' | 'medium';
+    reasons: string[];
+    scripts: string[];
+    same_ingredients: boolean;
+    ingredients: string[];
+  }[];
+  reviewed: boolean;
+  note: string;
+};
+
+export function getSimilarNames(registerNumber: string, signal?: AbortSignal): Promise<SimilarNames> {
+  return getJson<SimilarNames>(`/v1/products/${encodeURIComponent(registerNumber)}/similar-names?limit=6`, signal);
+}
+
+/** Two drugs side by side; the verdict is computed by our rules, never chosen by a model. */
+export type CompareSide = {
+  register_number: string;
+  trade_name_en: string | null;
+  trade_name_ar: string | null;
+  ingredients: Ingredient[];
+  dosage_form_en: string | null;
+  dosage_form_ar: string | null;
+  route_en: string | null;
+  marketing_company: string | null;
+  manufacturers: string[];
+  legal_status: string | null;
+  listing_status: string;
+  authorization_status: string | null;
+  marketing_status: string | null;
+  price: Price | null;
+};
+
+export type Compare = {
+  a: CompareSide;
+  b: CompareSide;
+  verdict: Verdict;
+  strength: string;
+  form_family: string;
+  differences: string[];
+};
+
+export function getCompare(a: string, b: string, signal?: AbortSignal): Promise<Compare> {
+  return getJson<Compare>(`/v1/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`, signal);
+}
+
+/** A drug's place on SFDA's shortage list, with the products that share its ingredients. */
+export type Shortage = {
+  register_number: string;
+  status: 'listed_in_shortage' | 'resolved' | 'not_listed';
+  items: {
+    list_name: string;
+    availability: string | null;
+    confidence: 'matched' | 'possible';
+    trade_names: string[];
+    source_ref: string;
+    fetched_at: string | null;
+  }[];
+  substitutes: (SameIngredient & { also_on_shortage_list: boolean })[];
+  note: string;
+};
+
+export function getShortage(registerNumber: string, signal?: AbortSignal): Promise<Shortage> {
+  return getJson<Shortage>(`/v1/products/${encodeURIComponent(registerNumber)}/shortage`, signal);
+}
+
 export function displayName(p: { trade_name_ar: string | null; trade_name_en: string | null; register_number: string }) {
   return p.trade_name_ar || p.trade_name_en || p.register_number;
 }
