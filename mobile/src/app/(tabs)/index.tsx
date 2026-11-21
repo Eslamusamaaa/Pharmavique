@@ -6,6 +6,7 @@ import {
   ChatCircleDotsIcon,
   ClockCounterClockwiseIcon,
   MagnifyingGlassIcon,
+  MapPinIcon,
   MicrophoneIcon,
   ScanIcon,
   UserCircleIcon,
@@ -101,6 +102,19 @@ export default function Home() {
               <T weight={700}>اسأل المساعد عن أي دواء</T>
               <T size={13} color={c.ink2}>
                 إجابات من بيانات الهيئة الرسمية، ومعاها صوت باللهجة السعودية
+              </T>
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/pharmacies')}
+            style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+            accessibilityRole="button"
+          >
+            <MapPinIcon size={26} color={c.pr} />
+            <View style={{ flex: 1 }}>
+              <T weight={700}>صيدليات مرخّصة قريبة</T>
+              <T size={13} color={c.ink2}>
+                من قايمة الهيئة، حسب المدينة. مفيهاش معلومة عن توفر الدواء
               </T>
             </View>
           </Pressable>

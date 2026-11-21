@@ -39,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="my-medicines" />
         <Stack.Screen name="my-list" />
         <Stack.Screen name="company" />
+        <Stack.Screen name="pharmacies" />
         <Stack.Screen name="operator" />
         <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>

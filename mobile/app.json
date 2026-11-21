@@ -48,6 +48,14 @@
           "photosPermission": "فارماڤيك محتاج الصور عشان تختار صورة علبة دواء أو روشتة."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "فارماڤيك بيستخدم موقعك مرة واحدة عشان يدلّك على أقرب مدن فيها صيدليات مرخّصة. الموقع مش بيتخزّن.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
