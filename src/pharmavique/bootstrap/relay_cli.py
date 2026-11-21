@@ -1,7 +1,8 @@
 """`pharmavique outbox-relay`: deliver the catalog's integration events to their subscribers.
 
-Today the one subscriber is the watchlist, which turns price changes, withdrawals and relistings
-into alerts for the people who saved those medicines. Run it next to the API (it loops) or after a
+Two subscribers listen: the watchlist turns price changes, withdrawals and relistings into alerts
+for the people who saved those medicines, and the analytics read model keeps them for the
+competitor radar. Run it next to the API (it loops) or after a
 refresh with `--once`. Delivery is at least once and the subscribers are idempotent, so running two
 relays or stopping one in the middle is safe.
 """
@@ -10,8 +11,13 @@ import argparse
 import sys
 from typing import Any
 
+from pharmavique.analytics.application.service import AnalyticsService
+from pharmavique.analytics.infrastructure.catalog_source import CatalogMarketSource
+from pharmavique.analytics.infrastructure.postgres import PostgresAnalyticsStore
 from pharmavique.bootstrap.settings import get_settings
+from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.infrastructure.persistence.outbox import SqlAlchemyOutboxPublisher
+from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
 from pharmavique.foundation.events.relay import OutboxRelay
@@ -40,7 +46,14 @@ async def run(args: argparse.Namespace) -> int:
     try:
         factory = create_session_factory(engine)
         watchlist = WatchlistService(PostgresWatchlistStore(factory), SystemClock())
-        relay = OutboxRelay([SqlAlchemyOutboxPublisher(factory)], [watchlist.on_event])
+        analytics = AnalyticsService(
+            PostgresAnalyticsStore(factory),
+            CatalogMarketSource(ReadProductCardsHandler(SqlAlchemyProductReader(factory))),
+            SystemClock(),
+        )
+        relay = OutboxRelay(
+            [SqlAlchemyOutboxPublisher(factory)], [watchlist.on_event, analytics.on_event]
+        )
         if args.once:
             delivered = await relay.run_until_empty(args.batch)
             print(f"delivered {delivered} events")

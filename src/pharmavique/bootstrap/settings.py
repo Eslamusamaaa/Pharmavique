@@ -35,6 +35,8 @@ class Settings(BaseSettings):
 
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
+    # Folder the daily refresh writes its summaries to; the operator board reads it (read-only).
+    refresh_dir: str = "data/refresh"
 
     # AI providers (ADR-005). Keys only from the environment; model ids are configuration.
     openrouter_api_key: SecretStr | None = None

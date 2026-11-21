@@ -67,6 +67,8 @@ try {
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them
             Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null
+            # the company views (market map, gaps, radar) read their own copy of the catalog
+            Invoke-Step "analytics-rebuild" @("analytics-rebuild") | Out-Null
             $changes = Join-Path $root "data\sfda\$run\changes.md"
             if (Test-Path $changes) { Copy-Item $changes (Join-Path $logs "drug-changes.md") -Force }
         }

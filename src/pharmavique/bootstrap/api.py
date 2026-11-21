@@ -7,19 +7,26 @@ needs a language-model key; without one it answers 503 and everything else still
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from pharmavique.analytics.application.service import AnalyticsService
+from pharmavique.analytics.infrastructure.catalog_source import CatalogMarketSource
+from pharmavique.analytics.infrastructure.postgres import PostgresAnalyticsStore
+from pharmavique.analytics.infrastructure.refresh_files import FileRefreshHistory
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.bootstrap import (
     api_assistant,
     api_auth,
+    api_company,
     api_compare,
     api_drugs,
     api_interactions,
     api_lasa,
     api_me,
+    api_operator,
     api_pictures,
     api_recognition,
     api_shortage,
@@ -41,6 +48,7 @@ from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
     CatalogIngredients,
     CatalogListItems,
+    CatalogQuality,
     CatalogQueries,
 )
 from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
@@ -49,6 +57,7 @@ from pharmavique.catalog.infrastructure.persistence.price_changes import (
     SqlAlchemyIngredientReader,
     SqlAlchemyPriceChangeReader,
 )
+from pharmavique.catalog.infrastructure.persistence.quality import SqlAlchemyQualityReader
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
@@ -124,6 +133,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.watchlist = WatchlistService(
                 PostgresWatchlistStore(session_factory), SystemClock()
             )
+            app.state.analytics = AnalyticsService(
+                PostgresAnalyticsStore(session_factory),
+                CatalogMarketSource(catalog),
+                SystemClock(),
+            )
+            app.state.quality = SqlAlchemyQualityReader(session_factory)
+            app.state.refresh_history = FileRefreshHistory(Path(settings.refresh_dir))
             if settings.jwt_secret is not None:
                 tokens = JwtAccessTokens(settings.jwt_secret.get_secret_value())
                 app.state.token_verifier = tokens
@@ -164,6 +180,9 @@ def create_app(
     watchlist: WatchlistService | None = None,
     ingredients: CatalogIngredients | None = None,
     token_verifier: TokenVerifier | None = None,
+    analytics: AnalyticsService | None = None,
+    quality: CatalogQuality | None = None,
+    refresh_history: FileRefreshHistory | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
 ) -> FastAPI:
@@ -192,6 +211,9 @@ def create_app(
     app.state.watchlist = watchlist
     app.state.ingredients = ingredients
     app.state.token_verifier = token_verifier
+    app.state.analytics = analytics
+    app.state.quality = quality
+    app.state.refresh_history = refresh_history
     app.state.interactions = interactions
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
@@ -223,6 +245,8 @@ def create_app(
     app.include_router(api_compare.router)
     app.include_router(api_lasa.router)
     app.include_router(api_me.router)
+    app.include_router(api_company.router)
+    app.include_router(api_operator.router)
     app.include_router(api_pictures.router)
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
