@@ -53,7 +53,10 @@ async def limited(
             )
         )
         await connection.execute(
-            text("TRUNCATE watchlist.saved_medicines, watchlist.allergies, watchlist.alerts")
+            text(
+                "TRUNCATE watchlist.saved_medicines, watchlist.allergies, watchlist.alerts, "
+                "watchlist.shelf_items"
+            )
         )
     url = migrated_url.set(username=ROLE, password=password)
     limited_engine = create_engine(url.render_as_string(hide_password=False))
@@ -184,6 +187,44 @@ async def test_saving_a_past_medicine_again_makes_it_current_and_saving_a_curren
     assert await store.add_medicine(me, SavedMedicine("111", NOW + timedelta(days=2))) is True
     (saved,) = await store.medicines(me)
     assert saved.status is MedicineStatus.CURRENT
+
+
+async def test_a_shelf_list_is_private_counted_in_alert_holders_and_forgotten_with_the_person(
+    limited: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresWatchlistStore(limited)
+    a, b = uuid4(), uuid4()
+
+    assert await store.add_shelf_items(a, ["111", "222"], NOW) == 2
+    assert await store.add_shelf_items(a, ["222", "333"], NOW) == 1  # 222 was already there
+    assert await store.add_shelf_items(b, ["999"], NOW) == 1
+
+    assert sorted(i.register_number for i in await store.shelf(a)) == ["111", "222", "333"]
+    assert [i.register_number for i in await store.shelf(b)] == ["999"]  # not a's
+
+    # a pharmacist who shelves a medicine is told when it changes, like someone who takes it
+    assert await store.holders_of("111") == [a]
+    await store.add_medicine(b, SavedMedicine("111", NOW))
+    assert sorted(await store.holders_of("111")) == sorted([a, b])
+
+    assert await store.remove_shelf_item(a, "111") is True
+    assert await store.holders_of("111") == [b]
+
+    await store.forget(a)
+    assert await store.shelf(a) == []
+    assert [i.register_number for i in await store.shelf(b)] == ["999"]
+
+
+async def test_the_database_refuses_to_read_or_write_another_persons_shelf_row(
+    limited: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresWatchlistStore(limited)
+    a, b = uuid4(), uuid4()
+    await store.add_shelf_items(a, ["111"], NOW)
+    async with limited() as session, session.begin():
+        await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(b)})
+        rows = (await session.execute(text("SELECT * FROM watchlist.shelf_items"))).all()
+    assert rows == []  # a forgotten WHERE still shows b nothing of a's
 
 
 async def test_an_alert_is_stored_once_per_event_and_can_be_read(

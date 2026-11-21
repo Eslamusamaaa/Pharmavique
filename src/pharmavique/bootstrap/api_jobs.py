@@ -18,13 +18,16 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_assistant import AskIn
+from pharmavique.bootstrap.api_auth import optional_principal
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
+from pharmavique.bootstrap.api_recognition import require_shelf_access
 from pharmavique.bootstrap.job_handlers import ASSISTANT, SCAN
 from pharmavique.bootstrap.rate_limit import client_address
 from pharmavique.foundation.jobs import JobQueue
 from pharmavique.foundation.kv import KeyValueStore, StoreUnavailable
 from pharmavique.recognition.application.scan import MAX_IMAGE_BYTES
 from pharmavique.recognition.domain.scans import ScanKind
+from pharmavique.shared_kernel.principal import Principal
 
 router = APIRouter(prefix="/v1/jobs", tags=["jobs"])
 
@@ -108,8 +111,11 @@ async def submit_scan(
     request: Request,
     image: Annotated[UploadFile, File(description="a JPEG, PNG or WebP photo, up to 8 MB")],
     jobs: Jobs,
+    principal: Annotated[Principal | None, Depends(optional_principal)],
     kind: ScanKind = ScanKind.BOX,
 ) -> TicketOut:
+    if kind is ScanKind.SHELF:
+        require_shelf_access(request, principal)
     data = await image.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="the photo is larger than 8 MB")

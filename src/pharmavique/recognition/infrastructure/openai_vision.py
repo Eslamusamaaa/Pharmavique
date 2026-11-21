@@ -22,6 +22,12 @@ _PROMPTS = {
         "exactly as printed (Arabic or English), the strength (for example 500 mg) and the dosage "
         "form (tablet, syrup, ...)."
     ),
+    ScanKind.SHELF: (
+        "This is a photo of a pharmacy shelf with several medicine boxes. List every box whose "
+        "name you can read, one line per distinct box: the trade name exactly as printed "
+        "(Arabic or English), the strength and the dosage form when printed. Do NOT count "
+        "units, do not identify a box by its colour or shape, and do not read prices."
+    ),
     ScanKind.PRESCRIPTION: (
         "This is a photo of a medical prescription (printed or handwritten, Arabic or English). "
         "List every medicine written on it: the name exactly as written, its strength and dosage "

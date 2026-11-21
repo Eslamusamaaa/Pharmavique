@@ -17,6 +17,7 @@ from pharmavique.shared_kernel.text import normalize_text
 
 MAX_MEDICINES = 300
 MAX_ALLERGIES = 50
+MAX_SHELF = 2000
 MAX_INGREDIENT_LENGTH = 200
 
 
@@ -39,6 +40,12 @@ class SavedMedicine:
     added_at: datetime
     status: MedicineStatus = MedicineStatus.CURRENT
     status_changed_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ShelfItem:
+    register_number: str
+    added_at: datetime
 
 
 @dataclass(frozen=True, slots=True)

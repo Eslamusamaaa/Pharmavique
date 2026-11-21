@@ -7,11 +7,14 @@ the image is read in memory and dropped. Jobs with a review state come with acco
 from pharmavique.recognition.application.ports import CandidateFinder, VisionReader
 from pharmavique.recognition.domain.scans import (
     MAX_LINES,
+    MAX_SHELF_LINES,
     UNCLEAR_DOSE,
+    ExtractedLine,
     LineResult,
     ScanKind,
     ScanResult,
 )
+from pharmavique.shared_kernel.text import normalize_text
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 IMAGE_TYPES = ("image/jpeg", "image/png", "image/webp")
@@ -29,9 +32,24 @@ class ScanImage:
         if media_type not in IMAGE_TYPES:
             raise ValueError("the image must be a JPEG, PNG or WebP picture")
         lines = [line for line in await self._reader.read(image, media_type, kind) if line.name]
+        if kind is ScanKind.SHELF:
+            lines = _distinct(lines)  # the same box shown twice on a shelf is one line
         results = []
-        for line in lines[:MAX_LINES]:
+        limit = MAX_SHELF_LINES if kind is ScanKind.SHELF else MAX_LINES
+        for line in lines[:limit]:
             candidates = await self._finder.find(line.query(), CANDIDATES_PER_LINE)
             dose = UNCLEAR_DOSE if kind is ScanKind.PRESCRIPTION else None
             results.append(LineResult(line, tuple(candidates), dose))
         return ScanResult(kind, tuple(results))
+
+
+def _distinct(lines: list[ExtractedLine]) -> list[ExtractedLine]:
+    """One line per name and strength, keeping the first reading."""
+    seen: set[str] = set()
+    unique = []
+    for line in lines:
+        key = normalize_text(line.query())
+        if key not in seen:
+            seen.add(key)
+            unique.append(line)
+    return unique

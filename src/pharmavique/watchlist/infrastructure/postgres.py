@@ -7,7 +7,7 @@ here forgot its own `WHERE user_id`. Event handlers that must see every holder o
 """
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from datetime import datetime
 from uuid import UUID
@@ -21,6 +21,7 @@ from pharmavique.watchlist.domain.model import (
     Allergy,
     MedicineStatus,
     SavedMedicine,
+    ShelfItem,
 )
 
 _SET_USER = text("SELECT set_config('app.user_id', :user_id, true)")
@@ -100,6 +101,45 @@ class PostgresWatchlistStore:
             )
             return result.first() is not None
 
+    # ---- shelf -------------------------------------------------------------------------
+    async def add_shelf_items(
+        self, user_id: UUID, register_numbers: Iterable[str], at: datetime
+    ) -> int:
+        added = 0
+        async with self._as_user(user_id) as session:
+            for register_number in register_numbers:
+                result = await session.execute(
+                    text(
+                        "INSERT INTO watchlist.shelf_items (user_id, register_number, added_at) "
+                        "VALUES (:u, :r, :t) ON CONFLICT DO NOTHING RETURNING register_number"
+                    ),
+                    {"u": user_id, "r": register_number, "t": at},
+                )
+                added += 1 if result.first() is not None else 0
+        return added
+
+    async def remove_shelf_item(self, user_id: UUID, register_number: str) -> bool:
+        async with self._as_user(user_id) as session:
+            result = await session.execute(
+                text(
+                    "DELETE FROM watchlist.shelf_items "
+                    "WHERE user_id = :u AND register_number = :r RETURNING register_number"
+                ),
+                {"u": user_id, "r": register_number},
+            )
+            return result.first() is not None
+
+    async def shelf(self, user_id: UUID) -> list[ShelfItem]:
+        async with self._as_user(user_id) as session:
+            rows = await session.execute(
+                text(
+                    "SELECT register_number, added_at FROM watchlist.shelf_items "
+                    "WHERE user_id = :u ORDER BY added_at DESC, register_number"
+                ),
+                {"u": user_id},
+            )
+            return [ShelfItem(r.register_number, r.added_at) for r in rows]
+
     # ---- allergies ---------------------------------------------------------------------
     async def add_allergy(self, user_id: UUID, allergy: Allergy) -> bool:
         async with self._as_user(user_id) as session:
@@ -139,7 +179,8 @@ class PostgresWatchlistStore:
             rows = await session.execute(
                 text(
                     "SELECT user_id FROM watchlist.saved_medicines "
-                    "WHERE register_number = :r AND status = 'current'"
+                    "WHERE register_number = :r AND status = 'current' "
+                    "UNION SELECT user_id FROM watchlist.shelf_items WHERE register_number = :r"
                 ),
                 {"r": register_number},
             )
@@ -218,7 +259,7 @@ class PostgresWatchlistStore:
 
     async def forget(self, user_id: UUID) -> None:
         async with self._as_user(user_id) as session:
-            for table in ("saved_medicines", "allergies", "alerts"):
+            for table in ("saved_medicines", "allergies", "alerts", "shelf_items"):
                 await session.execute(
                     text(f"DELETE FROM watchlist.{table} WHERE user_id = :u"),  # noqa: S608
                     {"u": user_id},

@@ -87,3 +87,41 @@ async def test_bad_images_are_refused_before_any_model_call(image: bytes, media_
     with pytest.raises(ValueError, match="image"):
         await ScanImage(reader, FakeFinder()).run(image, media_type, ScanKind.BOX)
     assert reader.seen == []
+
+
+async def test_a_shelf_lists_each_distinct_box_once_and_leaves_every_one_for_review() -> None:
+    reader = FakeReader(
+        [
+            ExtractedLine("Panadol Extra 500", "Panadol Extra", "500 mg", None),
+            ExtractedLine("panadol extra", "PANADOL EXTRA", "500 mg", None),  # the same box again
+            ExtractedLine("Brufen 400", "Brufen", "400 mg", None),
+        ]
+    )
+
+    result = await ScanImage(reader, FakeFinder()).run(PNG, "image/png", ScanKind.SHELF)
+
+    assert [line.line.name for line in result.lines] == ["Panadol Extra", "Brufen"]
+    assert all(line.needs_review for line in result.lines)
+    assert all(line.dose is None for line in result.lines)  # no dose is ever read from a shelf
+    assert reader.seen[0][2] is ScanKind.SHELF
+
+
+async def test_a_shelf_may_hold_more_boxes_than_a_single_box_scan_but_not_without_limit() -> None:
+    from pharmavique.recognition.domain.scans import MAX_SHELF_LINES
+
+    reader = FakeReader(
+        [ExtractedLine(f"Drug{i}", f"Drug{i}", None, None) for i in range(MAX_SHELF_LINES + 10)]
+    )
+    result = await ScanImage(reader, FakeFinder()).run(PNG, "image/png", ScanKind.SHELF)
+    assert len(result.lines) == MAX_SHELF_LINES
+
+
+async def test_the_same_name_with_another_strength_is_another_box() -> None:
+    reader = FakeReader(
+        [
+            ExtractedLine("Brufen 400", "Brufen", "400 mg", None),
+            ExtractedLine("Brufen 600", "Brufen", "600 mg", None),
+        ]
+    )
+    result = await ScanImage(reader, FakeFinder()).run(PNG, "image/png", ScanKind.SHELF)
+    assert len(result.lines) == 2

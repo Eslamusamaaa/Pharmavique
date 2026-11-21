@@ -10,11 +10,13 @@ from enum import StrEnum
 
 UNCLEAR_DOSE = "غير واضح"
 MAX_LINES = 15
+MAX_SHELF_LINES = 40  # a shelf photo holds many boxes; every one still needs review
 
 
 class ScanKind(StrEnum):
     BOX = "box"
     PRESCRIPTION = "prescription"
+    SHELF = "shelf"  # many boxes in one photo, for a pharmacist to confirm one by one
 
 
 @dataclass(frozen=True, slots=True)

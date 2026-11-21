@@ -107,3 +107,14 @@ async def test_when_every_model_fails_the_last_error_is_raised() -> None:
 
     with pytest.raises(VisionError, match="HTTP 503"):
         await FallbackVisionReader(readers).read(b"IMG", "image/png", ScanKind.BOX)
+
+
+def test_the_shelf_prompt_asks_for_every_legible_box_and_never_for_counts_or_guesses() -> None:
+    from pharmavique.recognition.domain.scans import ScanKind
+    from pharmavique.recognition.infrastructure.openai_vision import _FORMAT, _PROMPTS
+
+    prompt = (_PROMPTS[ScanKind.SHELF] + _FORMAT).lower()
+    assert "shelf" in prompt
+    assert "every" in prompt
+    assert "count" in prompt  # told not to count units
+    assert "never guess" in prompt

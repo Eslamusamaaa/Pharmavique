@@ -32,6 +32,7 @@ from pharmavique.bootstrap import (
     api_pharmacies,
     api_pictures,
     api_recognition,
+    api_shelf,
     api_shortage,
     api_voice,
     health,
@@ -97,6 +98,7 @@ from pharmavique.voice.application.ports import DrugNameExtractor
 from pharmavique.voice.application.speak import Speak, Transcribe
 from pharmavique.voice.infrastructure.audio_cache import LocalAudioStore, SharedAudioStore
 from pharmavique.watchlist.application.service import WatchlistService
+from pharmavique.watchlist.application.shelf import ShelfService
 from pharmavique.watchlist.infrastructure.postgres import PostgresWatchlistStore
 
 
@@ -182,6 +184,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.watchlist = WatchlistService(
                 PostgresWatchlistStore(session_factory), SystemClock()
             )
+            app.state.shelf = ShelfService(PostgresWatchlistStore(session_factory), SystemClock())
             app.state.analytics = AnalyticsService(
                 PostgresAnalyticsStore(session_factory),
                 CatalogMarketSource(catalog),
@@ -232,6 +235,8 @@ def create_app(
     list_items: CatalogListItems | None = None,
     identity: IdentityService | None = None,
     watchlist: WatchlistService | None = None,
+    shelf: ShelfService | None = None,
+    shelf_scan_enabled: bool | None = None,
     ingredients: CatalogIngredients | None = None,
     token_verifier: TokenVerifier | None = None,
     store: KeyValueStore | None = None,
@@ -269,6 +274,7 @@ def create_app(
     app.state.lasa = None
     app.state.identity = identity
     app.state.watchlist = watchlist
+    app.state.shelf = shelf
     app.state.ingredients = ingredients
     app.state.token_verifier = token_verifier
     app.state.analytics = analytics
@@ -288,6 +294,9 @@ def create_app(
     if store is not None:
         use_shared_store(app, store, get_settings().cache_ttl_seconds)
     settings = get_settings()
+    app.state.shelf_scan_enabled = (
+        settings.shelf_scan_enabled if shelf_scan_enabled is None else shelf_scan_enabled
+    )
     app.state.job_limits = api_jobs.JobLimits(
         per_user_per_minute=settings.jobs_per_user_per_minute
         if jobs_per_user_per_minute is None
@@ -337,5 +346,6 @@ def create_app(
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)
+    app.include_router(api_shelf.router)
     app.include_router(api_jobs.router)
     return app

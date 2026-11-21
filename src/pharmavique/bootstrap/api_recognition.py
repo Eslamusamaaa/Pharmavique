@@ -8,10 +8,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
+from pharmavique.bootstrap.api_auth import optional_principal
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.recognition.application.scan import MAX_IMAGE_BYTES, ScanImage
 from pharmavique.recognition.domain.scans import ScanKind, ScanResult
 from pharmavique.recognition.infrastructure.openai_vision import VisionError
+from pharmavique.shared_kernel.principal import Principal, Role
 
 router = APIRouter(prefix="/v1/recognition", tags=["recognition"])
 
@@ -40,6 +42,19 @@ class ScanOut(BaseModel):
     disclaimer: str = DISCLAIMER
 
 
+SHELF_ROLES = frozenset({Role.PHARMACIST, Role.OPERATOR})
+
+
+def require_shelf_access(request: Request, principal: Principal | None) -> None:
+    """The shelf scan is for signed-in pharmacists, and only when it has been switched on."""
+    if not request.app.state.shelf_scan_enabled:
+        raise HTTPException(status_code=404, detail="the shelf scan is not enabled")
+    if principal is None:
+        raise HTTPException(status_code=401, detail="sign in as a pharmacist to scan a shelf")
+    if not principal.roles & SHELF_ROLES:
+        raise HTTPException(status_code=403, detail="the shelf scan is for pharmacist accounts")
+
+
 def get_scanner(request: Request) -> ScanImage:
     scanner: ScanImage | None = request.app.state.scanner
     if scanner is None:
@@ -53,10 +68,14 @@ def get_scanner(request: Request) -> ScanImage:
 
 @router.post("/scan", response_model=ScanOut, summary="Read a box or prescription photo")
 async def scan(
+    request: Request,
     image: Annotated[UploadFile, File(description="a JPEG, PNG or WebP photo, up to 8 MB")],
     scanner: Annotated[ScanImage, Depends(get_scanner)],
+    principal: Annotated[Principal | None, Depends(optional_principal)],
     kind: ScanKind = ScanKind.BOX,
 ) -> ScanOut:
+    if kind is ScanKind.SHELF:
+        require_shelf_access(request, principal)
     data = await image.read(MAX_IMAGE_BYTES + 1)
     try:
         result = await scanner.run(data, image.content_type or "", kind)
