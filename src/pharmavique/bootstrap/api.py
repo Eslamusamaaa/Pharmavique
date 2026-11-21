@@ -15,15 +15,18 @@ from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.bootstrap import (
     api_assistant,
     api_drugs,
+    api_pictures,
     api_recognition,
     api_voice,
     health,
     observability,
 )
 from pharmavique.bootstrap.ai import build_assistant, build_scanner, build_voice
+from pharmavique.bootstrap.api_pictures import PictureLookup
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
+from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
 from pharmavique.recognition.application.scan import ScanImage
@@ -68,6 +71,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 observer=observability.LoggingAssistantObserver(app.state.metrics),
             )
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
+            app.state.pictures = SqlAlchemyPictureStore(session_factory)
     try:
         yield
     finally:
@@ -85,6 +89,7 @@ def create_app(
     speak: Speak | None = None,
     transcribe: Transcribe | None = None,
     scanner: ScanImage | None = None,
+    pictures: PictureLookup | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -104,6 +109,7 @@ def create_app(
     app.state.speak = speak
     app.state.transcribe = transcribe
     app.state.scanner = scanner
+    app.state.pictures = pictures
     app.state.metrics = observability.Metrics()
     app.state.audio_cache = AudioCache()
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
@@ -118,6 +124,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(observability.router)
     app.include_router(api_drugs.router)
+    app.include_router(api_pictures.router)
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)

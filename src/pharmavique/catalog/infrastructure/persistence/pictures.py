@@ -1,6 +1,7 @@
 """Postgres store for the picture of each product (real shop picture or generated card)."""
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import delete, insert
@@ -18,9 +19,24 @@ def content_type_of(path: str) -> str:
     return _CONTENT_TYPES.get(suffix, "application/octet-stream")
 
 
+@dataclass(frozen=True, slots=True)
+class StoredPicture:
+    kind: str  # "real" (a shop picture) or "generated" (a placeholder card, never the box)
+    file_path: str
+    content_type: str
+    status: str | None  # "matched", "needs_review" ...
+
+
 class SqlAlchemyPictureStore:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
+
+    async def find(self, market: str, register_number: str) -> StoredPicture | None:
+        async with self._session_factory() as session:
+            row = await session.get(ProductPictureRow, (market, register_number))
+        if row is None:
+            return None
+        return StoredPicture(row.kind, row.file_path, row.content_type, row.status)
 
     async def replace_all(self, market: str, rows: Iterable[Mapping[str, Any]]) -> int:
         """Replace the pictures of a market with `rows` (mapping rows). Rows of drugs that are not

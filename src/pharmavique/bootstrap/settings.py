@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # for example PHARMAVIQUE_CORS_ORIGINS='["http://localhost:8081"]'. Native apps need none.
     cors_origins: list[str] = ["http://localhost:8081", "http://127.0.0.1:8081"]
 
+    # Folder with the stored product pictures (images/...); only files inside it are served.
+    media_dir: str = "data/media"
+
     # AI providers (ADR-005). Keys only from the environment; model ids are configuration.
     openrouter_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None

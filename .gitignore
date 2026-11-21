@@ -25,6 +25,10 @@ htmlcov/
 # 2026-11-19) so every machine has the same data; keep each file under GitHub's 100 MB limit.
 /uploads/
 /data/lists-trial/
+# Product picture files (hundreds of MB, re-created by `sfda-images-restore` from images.jsonl).
+/data/media/images/
+/data/media/restore.log
+/data/media/restore-report.json
 
 # Editors / OS
 .idea/
