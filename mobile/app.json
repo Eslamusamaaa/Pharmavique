@@ -47,7 +47,8 @@
         {
           "photosPermission": "فارماڤيك محتاج الصور عشان تختار صورة علبة دواء أو روشتة."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

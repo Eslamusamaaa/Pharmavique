@@ -31,6 +31,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="role" />
+        <Stack.Screen name="sign-in" />
         <Stack.Screen name="drug/[register]" />
         <Stack.Screen name="compare" />
         <Stack.Screen name="assistant" />
