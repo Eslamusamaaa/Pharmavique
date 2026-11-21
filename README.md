@@ -93,7 +93,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | SFDA lists | Done | Safety lists, shortages, approvals, companies (6,135) and licensed pharmacies (385), loaded and linked to products |
 | Interaction check | Done | 234,757 recorded drug pairs (DDInter), duplicated ingredients, `POST /v1/interactions/check` |
 | Contraindications | Done | 3,960 drug-disease records (MeDIC) on the drug page and for the assistant |
-| Product pictures | Done | 3,815 of 9,162 drugs have a real pharmacy picture (42%); the rest show a marked placeholder |
+| Product pictures | Done, shipped as a Docker image | 3,815 of 9,162 drugs have a real pharmacy picture (42%); the rest show a marked placeholder |
 | Mobile app | Done for the core journeys | Home, search, drug page with pictures, assistant, voice search, box and prescription scan, first-launch role choice, interaction check (pharmacist) and "my medicines" (patient) |
 | Daily refresh | Built, to be scheduled | `scripts/daily_refresh.ps1` re-reads drugs, prices, fast lists and pictures and loads the difference |
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
@@ -442,7 +442,7 @@ flowchart LR
 Everything needed to run on another machine is versioned in the repository: clone it and restore the
 database snapshot. [`data/README.md`](data/README.md) explains every folder, its source, size and the
 command that rebuilds it. In short: `data/sfda` (registry), `data/lists` (SFDA lists), `data/media`
-(pictures, mapping, shop sitemaps), `data/interactions` (DDInter, MeDIC), `data/knowledge` (US label
+(picture mapping and records, shop sitemaps), `data/interactions` (DDInter, MeDIC), `data/knowledge` (US label
 text), `data/db` (database snapshot, one file per schema) and `data/exports` (a flat catalog CSV).
 
 ## 10. Tech stack
@@ -498,7 +498,9 @@ uv run pharmavique knowledge-labels                                   # US label
 uv run pharmavique sfda-pictures-load                                 # pictures mapping into the catalog
 ```
 
-Product picture files are in `data/media/images/` and are served by `GET /v1/products/{register_number}/picture`.
+Product picture files are not in git: they ship as the Docker image `ghcr.io/eslamusamaaa/pharmavique-media`.
+`docker compose up -d` copies them into the volume the API reads, and `GET /v1/products/{register_number}/picture`
+serves them. To run the API outside Docker: `docker compose run --rm -v "$PWD/data/media/images:/target" media`.
 
 ### 11.4 Run the API
 

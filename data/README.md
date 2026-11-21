@@ -9,9 +9,9 @@ data/
   db/            database snapshot, one file per schema            (55 MB)
   sfda/          the drug registry crawl                            (37 MB)
   lists/         the other official SFDA lists, one folder each     (250 MB)
-  media/         product pictures, their mapping, shop sitemaps     (818 MB)
+  media/         picture mapping and records, shop sitemaps         (87 MB)
   interactions/  interaction sources: DDInter and MeDIC             (36 MB)
-  knowledge/     US drug-label text per active ingredient           (7.6 MB)
+  knowledge/     US drug-label text per active ingredient           (5.6 MB)
   exports/       a flat CSV of the catalog                          (2.6 MB)
   refresh/       logs of the daily refresh (git-ignored, local)
 ```
@@ -27,8 +27,16 @@ bash scripts/db_restore.sh           # loads data/db/*.dump: catalog, search ind
 uv run uvicorn pharmavique.bootstrap.api:create_app --factory --port 8000
 ```
 
-The picture files are in `data/media/images/` and the API serves them from there. To rebuild the database
-from the raw files instead of the snapshot, see section 11.3 of the main [README](../README.md).
+**The picture files are not in git.** They ship as a Docker image, `ghcr.io/eslamusamaaa/pharmavique-media`
+(about 700 MB). With Docker Compose the `media` service copies them into the volume the API reads:
+`docker compose up -d` does it. To run the API outside Docker, put them in `data/media/images/` with
+
+```bash
+docker compose run --rm -v "$PWD/data/media/images:/target" media
+```
+
+To rebuild the database from the raw files instead of the snapshot, see section 11.3 of the main
+[README](../README.md).
 
 ## Folders
 
@@ -38,7 +46,7 @@ from the raw files instead of the snapshot, see section 11.3 of the main [README
 | `sfda/full-20261116/` | `records.jsonl`: one line per registered drug (English and Arabic fields, provenance) | SFDA drugs list, crawled 2026-11-16 to 18 | 37 MB | `sfda-update` (daily job) |
 | `exports/catalog_full.csv` | the catalog as one flat table, for people who do not use the database | derived | 2.6 MB | export from the catalog |
 | `lists/<list>/lists-1/` | one folder per SFDA list: `records.jsonl` (the rows), `manifest.json` (counts, status), `list/` (stored list pages), `details.jsonl`, `files/` and `texts.jsonl` where the rows link to documents | SFDA information lists | 250 MB | `sfda-lists`, then `sfda-lists-load` |
-| `media/images/` | the product picture files, `products/SA/<register number>/<name>.<ext>` | Saudi pharmacy sites | 732 MB | `sfda-images --from-sitemap-pictures`, `sfda-images-restore` |
+| `media/images/` (**not in git**) | the product picture files, `products/SA/<register number>/<name>.<ext>`; shipped as the Docker image `pharmavique-media`, see `docker/media/Dockerfile` | Saudi pharmacy sites | about 700 MB | find with `sfda-images --from-sitemap-pictures`, refill with `sfda-images-restore`, package with `bash scripts/build_media_image.sh` |
 | `media/images.jsonl` | one record per picture: shop page, picture address, hash, status, provenance | derived | 7.0 MB | written by the picture commands |
 | `media/mapping.jsonl` (and `.csv`) | **one row per drug**: names, picture path, `picture_kind` (`real` or `placeholder`), `picture_status`, `picture_check` | derived | 5.3 MB | `sfda-images-map`, loaded by `sfda-pictures-load` |
 | `media/verification.jsonl` | the text read on each picture by OCR and the verdict | derived | 2.6 MB | `sfda-images-verify` |
@@ -48,7 +56,7 @@ from the raw files instead of the snapshot, see section 11.3 of the main [README
 | `media/generated/` | marked stand-in cards for drugs no shop sells | generated | 6.9 MB | `sfda-images-map` |
 | `interactions/ddinter/` | 14 CSV files, one per ATC group: pairs of drugs with a severity | DDInter 2.0 | 30 MB | `interactions-load` |
 | `interactions/medic/` | `contraindicationList.xlsx` (drug, disease, label text) and `drugList.tsv` | MeDIC (RENCI) | 6.0 MB | `interactions-load-medic` |
-| `knowledge/openfda-labels/` | one JSON per active ingredient: the interactions, contraindications, pregnancy and patient-advice sections of one US label, with its DailyMed address | openFDA | 7.6 MB | `knowledge-labels` |
+| `knowledge/openfda-labels/` | one JSON per active ingredient: the interactions, contraindications, pregnancy and patient-advice sections of one US label, with its DailyMed address | openFDA | 5.6 MB | `knowledge-labels` |
 
 ## What the numbers are today
 
@@ -71,8 +79,8 @@ from the raw files instead of the snapshot, see section 11.3 of the main [README
   external files kept as downloaded (`.csv`, `.xlsx`, `.tsv`).
 - **Size rule:** every file stays under GitHub's 100 MB limit; the database snapshot is split per schema
   for that reason.
-- **Not committed:** logs (`*.log`), the daily refresh output (`refresh/`), local backups (`*.bak`,
-  `*.pre-*`), and lists that were started and stopped.
+- **Not committed:** the picture files (they ship as a Docker image), logs (`*.log`), the daily refresh
+  output (`refresh/`), local backups (`*.bak`, `*.pre-*`), and lists that were started and stopped.
 
 ## Refreshing
 
