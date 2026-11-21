@@ -5,21 +5,31 @@ Search, drug pages and the assistant stay open without an account. An account is
 deliberately plain: a wrong email and a wrong password look the same.
 """
 
+import logging
 from collections.abc import Callable, Coroutine
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from pharmavique.identity.application.service import IdentityService, Session, UserView
 from pharmavique.identity.contracts import TokenVerifier
-from pharmavique.identity.domain.user import EmailTaken, InvalidCredentials, SessionRejected
+from pharmavique.identity.domain.user import (
+    CodeLocked,
+    EmailNotVerified,
+    EmailTaken,
+    InvalidCode,
+    InvalidCredentials,
+    SessionRejected,
+)
+from pharmavique.shared_kernel.email import EmailError, EmailMessage, EmailSender
 from pharmavique.shared_kernel.errors import InvariantViolation
 from pharmavique.shared_kernel.principal import Principal, Role
 
 router = APIRouter(prefix="/v1/auth", tags=["accounts"])
+_log = logging.getLogger(__name__)
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -43,6 +53,8 @@ class UserOut(BaseModel):
     email: str
     role: Role
     tenant_id: UUID | None
+    email_verified: bool = True
+    email_notifications: bool = True
 
 
 class SessionOut(BaseModel):
@@ -54,7 +66,14 @@ class SessionOut(BaseModel):
 
 
 def _user(view: UserView) -> UserOut:
-    return UserOut(id=view.id, email=view.email, role=view.role, tenant_id=view.tenant_id)
+    return UserOut(
+        id=view.id,
+        email=view.email,
+        role=view.role,
+        tenant_id=view.tenant_id,
+        email_verified=view.email_verified,
+        email_notifications=view.email_notifications,
+    )
 
 
 def _session(session: Session) -> SessionOut:
@@ -124,16 +143,100 @@ def require_roles(*roles: Role) -> Callable[[Principal], Coroutine[Any, Any, Pri
     return check
 
 
-@router.post("/register", response_model=SessionOut, status_code=201, summary="Create an account")
-async def register(
-    body: RegisterIn, service: Annotated[IdentityService, Depends(get_identity)]
-) -> SessionOut:
+class RegisteredOut(BaseModel):
+    email: str
+    verification_required: bool = True  # enter the code that was emailed; there is no session yet
+
+
+class VerifyIn(BaseModel):
+    email: str = Field(max_length=254)
+    code: str = Field(min_length=4, max_length=12)
+
+
+class ResendIn(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class NotificationsIn(BaseModel):
+    email: bool
+
+
+async def _deliver(sender: EmailSender | None, message: EmailMessage) -> None:
+    """Send after the response has gone out. A failure is logged without the address or the code;
+    the person can ask for a new code."""
+    if sender is None:
+        _log.warning("no email sender is configured: a message was not sent")
+        return
     try:
-        return _session(await service.register(body.email, body.password, body.role))
+        await sender.send(message)
+    except EmailError as error:
+        _log.warning("an email could not be sent: %s", error)
+
+
+def get_email_sender(request: Request) -> EmailSender | None:
+    sender: EmailSender | None = request.app.state.email_sender
+    return sender
+
+
+@router.post(
+    "/register",
+    response_model=RegisteredOut,
+    status_code=201,
+    summary="Create an account; a confirmation code is emailed",
+)
+async def register(
+    body: RegisterIn,
+    background: BackgroundTasks,
+    service: Annotated[IdentityService, Depends(get_identity)],
+    sender: Annotated[EmailSender | None, Depends(get_email_sender)],
+) -> RegisteredOut:
+    try:
+        registration = await service.register(body.email, body.password, body.role)
     except InvariantViolation as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
     except EmailTaken:
         raise HTTPException(status_code=409, detail="this email already has an account") from None
+    background.add_task(_deliver, sender, registration.email)
+    return RegisteredOut(email=registration.user.email)
+
+
+@router.post("/verify-email", response_model=SessionOut, summary="Confirm the email with the code")
+async def verify_email(
+    body: VerifyIn, service: Annotated[IdentityService, Depends(get_identity)]
+) -> SessionOut:
+    try:
+        return _session(await service.verify_email(body.email, body.code))
+    except CodeLocked:
+        raise HTTPException(
+            status_code=429, detail="too many wrong codes, ask for a new one"
+        ) from None
+    except InvalidCode:
+        raise HTTPException(status_code=400, detail="the code is wrong or has expired") from None
+
+
+@router.post("/resend-code", status_code=202, summary="Email a new confirmation code")
+async def resend_code(
+    body: ResendIn,
+    background: BackgroundTasks,
+    service: Annotated[IdentityService, Depends(get_identity)],
+    sender: Annotated[EmailSender | None, Depends(get_email_sender)],
+) -> dict[str, str]:
+    message = await service.resend_code(body.email)
+    if message is not None:
+        background.add_task(_deliver, sender, message)
+    # the same answer whether or not a code was sent: it must not reveal who has an account
+    return {"detail": "if this account needs a code, a new one was sent"}
+
+
+@router.put("/me/notifications", status_code=204, summary="Switch email notifications on or off")
+async def set_notifications(
+    body: NotificationsIn,
+    principal: Annotated[Principal, Depends(current_principal)],
+    service: Annotated[IdentityService, Depends(get_identity)],
+) -> Response:
+    if not await service.set_email_notifications(principal.user_id, body.email):
+        raise _unauthorized("this account no longer exists")
+    return Response(status_code=204)
 
 
 @router.post("/login", response_model=SessionOut, summary="Sign in")
@@ -144,6 +247,8 @@ async def login(
         return _session(await service.login(body.email, body.password))
     except InvalidCredentials:
         raise _unauthorized("wrong email or password") from None
+    except EmailNotVerified:
+        raise HTTPException(status_code=403, detail="email_not_verified") from None
 
 
 @router.post(

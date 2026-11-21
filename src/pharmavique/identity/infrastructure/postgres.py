@@ -1,27 +1,26 @@
 """PostgreSQL stores over the `identity` schema."""
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pharmavique.identity.application.ports import RefreshRecord
+from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.domain.user import User
 from pharmavique.shared_kernel.principal import Role
 
 _INSERT = text(
-    "INSERT INTO identity.users (id, email, password_hash, role, tenant_id, created_at) "
-    "VALUES (:id, :email, :password_hash, :role, :tenant_id, :created_at)"
+    "INSERT INTO identity.users (id, email, password_hash, role, tenant_id, created_at, "
+    "email_verified_at) "
+    "VALUES (:id, :email, :password_hash, :role, :tenant_id, :created_at, :verified_at)"
 )
-_BY_EMAIL = text(
-    "SELECT id, email, password_hash, role, tenant_id, created_at "
-    "FROM identity.users WHERE email = :email"
+_COLUMNS = (
+    "id, email, password_hash, role, tenant_id, created_at, email_verified_at, email_notifications"
 )
-_BY_ID = text(
-    "SELECT id, email, password_hash, role, tenant_id, created_at "
-    "FROM identity.users WHERE id = :id"
-)
+_BY_EMAIL = text(f"SELECT {_COLUMNS} FROM identity.users WHERE email = :email")  # noqa: S608
+_BY_ID = text(f"SELECT {_COLUMNS} FROM identity.users WHERE id = :id")  # noqa: S608
 
 
 def _user(row: object) -> User:
@@ -33,6 +32,8 @@ def _user(row: object) -> User:
         role=Role(r["role"]),
         tenant_id=r["tenant_id"],
         created_at=r["created_at"],
+        email_verified_at=r["email_verified_at"],
+        email_notifications=r["email_notifications"],
     )
 
 
@@ -52,6 +53,7 @@ class PostgresUserRepository:
                         "role": user.role.value,
                         "tenant_id": user.tenant_id,
                         "created_at": user.created_at,
+                        "verified_at": user.email_verified_at,
                     },
                 )
         except IntegrityError:
@@ -73,6 +75,107 @@ class PostgresUserRepository:
             await session.execute(
                 text("DELETE FROM identity.users WHERE id = :id"), {"id": user_id}
             )  # refresh tokens go with it (ON DELETE CASCADE)
+
+    async def mark_verified(self, user_id: UUID, at: datetime) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                text(
+                    "UPDATE identity.users SET email_verified_at = :at "
+                    "WHERE id = :id AND email_verified_at IS NULL"
+                ),
+                {"id": user_id, "at": at},
+            )
+
+    async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool:
+        async with self._session_factory() as session, session.begin():
+            result = await session.execute(
+                text(
+                    "UPDATE identity.users SET email_notifications = :e WHERE id = :id RETURNING id"
+                ),
+                {"id": user_id, "e": enabled},
+            )
+            return result.first() is not None
+
+
+class PostgresCodeStore:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
+
+    async def add(self, record: CodeRecord) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                text(
+                    "UPDATE identity.email_codes SET consumed_at = :now "
+                    "WHERE user_id = :u AND consumed_at IS NULL"
+                ),
+                {"u": record.user_id, "now": record.created_at},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO identity.email_codes "
+                    "(id, user_id, code_hash, expires_at, created_at) "
+                    "VALUES (:id, :u, :h, :e, :c)"
+                ),
+                {
+                    "id": record.id,
+                    "u": record.user_id,
+                    "h": record.code_hash,
+                    "e": record.expires_at,
+                    "c": record.created_at,
+                },
+            )
+
+    async def latest(self, user_id: UUID) -> CodeRecord | None:
+        async with self._session_factory() as session:
+            row = (
+                await session.execute(
+                    text(
+                        "SELECT id, user_id, code_hash, expires_at, created_at, attempts "
+                        "FROM identity.email_codes "
+                        "WHERE user_id = :u AND consumed_at IS NULL "
+                        "ORDER BY created_at DESC LIMIT 1"
+                    ),
+                    {"u": user_id},
+                )
+            ).first()
+        if row is None:
+            return None
+        return CodeRecord(
+            row.id, row.user_id, row.code_hash, row.expires_at, row.created_at, row.attempts
+        )
+
+    async def add_attempt(self, code_id: UUID) -> int:
+        async with self._session_factory() as session, session.begin():
+            value = await session.scalar(
+                text(
+                    "UPDATE identity.email_codes SET attempts = attempts + 1 "
+                    "WHERE id = :id RETURNING attempts"
+                ),
+                {"id": code_id},
+            )
+        return int(value or 0)
+
+    async def consume(self, code_id: UUID) -> bool:
+        async with self._session_factory() as session, session.begin():
+            result = await session.execute(
+                text(
+                    "UPDATE identity.email_codes SET consumed_at = now() "
+                    "WHERE id = :id AND consumed_at IS NULL RETURNING id"
+                ),
+                {"id": code_id},
+            )
+            return result.first() is not None
+
+    async def count_since(self, user_id: UUID, since: datetime) -> int:
+        async with self._session_factory() as session:
+            value = await session.scalar(
+                text(
+                    "SELECT count(*) FROM identity.email_codes "
+                    "WHERE user_id = :u AND created_at >= :since"
+                ),
+                {"u": user_id, "since": since},
+            )
+        return int(value or 0)
 
 
 class PostgresSessionStore:

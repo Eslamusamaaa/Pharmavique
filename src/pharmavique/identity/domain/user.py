@@ -13,6 +13,11 @@ from uuid import UUID
 from pharmavique.shared_kernel.errors import DomainError, InvariantViolation
 from pharmavique.shared_kernel.principal import Role
 
+CODE_DIGITS = 6
+CODE_TTL_MINUTES = 10
+CODE_MAX_ATTEMPTS = 5
+CODE_RESEND_SECONDS = 60
+CODE_MAX_PER_HOUR = 5
 MIN_PASSWORD_LENGTH = 10
 MAX_PASSWORD_LENGTH = 200
 MAX_EMAIL_LENGTH = 254
@@ -28,6 +33,18 @@ class InvalidCredentials(DomainError):
 
 class EmailTaken(DomainError):
     """An account with this email already exists."""
+
+
+class EmailNotVerified(DomainError):
+    """The password is right but the email address has not been confirmed yet."""
+
+
+class InvalidCode(DomainError):
+    """The verification code is wrong, expired or already used. Says nothing about which."""
+
+
+class CodeLocked(DomainError):
+    """Too many wrong codes: ask for a new one."""
 
 
 class SessionRejected(DomainError):
@@ -58,3 +75,9 @@ class User:
     role: Role
     tenant_id: UUID | None  # pharmacists and companies have one; patients and operators do not
     created_at: datetime
+    email_verified_at: datetime | None = None  # set when the person enters the emailed code
+    email_notifications: bool = True  # may we email them about their saved medicines
+
+    @property
+    def verified(self) -> bool:
+        return self.email_verified_at is not None

@@ -22,6 +22,10 @@ class UserRepository(Protocol):
         """Delete the user and every session of theirs."""
         ...
 
+    async def mark_verified(self, user_id: UUID, at: datetime) -> None: ...
+
+    async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class RefreshRecord:
@@ -44,6 +48,38 @@ class SessionStore(Protocol):
         ...
 
     async def revoke(self, token_hash: str) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class CodeRecord:
+    id: UUID
+    user_id: UUID
+    code_hash: str  # a keyed hash: the code itself is never stored
+    expires_at: datetime
+    created_at: datetime
+    attempts: int = 0
+
+
+class CodeStore(Protocol):
+    async def add(self, record: CodeRecord) -> None:
+        """Store a new code and retire the user's earlier ones."""
+        ...
+
+    async def latest(self, user_id: UUID) -> CodeRecord | None:
+        """The user's newest code that has not been used."""
+        ...
+
+    async def add_attempt(self, code_id: UUID) -> int:
+        """Count one wrong try; the number of tries so far."""
+        ...
+
+    async def consume(self, code_id: UUID) -> bool:
+        """Use the code once. False when it was already used."""
+        ...
+
+    async def count_since(self, user_id: UUID, since: datetime) -> int:
+        """How many codes were sent to the user since then."""
+        ...
 
 
 class PasswordHasher(Protocol):

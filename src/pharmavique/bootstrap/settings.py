@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     # used to check how well it reads them (Q-32); the box and prescription scans are unaffected.
     shelf_scan_enabled: bool = False
 
+    # Email (verification codes, notification digests). "console" prints messages instead of
+    # sending them and is for development only; "smtp" sends through any provider that offers SMTP.
+    email_backend: Literal["console", "smtp"] = "console"
+    email_from: str = "Pharmavique <no-reply@localhost>"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_starttls: bool = True
+    # The address people reach the API at, used for links in emails (the unsubscribe link).
+    public_url: str = ""
+
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
     # Folder the daily refresh writes its summaries to; the operator board reads it (read-only).
@@ -97,6 +109,7 @@ class Settings(BaseSettings):
         "openrouter_api_key",
         "groq_api_key",
         "elevenlabs_api_key",
+        "smtp_password",
         mode="before",
     )
     @classmethod

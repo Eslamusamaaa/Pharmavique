@@ -11,16 +11,10 @@ import os
 import sys
 from typing import Any
 
+from pharmavique.bootstrap.identity_wiring import build_identity
 from pharmavique.bootstrap.settings import get_settings
-from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
-from pharmavique.identity.application.service import IdentityService
 from pharmavique.identity.domain.user import EmailTaken
-from pharmavique.identity.infrastructure.passwords import ScryptPasswordHasher
-from pharmavique.identity.infrastructure.postgres import (
-    PostgresSessionStore,
-    PostgresUserRepository,
-)
 from pharmavique.identity.infrastructure.tokens import JwtAccessTokens
 from pharmavique.shared_kernel.errors import InvariantViolation
 
@@ -48,12 +42,8 @@ async def create_operator(args: argparse.Namespace) -> int:
     engine = create_engine(settings.database_url.get_secret_value())
     try:
         factory = create_session_factory(engine)
-        service = IdentityService(
-            PostgresUserRepository(factory),
-            PostgresSessionStore(factory),
-            ScryptPasswordHasher(),
-            JwtAccessTokens(settings.jwt_secret.get_secret_value()),
-            SystemClock(),
+        service = build_identity(
+            settings, factory, JwtAccessTokens(settings.jwt_secret.get_secret_value())
         )
         try:
             view = await service.create_operator(args.email, password)

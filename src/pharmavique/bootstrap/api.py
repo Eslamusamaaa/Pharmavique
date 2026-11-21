@@ -45,6 +45,7 @@ from pharmavique.bootstrap.ai import (
     build_voice,
 )
 from pharmavique.bootstrap.api_pictures import PictureLookup
+from pharmavique.bootstrap.identity_wiring import build_email_sender, build_identity
 from pharmavique.bootstrap.job_handlers import build_handlers
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
@@ -74,11 +75,6 @@ from pharmavique.foundation.kv import KeyValueStore, RedisStore, redis_client
 from pharmavique.foundation.read_cache import ReadCache
 from pharmavique.identity.application.service import IdentityService
 from pharmavique.identity.contracts import TokenVerifier
-from pharmavique.identity.infrastructure.passwords import ScryptPasswordHasher
-from pharmavique.identity.infrastructure.postgres import (
-    PostgresSessionStore,
-    PostgresUserRepository,
-)
 from pharmavique.identity.infrastructure.tokens import JwtAccessTokens
 from pharmavique.interactions.application.check import CheckInteractions
 from pharmavique.interactions.application.contraindications import ListContraindications
@@ -91,6 +87,7 @@ from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.search.application.handlers import SearchProductsHandler
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
+from pharmavique.shared_kernel.email import EmailSender
 from pharmavique.substitution.application.compare import CompareProductsHandler
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
 from pharmavique.voice.application.extract import ExtractDrugName
@@ -196,13 +193,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             if settings.jwt_secret is not None:
                 tokens = JwtAccessTokens(settings.jwt_secret.get_secret_value())
                 app.state.token_verifier = tokens
-                app.state.identity = IdentityService(
-                    PostgresUserRepository(session_factory),
-                    PostgresSessionStore(session_factory),
-                    ScryptPasswordHasher(),
-                    tokens,
-                    SystemClock(),
-                )
+                app.state.identity = build_identity(settings, session_factory, tokens)
+                app.state.email_sender = build_email_sender(settings)
             app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
@@ -234,6 +226,7 @@ def create_app(
     contraindications: ContraindicationChecks | None = None,
     list_items: CatalogListItems | None = None,
     identity: IdentityService | None = None,
+    email_sender: EmailSender | None = None,
     watchlist: WatchlistService | None = None,
     shelf: ShelfService | None = None,
     shelf_scan_enabled: bool | None = None,
@@ -273,6 +266,7 @@ def create_app(
     app.state.list_items = list_items
     app.state.lasa = None
     app.state.identity = identity
+    app.state.email_sender = email_sender
     app.state.watchlist = watchlist
     app.state.shelf = shelf
     app.state.ingredients = ingredients

@@ -10,9 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from pharmavique.identity.application.ports import RefreshRecord
+from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.domain.user import User
 from pharmavique.identity.infrastructure.postgres import (
+    PostgresCodeStore,
     PostgresSessionStore,
     PostgresUserRepository,
 )
@@ -31,7 +32,9 @@ def user(email: str = "ana@example.com", role: Role = Role.PATIENT) -> User:
 @pytest.fixture(autouse=True)
 async def clean(session_factory: async_sessionmaker[AsyncSession]) -> None:
     async with session_factory() as session, session.begin():
-        await session.execute(text("TRUNCATE identity.refresh_tokens, identity.users CASCADE"))
+        await session.execute(
+            text("TRUNCATE identity.email_codes, identity.refresh_tokens, identity.users CASCADE")
+        )
 
 
 async def test_a_user_round_trips_and_the_email_is_unique(
@@ -101,6 +104,65 @@ async def test_the_database_refuses_a_tenant_on_a_patient_and_none_on_a_company(
     # a violated CHECK is not an email clash, but any integrity error is reported as False
     assert await users.add(patient_with_tenant) is False
     assert await users.add(company_without) is False
+
+
+async def test_confirming_the_email_and_the_notification_switch_are_kept(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users = PostgresUserRepository(session_factory)
+    account = user()
+    await users.add(account)
+    assert (await users.by_id(account.id)).email_verified_at is None  # type: ignore[union-attr]
+
+    await users.mark_verified(account.id, NOW)
+    await users.mark_verified(account.id, NOW + timedelta(days=1))  # a second time changes nothing
+    assert await users.set_email_notifications(account.id, False) is True
+    assert await users.set_email_notifications(uuid4(), False) is False
+
+    stored = await users.by_id(account.id)
+    assert stored is not None
+    assert stored.email_verified_at == NOW
+    assert stored.email_notifications is False
+
+
+async def test_a_code_is_found_counted_used_once_and_replaced_by_a_newer_one(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users, codes = PostgresUserRepository(session_factory), PostgresCodeStore(session_factory)
+    account = user()
+    await users.add(account)
+    first = CodeRecord(uuid4(), account.id, "a" * 64, NOW + timedelta(minutes=10), NOW)
+
+    await codes.add(first)
+    assert await codes.latest(account.id) == first
+    assert await codes.add_attempt(first.id) == 1
+    assert await codes.add_attempt(first.id) == 2
+    assert (await codes.latest(account.id)).attempts == 2  # type: ignore[union-attr]
+
+    second = CodeRecord(
+        uuid4(), account.id, "b" * 64, NOW + timedelta(minutes=11), NOW + timedelta(minutes=1)
+    )
+    await codes.add(second)
+    assert await codes.latest(account.id) == second  # the older code was retired
+    assert await codes.consume(second.id) is True
+    assert await codes.consume(second.id) is False  # used once
+    assert await codes.latest(account.id) is None
+    assert await codes.count_since(account.id, NOW) == 2
+    assert await codes.count_since(account.id, NOW + timedelta(minutes=2)) == 0
+
+
+async def test_codes_go_with_their_user(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users, codes = PostgresUserRepository(session_factory), PostgresCodeStore(session_factory)
+    account = user()
+    await users.add(account)
+    await codes.add(CodeRecord(uuid4(), account.id, "c" * 64, NOW + timedelta(minutes=10), NOW))
+
+    await users.delete(account.id)
+
+    assert await codes.latest(account.id) is None
+    assert await codes.count_since(account.id, NOW - timedelta(days=1)) == 0
 
 
 async def test_the_identity_migration_is_reversible(
