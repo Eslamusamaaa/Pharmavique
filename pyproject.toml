@@ -153,6 +153,7 @@ containers = [
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
+    "pharmavique.interactions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -174,6 +175,7 @@ source_modules = [
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
+    "pharmavique.interactions.presentation",
 ]
 forbidden_modules = [
     "pharmavique.catalog.infrastructure",
@@ -188,6 +190,7 @@ forbidden_modules = [
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
+    "pharmavique.interactions.infrastructure",
     "pharmavique.catalog.domain",
     "pharmavique.ingestion.domain",
     "pharmavique.search.domain",
@@ -200,6 +203,7 @@ forbidden_modules = [
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
+    "pharmavique.interactions.domain",
 ]
 
 [[tool.importlinter.contracts]]
@@ -219,6 +223,7 @@ source_modules = [
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
+    "pharmavique.interactions.infrastructure",
 ]
 forbidden_modules = [
     "pharmavique.catalog.presentation",
@@ -233,6 +238,7 @@ forbidden_modules = [
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
+    "pharmavique.interactions.presentation",
 ]
 
 # THE ALLOW-LIST: the ignore_imports block IS the context map. Every cross-context edge
@@ -256,6 +262,7 @@ modules = [
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
+    "pharmavique.interactions",
 ]
 ignore_imports = [
     # sync calls from outbound adapters in infrastructure: ingestion speaks the catalog's contracts
@@ -282,6 +289,7 @@ source_modules = [
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
+    "pharmavique.interactions.domain",
     "pharmavique.catalog.application",
     "pharmavique.ingestion.application",
     "pharmavique.search.application",
@@ -294,6 +302,7 @@ source_modules = [
     "pharmavique.identity.application",
     "pharmavique.watchlist.application",
     "pharmavique.analytics.application",
+    "pharmavique.interactions.application",
     "pharmavique.shared_kernel",
 ]
 forbidden_modules = [
@@ -334,6 +343,7 @@ source_modules = [
     "pharmavique.identity.contracts",
     "pharmavique.watchlist.contracts",
     "pharmavique.analytics.contracts",
+    "pharmavique.interactions.contracts",
 ]
 forbidden_modules = [
     "pharmavique.catalog.domain",
@@ -348,6 +358,7 @@ forbidden_modules = [
     "pharmavique.identity.domain",
     "pharmavique.watchlist.domain",
     "pharmavique.analytics.domain",
+    "pharmavique.interactions.domain",
     "pharmavique.catalog.application",
     "pharmavique.ingestion.application",
     "pharmavique.search.application",
@@ -360,6 +371,7 @@ forbidden_modules = [
     "pharmavique.identity.application",
     "pharmavique.watchlist.application",
     "pharmavique.analytics.application",
+    "pharmavique.interactions.application",
     "pharmavique.catalog.infrastructure",
     "pharmavique.ingestion.infrastructure",
     "pharmavique.search.infrastructure",
@@ -372,6 +384,7 @@ forbidden_modules = [
     "pharmavique.identity.infrastructure",
     "pharmavique.watchlist.infrastructure",
     "pharmavique.analytics.infrastructure",
+    "pharmavique.interactions.infrastructure",
     "pharmavique.catalog.presentation",
     "pharmavique.ingestion.presentation",
     "pharmavique.search.presentation",
@@ -384,6 +397,7 @@ forbidden_modules = [
     "pharmavique.identity.presentation",
     "pharmavique.watchlist.presentation",
     "pharmavique.analytics.presentation",
+    "pharmavique.interactions.presentation",
     "pharmavique.foundation",
     "pharmavique.bootstrap",
     "sqlalchemy",
@@ -420,6 +434,7 @@ forbidden_modules = [
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
+    "pharmavique.interactions",
     "pharmavique.bootstrap",
 ]
 
@@ -440,6 +455,7 @@ source_modules = [
     "pharmavique.identity",
     "pharmavique.watchlist",
     "pharmavique.analytics",
+    "pharmavique.interactions",
     "pharmavique.shared_kernel",
     "pharmavique.foundation",
 ]

@@ -698,7 +698,7 @@ migrations/           Alembic environment
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
 | [Open questions](docs/OPEN_QUESTIONS.md) | Unknowns waiting for decisions |
-| [ADR-001](docs/adr/ADR-001-modular-monolith-vs-microservices.md) · [002](docs/adr/ADR-002-job-queue.md) · [003](docs/adr/ADR-003-search-strategy.md) · [004](docs/adr/ADR-004-scalability.md) · [005](docs/adr/ADR-005-ai-providers-behind-ports.md) · [006](docs/adr/ADR-006-pgvector-and-document-chunks.md) · [007](docs/adr/ADR-007-langgraph-in-infrastructure.md) | Architecture decision records |
+| [ADR-001](docs/adr/ADR-001-modular-monolith-vs-microservices.md) · [002](docs/adr/ADR-002-job-queue.md) · [003](docs/adr/ADR-003-search-strategy.md) · [004](docs/adr/ADR-004-scalability.md) · [005](docs/adr/ADR-005-ai-providers-behind-ports.md) · [006](docs/adr/ADR-006-pgvector-and-document-chunks.md) · [007](docs/adr/ADR-007-langgraph-in-infrastructure.md) · [008](docs/adr/ADR-008-interactions-context.md) | Architecture decision records |
 
 ## 19. Roadmap
 

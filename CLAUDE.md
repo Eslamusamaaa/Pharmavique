@@ -6,7 +6,7 @@ Full brief: `docs/PROJECT_BRIEF.md`. Architecture: `docs/ARCHITECTURE.md`. Decis
 Multi-tenant drug-intelligence API (patient, pharmacist, pharma company) on official registry data. Markets: Saudi Arabia first, Egypt as a pluggable adapter. Modular monolith, DDD, onion architecture. API first.
 
 ## Architecture rules (enforced by `uv run lint-imports` in CI)
-- Nine contexts under `src/pharmavique/<context>/` with `contracts`, `domain`, `application`, `infrastructure`, `presentation`.
+- Ten contexts under `src/pharmavique/<context>/` with `contracts`, `domain`, `application`, `infrastructure`, `presentation`.
 - Dependencies point inward. `domain` and `application` import no frameworks (sqlalchemy, fastapi, pydantic, redis, arq, httpx, alembic) and no other context.
 - Contexts talk only through `<provider>.contracts`, from an adapter module listed in the allow-list (`context-independence` contract in `pyproject.toml`). Changes happen through the transactional outbox and integration events.
 - One Postgres schema per context. No cross-schema foreign keys or joins.
