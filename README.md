@@ -98,7 +98,8 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Daily refresh | Built, to be scheduled | `scripts/daily_refresh.ps1` re-reads drugs, prices, fast lists and pictures and loads the difference |
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
 | Accounts and roles | Done | Email and password, roles patient, pharmacist, company, operator, refresh-token rotation with replay detection, sign-in screens in the app ([ADR-009](docs/adr/ADR-009-identity-and-sessions.md)) |
-| Watchlist alerts, company views, operator board | Planned | `watchlist` and `analytics` are still skeletons; see the [Phase 3 plan](docs/PHASE_3_PLAN.md) |
+| Saved medicines, allergies, alerts, weekly digest, price-changed mark | Done | `watchlist` context under row-level security, the catalog outbox relay, alerts for price changes, withdrawals and relistings ([ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md)). Shortage and safety-notice alerts are not built yet |
+| Company views, operator board | Planned | `analytics` is still a skeleton; see the [Phase 3 plan](docs/PHASE_3_PLAN.md) |
 
 ## 3. Screens and UI design
 
@@ -574,6 +575,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 |---|---|
 | `pharmavique sfda-scrape --run-id ID` | Full crawl of the registered drugs list (resumable) |
 | `pharmavique sfda-update --run-id ID` | Incremental refresh against the latest run |
+| `pharmavique outbox-relay [--once]` | Deliver the catalog's events to subscribers (the watchlist makes alerts); the daily refresh runs it with `--once` |
 | `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
 | `pharmavique sfda-diff --old A --new B` | Changes between two runs |
 | `pharmavique sfda-load --run-id ID [--from-records]` | Load a run into the catalog |
@@ -600,6 +602,13 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | POST | `/v1/auth/logout` | End the session of a refresh token |
 | GET | `/v1/auth/me` | The signed-in account (Bearer token) |
 | DELETE | `/v1/auth/me` | Delete the account and its sessions |
+| GET | `/v1/ingredients?q=` | Active ingredient names that start with the text (for the allergy picker) |
+| GET, PUT, DELETE | `/v1/me/medicines[/{register_number}]` | My saved medicines, each with its allergy matches (Bearer token) |
+| GET, PUT, DELETE | `/v1/me/allergies` | My recorded allergies, by active ingredient name |
+| GET | `/v1/me/allergy-check/{register_number}` | Does this medicine contain an ingredient I recorded an allergy to (by name; never a clearance) |
+| GET | `/v1/me/alerts` | Alerts about my saved medicines, with the unread count |
+| POST | `/v1/me/alerts/read` | Mark one alert, or all of them, as read |
+| GET | `/v1/me/digest?days=7` | What changed for my saved medicines, with a template summary |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/v1/search?q=&limit=&include_withdrawn=` | Find drugs by name, ingredient or register number |
@@ -726,6 +735,7 @@ migrations/           Alembic environment
 | [Phase 2 plan](docs/PHASE_2_PLAN.md) | Application and AI plan with the owner's decisions |
 | [Phase 3 plan](docs/PHASE_3_PLAN.md) | Accounts, alerts, company views, scale, shortages, compare, LASA, pharmacies |
 | [ADR-009](docs/adr/ADR-009-identity-and-sessions.md) | Accounts, roles and sessions |
+| [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
