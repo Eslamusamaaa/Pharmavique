@@ -156,7 +156,7 @@ location are sensitive: minimum collection, encrypted at rest, never logged, del
 Done means `ruff check`, `ruff format --check`, `mypy src tests`, `lint-imports`, `pytest` pass (real output
 reported), docs and ADRs updated, migrations reversible. Tests before adapters; one commit per unit of work.
 
-New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 company views and the quality board, ADR-012 location handling.
+New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 company views and the quality board, ADR-012 shared state, read cache and jobs, ADR-013 location handling.
 
 ## 5. Questions, each with the default I will use if told "go"
 
@@ -183,6 +183,8 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 | B Accounts and roles | Built: `identity` context (scrypt passwords, JWT access tokens, rotating refresh tokens with replay detection), `/v1/auth/*`, `require_roles` guard, `create-operator` command, sign-in and account screens, [ADR-009](adr/ADR-009-identity-and-sessions.md). Integration tests pass on a real Postgres. Not yet done: row-level security (comes with the first tenant-owned tables in Wave C), a lockout per account |
 | C Relay, alerts, allergies, price mark, digest | Built: `outbox-relay` command and `foundation` relay (at-least-once), `watchlist` context with row-level security (isolation tested at the database as an ordinary role), `/v1/me/*` endpoints, price-change mark on the drug page, template weekly digest, app screens (`my-list`, save button, allergy banner), [ADR-010](adr/ADR-010-outbox-relay-and-alerts.md). Not built: alerts for new shortage or safety-notice links (the list loader emits no events yet), push notifications (Q-18), class allergies. Production must connect as a non-superuser role or row-level security does nothing |
 | D Company views, operator quality board | Built: `analytics` read model (`analytics-rebuild`), `/v1/company/{market,gaps,radar}` for the company and operator roles, `/v1/operator/quality` for the operator, app screens (`company`, `operator`), the daily refresh rebuilds the model, [ADR-011](adr/ADR-011-company-views-and-quality-board.md). Registry facts only: no sales or demand figures. Not built: a company tenant tied to its marketing-company name; the radar starts at the first rebuild |
+
+| E Performance | Built: shared key-value store, versioned read cache for search and drug pages, rate limit shared across instances, shared spoken-answer links, background jobs (Arq worker or inline) for scans and assistant questions, `scripts/loadtest.py`, measured baselines in [PERFORMANCE.md](PERFORMANCE.md), [ADR-012](adr/ADR-012-shared-state-read-cache-and-jobs.md). Not built: the app does not call the jobs endpoints yet; deployment pieces (load balancer, PgBouncer, replicas, CDN, managed Redis); a load test from separate machines |
 
 ## 7. Proposed start
 

@@ -386,11 +386,13 @@ flowchart LR
   [ADR-004](docs/adr/ADR-004-scalability.md)).
 - Provider failures degrade gracefully: vision falls back across models, retrieval falls back to text
   search, each AI feature answers 503 until its key is configured while the rest keeps working.
-- **What is built today, and what is not:** the API is stateless, queries are indexed and parameterised,
-  and every client is rate limited in the process. Not built yet: a Redis cache for the read path,
-  rate limits in Redis for several API instances, a job queue and workers for the AI endpoints (ADR-002),
-  shared storage for pictures (the API serves them from `PHARMAVIQUE_MEDIA_DIR`), sign-in and tenants
-  (`identity` is a skeleton), and an outbox relay (events are written but nothing consumes them yet).
+- **What is built today, and what is not:** the API is stateless, queries are indexed and
+  parameterised, and with `PHARMAVIQUE_REDIS_URL` set the instances share the rate limit, a versioned
+  read cache for search and drug pages, spoken-answer links and a background job queue for scans and
+  assistant questions (Arq workers, [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md));
+  measured baselines are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md). Not built: shared storage for
+  pictures (the API serves them from `PHARMAVIQUE_MEDIA_DIR`), Redis failover, database replicas and
+  PgBouncer, a CDN, and the app does not call the jobs endpoints yet.
 
 ## 9. Data
 
@@ -547,7 +549,12 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
-| `REDIS_URL` | none | Redis connection |
+| `REDIS_URL` | none | Redis connection: shared rate limit, read cache, audio links, job queue (use `127.0.0.1`, not `localhost`, on Windows) |
+| `CACHE_TTL_SECONDS` | `600` | How long a cached search or drug-page answer lives at most |
+| `TRUSTED_PROXY_HOPS` | `0` | Reverse proxies of ours in front of the API (1 behind one load balancer) |
+| `JOB_BACKEND` | `inline` | `inline` runs jobs in the API process; `arq` hands them to `pharmavique worker` |
+| `JOB_MAX_CONCURRENCY`, `JOB_TIMEOUT_SECONDS`, `JOBS_PER_USER_PER_MINUTE`, `JOB_MAX_QUEUE_DEPTH` | `8`, `90`, `6`, `500` | Worker concurrency and timeout, submissions per caller, queue ceiling |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | `10`, `20` | Database connections per API process |
 | `JWT_SECRET` | none | Signs access tokens, at least 32 random characters; without it the account endpoints answer 503 |
 | `CORS_ORIGINS` | local app origins | Browser origins allowed to call the API |
 | `RATE_LIMIT_PER_MINUTE` | `300` | Requests per minute per client address; `0` turns it off |
@@ -576,6 +583,8 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique sfda-scrape --run-id ID` | Full crawl of the registered drugs list (resumable) |
 | `pharmavique sfda-update --run-id ID` | Incremental refresh against the latest run |
 | `pharmavique outbox-relay [--once]` | Deliver the catalog's events to subscribers (the watchlist makes alerts); the daily refresh runs it with `--once` |
+| `pharmavique worker` | Run background jobs (scans, assistant) from the Redis queue; the API needs `PHARMAVIQUE_JOB_BACKEND=arq` |
+| `pharmavique cache-invalidate` | Make cached search and drug-page answers stale (the daily refresh and the relay do it) |
 | `pharmavique analytics-rebuild` | Rebuild the company views' read model from the catalog (the daily refresh runs it) |
 | `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
 | `pharmavique sfda-diff --old A --new B` | Changes between two runs |
@@ -613,6 +622,8 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/company/market?ingredient=` | Market map: products, makers, forms, strengths and price ranges per ingredient set (company or operator role) |
 | GET | `/v1/company/gaps?ingredient=&thin_at=` | Strengths and forms with few registered makers, and strength and form pairs that never meet |
 | GET | `/v1/company/radar?ingredient=&days=` | New, withdrawn, relisted and repriced products lately |
+| POST | `/v1/jobs/scan`, `/v1/jobs/assistant` | Start a slow job; answers 202 with a job id |
+| GET | `/v1/jobs/{id}` | The job's state and, when done, the same JSON as the direct endpoint |
 | GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
@@ -742,6 +753,8 @@ migrations/           Alembic environment
 | [ADR-009](docs/adr/ADR-009-identity-and-sessions.md) | Accounts, roles and sessions |
 | [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
 | [ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md) | Company views and the operator's quality board |
+| [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md) | Shared state, read cache and background jobs |
+| [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
@@ -756,7 +769,7 @@ migrations/           Alembic environment
 1. Schedule the daily refresh and show changes (price changes, new and withdrawn drugs) to pharmacists and companies.
 2. Accounts, tenants and roles with sign-in on the API; alerts on a user's medicines through the outbox relay.
 3. Drug-food and drug-condition notes beyond the contraindication list; ingredient allergy in "my medicines".
-4. Redis cache and a job queue for the AI endpoints; shared storage for pictures.
+4. Shared storage for pictures; the app uses the jobs endpoints; email verification and notifications; the patient's medicine history as memory.
 5. Egypt as a CSV-import adapter marked unverified.
 
 ## 20. Disclaimer
