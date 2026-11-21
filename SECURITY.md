@@ -18,7 +18,7 @@ owner can read it.
 - `main` cannot be force-pushed or deleted; every push runs lint, types, architecture contracts
   and tests in CI (`.github/workflows/ci.yml`, read-only token, third-party actions pinned to a
   commit).
-- Dependabot watches Python, npm and GitHub Actions dependencies and opens updates.
+- Dependabot alerts and security updates are on: it opens a pull request only when a dependency has a known vulnerability (routine version-bump pull requests are off on purpose).
 - The API limits requests per client (a lower limit for the assistant, voice and scan endpoints),
   caps upload sizes, restricts browser origins (CORS) and answers a model-provider limit with a
   retryable 429 instead of an error.
