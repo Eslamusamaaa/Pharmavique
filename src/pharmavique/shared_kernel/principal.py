@@ -14,6 +14,7 @@ class Role(StrEnum):
     PATIENT = "patient"
     PHARMACIST = "pharmacist"
     COMPANY = "company"
+    OPERATOR = "operator"  # runs the platform: data quality, refresh status; made by a command
 
 
 @dataclass(frozen=True, slots=True)

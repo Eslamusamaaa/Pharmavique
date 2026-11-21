@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.bootstrap import (
     api_assistant,
+    api_auth,
     api_compare,
     api_drugs,
     api_interactions,
@@ -39,7 +40,16 @@ from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogListIte
 from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
 from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
+from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.identity.application.service import IdentityService
+from pharmavique.identity.contracts import TokenVerifier
+from pharmavique.identity.infrastructure.passwords import ScryptPasswordHasher
+from pharmavique.identity.infrastructure.postgres import (
+    PostgresSessionStore,
+    PostgresUserRepository,
+)
+from pharmavique.identity.infrastructure.tokens import JwtAccessTokens
 from pharmavique.interactions.application.check import CheckInteractions
 from pharmavique.interactions.application.contraindications import ListContraindications
 from pharmavique.interactions.contracts.queries import ContraindicationChecks, InteractionChecks
@@ -70,6 +80,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.speak,
         app.state.transcribe,
         app.state.scanner,
+        app.state.identity,
     )
     if all(backend is None for backend in injected):
         settings = get_settings()
@@ -94,6 +105,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
             app.state.pictures = SqlAlchemyPictureStore(session_factory)
             app.state.list_items = SqlAlchemyListItemReader(session_factory)
+            if settings.jwt_secret is not None:
+                tokens = JwtAccessTokens(settings.jwt_secret.get_secret_value())
+                app.state.token_verifier = tokens
+                app.state.identity = IdentityService(
+                    PostgresUserRepository(session_factory),
+                    PostgresSessionStore(session_factory),
+                    ScryptPasswordHasher(),
+                    tokens,
+                    SystemClock(),
+                )
             app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
@@ -120,6 +141,8 @@ def create_app(
     interactions: InteractionChecks | None = None,
     contraindications: ContraindicationChecks | None = None,
     list_items: CatalogListItems | None = None,
+    identity: IdentityService | None = None,
+    token_verifier: TokenVerifier | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
 ) -> FastAPI:
@@ -144,6 +167,8 @@ def create_app(
     app.state.pictures = pictures
     app.state.list_items = list_items
     app.state.lasa = None
+    app.state.identity = identity
+    app.state.token_verifier = token_verifier
     app.state.interactions = interactions
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
@@ -170,6 +195,7 @@ def create_app(
         )
     app.include_router(health.router)
     app.include_router(observability.router)
+    app.include_router(api_auth.router)
     app.include_router(api_drugs.router)
     app.include_router(api_compare.router)
     app.include_router(api_lasa.router)

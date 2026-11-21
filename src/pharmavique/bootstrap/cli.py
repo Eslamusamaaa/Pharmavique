@@ -23,6 +23,7 @@ from typing import Any
 import httpx
 
 from pharmavique.bootstrap import (
+    identity_cli,
     images,
     interactions_cli,
     knowledge_cli,
@@ -193,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     search_cli.add_arguments(commands)
     lists_cli.add_arguments(commands)
     interactions_cli.add_arguments(commands)
+    identity_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
@@ -649,6 +651,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(pictures_cli.load(args))
     if args.command == "sfda-lists-load":
         return asyncio.run(lists_cli.load(args))
+    if args.command == "create-operator":
+        return asyncio.run(identity_cli.create_operator(args))
     if args.command == "interactions-load-medic":
         return asyncio.run(interactions_cli.load_medic(args))
     if args.command == "interactions-load":

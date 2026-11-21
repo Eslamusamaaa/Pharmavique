@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-HEAVY_PREFIXES = ("/v1/assistant", "/v1/voice", "/v1/recognition")
+HEAVY_PREFIXES = ("/v1/assistant", "/v1/voice", "/v1/recognition", "/v1/auth")
 EXEMPT_PATHS = frozenset({"/health", "/ready"})
 _SWEEP_EVERY = 256  # requests between clean-ups of idle clients
 

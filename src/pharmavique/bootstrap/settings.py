@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Not used by the Phase 0 skeleton; wired in Phase 1. SecretStr keeps them out of repr/logs.
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
+    # Signs access tokens (at least 32 random characters). Without it accounts answer 503.
+    jwt_secret: SecretStr | None = None
 
     # Browser origins allowed to call the API (the app's web build). JSON list in the environment,
     # for example PHARMAVIQUE_CORS_ORIGINS='["http://localhost:8081"]'. Native apps need none.

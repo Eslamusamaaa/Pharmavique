@@ -21,6 +21,7 @@ dependencies = [
     "langgraph>=1.2.22",
     "langchain-openai>=1.8.2",
     "python-multipart>=0.0.34",
+    "pyjwt>=2.8",
 ]
 
 [project.scripts]

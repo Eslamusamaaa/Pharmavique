@@ -88,5 +88,5 @@ def test_principal_may_have_no_tenant_for_patients() -> None:
     assert Role.PATIENT in principal.roles
 
 
-def test_roles_are_patient_pharmacist_company() -> None:
-    assert {r.value for r in Role} == {"patient", "pharmacist", "company"}
+def test_roles_are_the_three_audiences_and_the_operator() -> None:
+    assert {r.value for r in Role} == {"patient", "pharmacist", "company", "operator"}
