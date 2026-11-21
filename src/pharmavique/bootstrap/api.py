@@ -18,6 +18,7 @@ from pharmavique.bootstrap import (
     api_interactions,
     api_pictures,
     api_recognition,
+    api_shortage,
     api_voice,
     health,
     observability,
@@ -32,7 +33,8 @@ from pharmavique.bootstrap.api_pictures import PictureLookup
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
-from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries
+from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogListItems, CatalogQueries
+from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
 from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
@@ -89,6 +91,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
             app.state.pictures = SqlAlchemyPictureStore(session_factory)
+            app.state.list_items = SqlAlchemyListItemReader(session_factory)
             app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
@@ -114,6 +117,7 @@ def create_app(
     name_extractor: DrugNameExtractor | None = None,
     interactions: InteractionChecks | None = None,
     contraindications: ContraindicationChecks | None = None,
+    list_items: CatalogListItems | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
 ) -> FastAPI:
@@ -136,6 +140,7 @@ def create_app(
     app.state.transcribe = transcribe
     app.state.scanner = scanner
     app.state.pictures = pictures
+    app.state.list_items = list_items
     app.state.interactions = interactions
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
@@ -164,6 +169,7 @@ def create_app(
     app.include_router(observability.router)
     app.include_router(api_drugs.router)
     app.include_router(api_pictures.router)
+    app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
     app.include_router(api_assistant.router)
     app.include_router(api_voice.router)

@@ -114,3 +114,33 @@ class CatalogDetails(Protocol):
         Same names only: whether they are interchangeable is decided by `substitution`.
         """
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class ListItem:
+    """One row of an official SFDA list that is linked to a product, as the site showed it.
+
+    `confidence` says how sure the link is: `matched` (name and substance agree) or `possible`
+    (a person should check). Cells and detail are the site's own label and value pairs.
+    """
+
+    list_name: str
+    confidence: str
+    reason: str
+    cells: tuple[tuple[str, str], ...]
+    detail: tuple[tuple[str, str], ...]
+    facets: tuple[tuple[str, str], ...]
+    link: str | None
+    source_ref: str
+    fetched_at: datetime | None
+    trust: str
+
+
+class CatalogListItems(Protocol):
+    """The list rows (shortages, safety notices) linked to one product."""
+
+    async def list_items(
+        self, market: Market, register_number: str, list_names: Sequence[str]
+    ) -> tuple[ListItem, ...]:
+        """Linked rows of these lists, `matched` links first. Empty when none are linked."""
+        ...

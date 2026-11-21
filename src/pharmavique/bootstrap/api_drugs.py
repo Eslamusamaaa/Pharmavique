@@ -305,21 +305,21 @@ async def drug_page(
     )
 
 
-@router.get(
-    "/products/{register_number}/same-ingredient",
-    response_model=SameIngredientListOut,
-    summary="Products with the same active ingredients, cheapest first, with a computed verdict",
-)
-async def same_ingredient(
+async def same_ingredient_results(
+    details_backend: CatalogDetails,
+    equivalence: EquivalenceQueries,
+    market: Market,
     register_number: str,
-    details_backend: Annotated[CatalogDetails, Depends(get_details)],
-    equivalence: Annotated[EquivalenceQueries, Depends(get_equivalence)],
-    market: Market = Market.SA,
-    limit: Annotated[int, Query(ge=1, le=100)] = 30,
-) -> SameIngredientListOut:
+    limit: int,
+) -> list[SameIngredientOut] | None:
+    """Products with the same ingredient set, cheapest first, each with its computed verdict.
+
+    None when the base product is not in the catalog. Shared by the same-ingredient and shortage
+    endpoints so both say the same thing about the same pair.
+    """
     base = await details_backend.get_details(market, register_number)
     if base is None:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        return None
     others = await details_backend.same_ingredients(market, register_number, limit)
     verdicts = {
         c.product_id: c for c in equivalence.compare(_facts(base), [_facts(o) for o in others])
@@ -350,6 +350,26 @@ async def same_ingredient(
                 form_family=comparison.form_family,
             )
         )
+    return results
+
+
+@router.get(
+    "/products/{register_number}/same-ingredient",
+    response_model=SameIngredientListOut,
+    summary="Products with the same active ingredients, cheapest first, with a computed verdict",
+)
+async def same_ingredient(
+    register_number: str,
+    details_backend: Annotated[CatalogDetails, Depends(get_details)],
+    equivalence: Annotated[EquivalenceQueries, Depends(get_equivalence)],
+    market: Market = Market.SA,
+    limit: Annotated[int, Query(ge=1, le=100)] = 30,
+) -> SameIngredientListOut:
+    results = await same_ingredient_results(
+        details_backend, equivalence, market, register_number, limit
+    )
+    if results is None:
+        raise HTTPException(status_code=404, detail="no such drug in the catalog")
     return SameIngredientListOut(
         register_number=register_number, count=len(results), results=results
     )
