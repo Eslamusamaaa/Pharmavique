@@ -1,6 +1,7 @@
 """The polite one-time city geocoder and the command that fills in missing city points."""
 
 from datetime import UTC, datetime
+from typing import ClassVar
 
 import httpx
 
@@ -133,6 +134,66 @@ async def test_each_city_is_looked_up_once_and_the_unplaceable_are_listed_not_gu
     assert {s.city_key for s in saved} == {"jeddah", "riyadh"}
     assert all(s.trust == "unofficial_unverified" for s in saved)
     assert all(s.source == "openstreetmap-nominatim" for s in saved)
+
+
+class RegionSource:
+    """Three Aseer cities and one whose name also exists near Riyadh."""
+
+    async def pharmacies(self, market: Market) -> tuple[Pharmacy, ...]:
+        def p(name: str, city: str, region: str) -> Pharmacy:
+            return Pharmacy(
+                Market.SA, name, None, region, city.casefold(), city, None, city, "ref", NOW,
+                "official",
+            )  # fmt: skip
+
+        return (
+            p("1", "Abha", "Aseer Province"),
+            p("2", "Bisha", "Aseer Province"),
+            p("3", "Khamis Mushait", "Aseer Province"),
+            p("4", "Al-Namas", "Aseer Province"),
+            p("5", "Riyadh", "Riyadh"),
+        )
+
+    async def city_locations(self, market: Market) -> tuple[CityLocation, ...]:
+        return ()
+
+
+class PointGeocoder:
+    POINTS: ClassVar[dict[str, tuple[float, float]]] = {
+        "Abha": (18.22, 42.50),
+        "Bisha": (20.00, 42.60),
+        "Khamis Mushait": (18.30, 42.73),
+        "Al-Namas": (24.62, 46.55),  # a place of the same name near Riyadh: wrong region
+        "Riyadh": (24.64, 46.72),
+    }
+
+    async def city(self, name: str) -> Geocoded | None:
+        lat, lon = self.POINTS[name.split(",")[0]]
+        return Geocoded(lat, lon, name, "ref")
+
+
+async def test_a_point_far_from_the_other_cities_of_its_region_is_not_saved() -> None:
+    saved: list[CityLocation] = []
+
+    async def save(location: CityLocation) -> None:
+        saved.append(location)
+
+    report = await locate_cities(RegionSource(), save, PointGeocoder(), Clock(), Market.SA)
+
+    assert {s.city for s in saved} == {"Abha", "Bisha", "Khamis Mushait", "Riyadh"}
+    assert [name for name, _ in report.suspect] == ["Al-Namas"]
+    assert report.suspect[0][1] > 500  # kilometres from where its region's other cities are
+    assert report.unresolved == []
+
+
+async def test_a_region_with_one_city_cannot_be_checked_and_is_kept() -> None:
+    saved: list[CityLocation] = []
+
+    async def save(location: CityLocation) -> None:
+        saved.append(location)
+
+    await locate_cities(RegionSource(), save, PointGeocoder(), Clock(), Market.SA)
+    assert "Riyadh" in {s.city for s in saved}
 
 
 async def test_cities_that_already_have_a_point_are_not_looked_up_again() -> None:
