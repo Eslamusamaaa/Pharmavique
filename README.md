@@ -55,9 +55,10 @@ Pharmavique is a multi-tenant drug information platform for three audiences: **p
 **pharmacists** and **pharmaceutical companies**. Saudi Arabia is the first market; Egypt is planned
 as a pluggable import adapter.
 
-Everything the product shows comes from the official registry of the Saudi Food and Drug Authority
-(SFDA) and its public safety publications, collected politely and stored with full provenance. On top
-of that data the platform adds:
+The drug data comes from the official registry of the Saudi Food and Drug Authority (SFDA) and its
+public safety publications. Interaction pairs, contraindications and US label text come from open outside
+sources and are marked `unofficial_unverified`; pictures come from Saudi pharmacy sites. Everything is
+collected politely and stored with provenance. On top of that data the platform adds:
 
 - a typo-tolerant, bilingual search (Arabic and English trade names, active ingredients, register numbers),
 - a drug page with every registry field and where it came from,
@@ -66,7 +67,12 @@ of that data the platform adds:
 - a Saudi Arabic voice for spoken answers and speech-to-text for voice search,
 - a vision model that reads medicine boxes and prescriptions and matches them to the registry,
 - SFDA safety intelligence: safety alerts, recalls and circulars, labeling updates, risk minimization
-  materials, shortages and letters to healthcare professionals.
+  materials, shortages and letters to healthcare professionals,
+- an **interaction check** between medicines (recorded pairs with the severity the source gives),
+  duplicated active ingredients, and the conditions a drug's labels say it must not be used with, for the
+  pharmacist, the patient's own medicine list and the assistant. Everything is matched by **active
+  ingredient**, never by trade name, and "nothing found" is never presented as "safe",
+- product pictures from Saudi online pharmacies, mapped to each drug.
 
 The project is **API first**: the mobile app holds no drug data of its own and every screen calls the API.
 
@@ -83,10 +89,15 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Observability | Done | Structured events, Prometheus metrics, request ids |
 | Voice | Done | Whisper speech-to-text; Saudi Arabic text-to-speech through ElevenLabs or Groq |
 | Box and prescription scan | Done | Vision model with automatic fallback across models, registry matching, mandatory review |
-| Knowledge base (RAG) | Done | Chunking, embeddings, hybrid retrieval; content grows as the safety lists finish loading |
-| SFDA safety lists | In progress | All six lists crawled; detail pages, documents, OCR, loading and linking running |
-| Mobile app | Done for the core journeys | Home, search, drug page, assistant with listen, voice search, box and prescription scan, light and dark; medication list and safety check next |
-| Accounts, roles, watchlist alerts, analytics | Planned | Bounded contexts exist as skeletons |
+| Knowledge base (RAG) | Done | 10,000+ cited chunks with embeddings: SFDA documents and US label sections per active ingredient |
+| SFDA lists | Done | Safety lists, shortages, approvals, companies (6,135) and licensed pharmacies (385), loaded and linked to products |
+| Interaction check | Done | 234,757 recorded drug pairs (DDInter), duplicated ingredients, `POST /v1/interactions/check` |
+| Contraindications | Done | 3,960 drug-disease records (MeDIC) on the drug page and for the assistant |
+| Product pictures | Done | 3,815 of 9,162 drugs have a real pharmacy picture (42%); the rest show a marked placeholder |
+| Mobile app | Done for the core journeys | Home, search, drug page with pictures, assistant, voice search, box and prescription scan, first-launch role choice, interaction check (pharmacist) and "my medicines" (patient) |
+| Daily refresh | Built, to be scheduled | `scripts/daily_refresh.ps1` re-reads drugs, prices, fast lists and pictures and loads the difference |
+| Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
+| Accounts, roles, watchlist alerts, analytics | Planned | Bounded contexts exist as skeletons; the API has no sign-in yet |
 
 ## 3. Screens
 
@@ -203,7 +214,9 @@ Strength normalization is exact (fractions, not floats): 500 mg equals 0.5 g, 12
 | `search_drugs(query)` | Up to 8 registered products by name, ingredient or register number |
 | `drug_details(register_number)` | Every registry field of one product, with its source |
 | `same_ingredient(register_number)` | Same-ingredient products, cheapest first, with the computed verdict |
-| `search_documents(query, register_number?)` | Passages of official SFDA documents, hybrid retrieval |
+| `search_documents(query, register_number?)` | Passages of SFDA documents and of US drug labels (interactions, contraindications, pregnancy, patient advice), hybrid retrieval |
+| `check_interactions(register_numbers)` | Recorded interactions between products and duplicated ingredients, each with its source; always followed by a coverage record |
+| `contraindications(register_number)` | Conditions the product's ingredients are recorded as contraindicated with, from drug labels |
 
 - **Citations**: every record a tool returns gets a number; the model cites `[n]`; the runner keeps only
   citations that point at records really retrieved and renumbers them in order.
@@ -236,6 +249,22 @@ Safety alerts, drug circulars and withdrawals, safety labeling updates, risk min
 current and resolved shortages, and letters to healthcare professionals are crawled, their detail pages
 and documents downloaded, PDF text extracted (with OCR for scanned files), rows linked to products, and
 the text cut into cited chunks for the assistant.
+
+### 4.8 Interaction check and contraindications
+
+- **Match by active ingredient.** Each product's ingredient list (already split per ingredient) is turned
+  into lookup keys: as written, without salt or ester words (`AMLODIPINE BESILATE` gives `amlodipine`) and
+  under the spelling the sources use (`PARACETAMOL` gives `acetaminophen`). The registry name is never
+  changed. 75% of ingredient occurrences are known to the interaction source; the rest (nutrients,
+  infusions, biologics, new molecules) are returned as `unmatched`, never as safe.
+- **Sources.** Drug-drug pairs: DDInter 2.0 (severity as the source rates it). Drug-disease
+  contraindications: MeDIC (government drug labels). Explanatory text: the interactions, contraindications,
+  pregnancy and patient-advice sections of US labels from openFDA, quoted as US labels.
+- **Surfaces.** `POST /v1/interactions/check`, `GET /v1/interactions/contraindications/{register_number}`,
+  the assistant's two tools, the pharmacist's check screen and the patient's "my medicines" list (kept on
+  the device only).
+- **Never advice.** No doses, no "stop" or "switch": findings state what a source records and send the
+  reader to the pharmacist or doctor. Design: [ADR-008](docs/adr/ADR-008-interactions-context.md).
 
 ## 5. AI layer
 
@@ -353,6 +382,7 @@ checked on every run and in CI.
 | `voice` | Speech to text and text to speech | Done |
 | `recognition` | Box and prescription reading, candidates, review rules | Done |
 | `media` | Product picture pipeline (shop sitemaps, OCR verification, placeholders) | Done |
+| `interactions` | Ingredient name matching, drug-drug pairs, contraindications, duplicate ingredients | Done |
 | `identity` | Accounts, tenants, roles | Planned |
 | `watchlist` | Alerts on a user's medicines (recalls, price changes) | Planned |
 | `analytics` | Company analytics | Planned |
@@ -388,6 +418,8 @@ flowchart LR
     assistant -. DrugFacts port .-> catalog
     assistant -. DrugFacts port .-> substitution
     assistant -. DrugFacts port .-> knowledge
+    assistant -. DrugFacts port .-> interactions
+    bootstrap --> interactions
     recognition -. CandidateFinder port .-> search
 ```
 
@@ -402,7 +434,7 @@ flowchart LR
 | Anti-corruption layer | `ingestion` maps SFDA pages into catalog commands |
 | Published language | the `contracts` package of each context |
 | Ports and adapters | every external capability (database, crawler, model, voice, vision) |
-| One schema per context | `catalog`, `search`, `knowledge`; no cross-schema keys or joins |
+| One schema per context | `catalog`, `search`, `knowledge`, `interactions`; no cross-schema keys or joins |
 
 ### 8.6 Scalability
 
@@ -414,14 +446,19 @@ flowchart LR
   [ADR-004](docs/adr/ADR-004-scalability.md)).
 - Provider failures degrade gracefully: vision falls back across models, retrieval falls back to text
   search, each AI feature answers 503 until its key is configured while the rest keeps working.
+- **What is built today, and what is not:** the API is stateless, queries are indexed and parameterised,
+  and every client is rate limited in the process. Not built yet: a Redis cache for the read path,
+  rate limits in Redis for several API instances, a job queue and workers for the AI endpoints (ADR-002),
+  shared storage for pictures (the API serves them from `PHARMAVIQUE_MEDIA_DIR`), sign-in and tenants
+  (`identity` is a skeleton), and an outbox relay (events are written but nothing consumes them yet).
 
 ## 9. Data
 
 ### 9.1 Sources
 
-All data comes from the official SFDA website, crawled politely: robots.txt respected, requests throttled
-with jitter, crawls stop on blocks and never touch CAPTCHA-protected forms. Every record keeps its
-provenance and the trust level `official`.
+The registry and the lists come from the official SFDA website, crawled politely: robots.txt respected,
+requests throttled with jitter, crawls stop on blocks and never touch CAPTCHA-protected forms. Those records
+keep their provenance and the trust level `official`. Outside sources are marked `unofficial_unverified`.
 
 | Source | Records | Used for |
 |---|---|---|
@@ -433,6 +470,12 @@ provenance and the trust level `official`.
 | Drug shortages, current and resolved | 723 and 586 | Shortage status |
 | Letters to healthcare professionals | 105 | Knowledge base |
 | Drug companies | 6,135 | Company views |
+| Licensed pharmacies | 385 | Pharmacy finder |
+| New drug approvals | 462 | New-product radar |
+| DDInter 2.0 (outside) | 234,757 pairs | Interaction check |
+| MeDIC (outside) | 3,960 drug-disease records | Contraindications |
+| US drug labels through openFDA (outside) | 871 ingredients, 6,478 chunks | Assistant text, always quoted as a US label |
+| Saudi pharmacy sitemaps (outside) | Nahdi, United, Aljawaher, Raf, Medon, Aster, The Outlet, Adam | Product pictures |
 
 ### 9.2 Provenance on every record
 
@@ -458,9 +501,11 @@ flowchart LR
 
 ### 9.4 Dataset in the repository
 
-The dataset is versioned under [`data/`](data/): `data/sfda/<run>/records.jsonl` for the drug registry,
-`data/lists/<list>/<run>/` for each SFDA list (records, details, documents, texts, manifest), `data/media/`
-for the product picture mapping, and `data/exports/catalog_full.csv` as a flat export.
+Everything needed to run on another machine is versioned in the repository: clone it and restore the
+database snapshot. [`data/README.md`](data/README.md) explains every folder, its source, size and the
+command that rebuilds it. In short: `data/sfda` (registry), `data/lists` (SFDA lists), `data/media`
+(pictures, mapping, shop sitemaps), `data/interactions` (DDInter, MeDIC), `data/knowledge` (US label
+text), `data/db` (database snapshot, one file per schema) and `data/exports` (a flat catalog CSV).
 
 ## 10. Tech stack
 
@@ -494,11 +539,11 @@ uv run alembic upgrade heads              # every context's schema
 
 ### 11.3 Load the data shipped in the repository
 
-Fastest: restore the database snapshot kept in the repository (catalog, search index, SFDA lists
-and knowledge vectors), then skip the commands below.
+Fastest: restore the database snapshot kept in the repository (catalog, search index, SFDA lists,
+interaction data, pictures mapping and knowledge vectors), then skip the commands below.
 
 ```bash
-bash scripts/db_restore.sh            # restores data/db/pharmavique.dump
+bash scripts/db_restore.sh            # restores data/db/<schema>.dump, one file per schema
 bash scripts/db_snapshot.sh           # after changing data, refresh the snapshot before committing
 ```
 
@@ -509,7 +554,13 @@ uv run pharmavique sfda-load --run-id full-20261116 --from-records   # 9,144 dru
 uv run pharmavique search-reindex                                     # the search index
 uv run pharmavique sfda-lists-load --run-id lists-1                   # SFDA lists, linked to products
 uv run pharmavique knowledge-build --run-id lists-1                   # cited chunks for the assistant
+uv run pharmavique interactions-load                                  # DDInter pairs (data/interactions/ddinter)
+uv run pharmavique interactions-load-medic                            # MeDIC contraindications
+uv run pharmavique knowledge-labels                                   # US label chunks (cached in data/knowledge)
+uv run pharmavique sfda-pictures-load                                 # pictures mapping into the catalog
 ```
+
+Product picture files are in `data/media/images/` and are served by `GET /v1/products/{register_number}/picture`.
 
 ### 11.4 Run the API
 
@@ -537,6 +588,15 @@ uv run pharmavique sfda-update --run-id <new run id>     # drug registry, increm
 bash scripts/recollect_safety_lists.sh                    # the six safety lists, end to end
 ```
 
+**Daily refresh.** `scripts/daily_refresh.ps1` runs the whole routine and writes a log and a summary per
+step under `data/refresh/<date>/` (git-ignored): drugs and prices (`sfda-update`, load, search reindex),
+the fast lists (shortages, safety notices, approvals, circulars), pictures for new drugs, and on Sundays the
+shops' sitemaps and missing pictures. It is polite, safe to repeat, never overlaps itself, and a failing
+step does not stop the next one. On Windows register it once with
+`.\scripts\schedule_daily_refresh.ps1 -Time 03:00`; on a server run it from cron or a scheduled container
+(the drug update needs Chromium, so it belongs in a worker image, not the API image). The daily snapshots
+live in the database; only the baselines `full-20261116` and `lists-1` are committed.
+
 ## 12. Configuration reference
 
 All settings are environment variables with the `PHARMAVIQUE_` prefix, read from `.env`. Secrets are never
@@ -547,6 +607,9 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
 | `REDIS_URL` | none | Redis connection |
 | `CORS_ORIGINS` | local app origins | Browser origins allowed to call the API |
+| `RATE_LIMIT_PER_MINUTE` | `300` | Requests per minute per client address; `0` turns it off |
+| `HEAVY_RATE_LIMIT_PER_MINUTE` | `30` | The same for the assistant, voice and scan endpoints |
+| `MEDIA_DIR` | `data/media` | Folder with the product picture files the API serves |
 | `GROQ_API_KEY` | none | Assistant model, prompt guard, speech to text, optional voice |
 | `OPENROUTER_API_KEY` | none | Embeddings and vision models |
 | `ELEVENLABS_API_KEY` | none | Saudi Arabic voice |
@@ -577,7 +640,12 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique knowledge-build --run-id ID` | Cut official documents into cited chunks |
 | `pharmavique search-reindex` | Rebuild the search index |
 | `pharmavique search "query"` | Try the search from the terminal |
-| `pharmavique sfda-images*` | Product picture pipeline |
+| `pharmavique sfda-images*` | Product picture pipeline (`--from-sitemap-pictures` takes pictures from the shops' sitemaps with no page requests) |
+| `pharmavique sfda-pictures-load` | Load the drug-to-picture mapping into the catalog |
+| `pharmavique interactions-load` | Load DDInter's interaction pairs |
+| `pharmavique interactions-load-medic` | Load MeDIC's drug-disease contraindications |
+| `pharmavique knowledge-labels` | Fetch US label sections per ingredient (openFDA) and chunk them |
+| `pharmavique knowledge-embed` | Give every knowledge chunk a vector |
 
 ## 14. API reference
 
@@ -589,8 +657,12 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/products/{register_number}` | Product card |
 | GET | `/v1/products/{register_number}/details` | Drug page: every field with provenance |
 | GET | `/v1/products/{register_number}/same-ingredient` | Same ingredient set, cheapest first, with verdict |
+| GET | `/v1/products/{register_number}/picture` | The drug's real pharmacy picture (404 when it has none) |
+| POST | `/v1/interactions/check` | Recorded interactions and duplicated ingredients among 2 to 20 products |
+| GET | `/v1/interactions/contraindications/{register_number}` | Conditions the product's ingredients are contraindicated with, with label text and source |
 | POST | `/v1/assistant/ask` | Cited answer to a question |
 | POST | `/v1/voice/transcribe` | Audio upload to text |
+| POST | `/v1/voice/drug-name` | The drug name inside a spoken request, to search for |
 | POST | `/v1/voice/speak` | Text to audio in the Saudi Arabic voice; with `as_link` a one-time link for the app's player |
 | GET | `/v1/voice/audio/{key}` | Fetch a spoken answer once (expires after 10 minutes) |
 | POST | `/v1/recognition/scan?kind=box` or `kind=prescription` | Photo to medicine lines with registry candidates |
@@ -646,8 +718,8 @@ uv run pytest                    # unit, architecture and integration tests
 cd mobile && npx tsc --noEmit    # the app's types
 ```
 
-- More than 760 automated tests: unit tests per layer, architecture tests, and integration tests against a
-  real PostgreSQL.
+- More than 900 automated tests (83% line coverage): unit tests per layer, architecture tests, and
+  integration tests against a real PostgreSQL.
 - Tests come before adapters, and every bug fix starts with a failing test.
 - Every port has a fake adapter, so AI behaviour (tool calls, citations, guardrails, fallbacks) is tested
   with scripted models and mock HTTP transports, without network access or keys.
@@ -660,6 +732,12 @@ cd mobile && npx tsc --noEmit    # the app's types
 - Provider keys are sent only in the Authorization header of their own provider and never appear in errors.
 - Text from official documents is treated as data and never as instructions to the model.
 - Crawling is polite: robots.txt, throttling, a clear user agent, stop on blocks, no CAPTCHA bypass.
+- The API limits requests per client (lower for the assistant, voice and scan), caps upload sizes and
+  restricts browser origins. It has **no sign-in yet**: do not expose it to the internet without a gateway
+  that authenticates callers.
+- The repository is public and protected: secret scanning with push protection, Dependabot alerts and
+  updates, a protected `main` (no force push or deletion), CI with a read-only token and actions pinned to a
+  commit. Reporting a vulnerability and the full policy: [SECURITY.md](SECURITY.md).
 
 ## 17. Repository layout
 
@@ -678,9 +756,9 @@ tests/
   unit/ · architecture/ · integration/
 mobile/               Expo app (Expo Router), right-to-left, light and dark
 pharmavique-wireframes/  wireframe canvas and brand assets
-data/                 the SFDA dataset
+data/                 the dataset and the database snapshot (see data/README.md)
 docs/                 architecture, ADRs, plans, data sources, media
-scripts/              crawl, OCR and maintenance scripts
+scripts/              crawl, OCR, daily refresh, database snapshot and restore
 migrations/           Alembic environment
 ```
 
@@ -697,16 +775,18 @@ migrations/           Alembic environment
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |
+| [Data layout](data/README.md) | Every data folder: source, size, rebuild command |
+| [Security policy](SECURITY.md) | Reporting, protections, known limits |
 | [Open questions](docs/OPEN_QUESTIONS.md) | Unknowns waiting for decisions |
 | [ADR-001](docs/adr/ADR-001-modular-monolith-vs-microservices.md) · [002](docs/adr/ADR-002-job-queue.md) · [003](docs/adr/ADR-003-search-strategy.md) · [004](docs/adr/ADR-004-scalability.md) · [005](docs/adr/ADR-005-ai-providers-behind-ports.md) · [006](docs/adr/ADR-006-pgvector-and-document-chunks.md) · [007](docs/adr/ADR-007-langgraph-in-infrastructure.md) · [008](docs/adr/ADR-008-interactions-context.md) | Architecture decision records |
 
 ## 19. Roadmap
 
-1. Finish loading the six SFDA safety lists and fill the knowledge base with their documents.
-2. My medication list and safety check: duplicate active ingredient, ingredient allergy, recalls and alerts.
-3. Accounts, tenants and roles; alerts on a user's medicines through the outbox relay.
-4. Price history from SFDA snapshots, and online pharmacy prices marked as unverified.
-5. Egypt as a CSV-import adapter marked unverified. Drug interactions wait for a licensed source.
+1. Schedule the daily refresh and show changes (price changes, new and withdrawn drugs) to pharmacists and companies.
+2. Accounts, tenants and roles with sign-in on the API; alerts on a user's medicines through the outbox relay.
+3. Drug-food and drug-condition notes beyond the contraindication list; ingredient allergy in "my medicines".
+4. Redis cache and a job queue for the AI endpoints; shared storage for pictures.
+5. Egypt as a CSV-import adapter marked unverified.
 
 ## 20. Disclaimer
 
