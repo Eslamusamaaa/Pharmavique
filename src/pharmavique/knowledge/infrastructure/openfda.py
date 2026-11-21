@@ -16,6 +16,18 @@ LABEL_URL = "https://api.fda.gov/drug/label.json"
 DAILYMED_PAGE = "https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid="
 
 
+# Label sections kept besides the interactions: where a medicine must not be used, pregnancy and
+# breastfeeding, and what a patient is told (which includes advice about food). Dosing sections
+# are never kept.
+EXTRA_SECTIONS = (
+    "contraindications",
+    "pregnancy",
+    "nursing_mothers",
+    "lactation",
+    "information_for_patients",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class LabelInteractions:
     generic_name: str
@@ -23,6 +35,7 @@ class LabelInteractions:
     effective_time: str | None  # ISO date
     text: str
     source_ref: str
+    sections: tuple[tuple[str, str], ...] = ()  # (field name, text) of the extra sections
 
 
 def _iso(date: str | None) -> str | None:
@@ -38,6 +51,15 @@ def _is_the_wanted_single_drug(generic_name: str, wanted: str) -> bool:
         return False
     first = lowered.split()[:1]
     return first == wanted.lower().split()[:1]
+
+
+def _extra_sections(result: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    found = []
+    for name in EXTRA_SECTIONS:
+        parts = [str(p).strip() for p in result.get(name) or [] if str(p).strip()]
+        if parts:
+            found.append((name, "\n\n".join(parts)))
+    return tuple(found)
 
 
 def parse_label(payload: dict[str, Any], wanted: str | None = None) -> LabelInteractions | None:
@@ -59,6 +81,7 @@ def parse_label(payload: dict[str, Any], wanted: str | None = None) -> LabelInte
             effective_time=_iso(result.get("effective_time")),
             text="\n\n".join(str(s).strip() for s in sections),
             source_ref=f"{DAILYMED_PAGE}{set_id}",
+            sections=_extra_sections(result),
         )
     return None
 

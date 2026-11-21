@@ -29,8 +29,18 @@ from pharmavique.shared_kernel.market import Market
 
 EXIT_OK = 0
 EXIT_NO_DATABASE = 4
-LABELS_LIST = "label-interactions"
+LABELS_LIST = "us-labels"
+OLD_LABELS_LIST = "label-interactions"
 USER_AGENT = "DrugRegistrySync/0.1 (polite research crawler; throttled)"
+
+SECTION_TITLES = {
+    "drug_interactions": "drug interactions",
+    "contraindications": "contraindications",
+    "pregnancy": "pregnancy",
+    "nursing_mothers": "nursing mothers",
+    "lactation": "lactation",
+    "information_for_patients": "information for patients",
+}
 
 Registers = dict[str, tuple[str, set[str]]]  # base key -> (a registry spelling, register numbers)
 
@@ -40,7 +50,7 @@ def add_arguments(commands: Any) -> None:
         "knowledge-labels",
         help="fetch US label interaction text for our ingredients and chunk it (safe to repeat)",
     )
-    labels.add_argument("--out", default="data/knowledge/openfda-interactions")
+    labels.add_argument("--out", default="data/knowledge/openfda-labels")
     labels.add_argument("--delay", type=float, default=0.6, help="seconds between requests")
     labels.add_argument("--limit", type=int, help="fetch at most N ingredients (for a trial)")
 
@@ -72,20 +82,22 @@ def _documents(folder: Path, by_key: Registers) -> list[SourceDocument]:
         label = saved["label"]
         if label is None or saved["key"] not in by_key:
             continue
-        documents.append(
-            SourceDocument(
-                list_name=LABELS_LIST,
-                row_key=saved["key"],
-                title=f"{label['generic_name']}: drug interactions (US label, DailyMed)",
-                text=label["text"],
-                source_ref=label["source_ref"],
-                snapshot_id=f"openfda-{label['effective_time'] or label['set_id']}",
-                fetched_at=label["fetched_at"],
-                trust="unofficial_unverified",
-                published=label["effective_time"],
-                register_numbers=tuple(sorted(by_key[saved["key"]][1])),
+        parts = {"drug_interactions": label["text"], **label.get("sections", {})}
+        for field, body in parts.items():
+            documents.append(
+                SourceDocument(
+                    list_name=LABELS_LIST,
+                    row_key=f"{saved['key']}:{field}",
+                    title=f"{label['generic_name']}: {SECTION_TITLES[field]} (US label, DailyMed)",
+                    text=body,
+                    source_ref=label["source_ref"],
+                    snapshot_id=f"openfda-{label['effective_time'] or label['set_id']}",
+                    fetched_at=label["fetched_at"],
+                    trust="unofficial_unverified",
+                    published=label["effective_time"],
+                    register_numbers=tuple(sorted(by_key[saved["key"]][1])),
+                )
             )
-        )
     return documents
 
 
@@ -106,6 +118,7 @@ async def _fetch_missing(wanted: list[str], folder: Path, delay: float) -> int:
                     "set_id": label.set_id,
                     "effective_time": label.effective_time,
                     "text": label.text,
+                    "sections": dict(label.sections),
                     "source_ref": label.source_ref,
                     "fetched_at": datetime.now(UTC).isoformat(),
                 }
@@ -135,7 +148,9 @@ async def labels(args: argparse.Namespace) -> int:
         fetched = await _fetch_missing(wanted, folder, args.delay)
         documents = await asyncio.to_thread(_documents, folder, by_key)
         chunks = [chunk for document in documents for chunk in chunk_document(document)]
-        await PostgresChunkStore(session_factory).replace(LABELS_LIST, chunks)
+        chunk_store = PostgresChunkStore(session_factory)
+        await chunk_store.replace(OLD_LABELS_LIST, [])  # the interactions-only chunks of before
+        await chunk_store.replace(LABELS_LIST, chunks)
     finally:
         await engine.dispose()
     print(

@@ -71,3 +71,28 @@ def test_a_salt_form_of_the_wanted_name_is_accepted() -> None:
 
     assert found is not None
     assert found.generic_name == "WARFARIN SODIUM"
+
+
+def test_the_other_label_sections_of_the_same_label_come_along_by_name() -> None:
+    payload = {
+        "results": [
+            label(
+                drug_interactions=["Interactions text."],
+                contraindications=["Contraindicated in pregnancy."],
+                pregnancy=["Pregnancy text."],
+                lactation=["Lactation text."],
+                information_for_patients=["Take with food."],
+                dosage_and_administration=["Never kept: dosing."],
+            )
+        ]
+    }
+
+    found = parse_label(payload)
+
+    assert found is not None
+    assert dict(found.sections) == {
+        "contraindications": "Contraindicated in pregnancy.",
+        "pregnancy": "Pregnancy text.",
+        "lactation": "Lactation text.",
+        "information_for_patients": "Take with food.",
+    }
