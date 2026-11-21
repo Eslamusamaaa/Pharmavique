@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.bootstrap import (
     api_assistant,
+    api_compare,
     api_drugs,
     api_interactions,
     api_pictures,
@@ -168,6 +169,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(observability.router)
     app.include_router(api_drugs.router)
+    app.include_router(api_compare.router)
     app.include_router(api_pictures.router)
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
