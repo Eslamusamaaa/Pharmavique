@@ -30,6 +30,7 @@ from pharmavique.bootstrap import (
     labels_cli,
     lists_cli,
     pictures_cli,
+    relay_cli,
     search_cli,
 )
 from pharmavique.bootstrap.settings import get_settings
@@ -195,6 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
     lists_cli.add_arguments(commands)
     interactions_cli.add_arguments(commands)
     identity_cli.add_arguments(commands)
+    relay_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
@@ -651,6 +653,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(pictures_cli.load(args))
     if args.command == "sfda-lists-load":
         return asyncio.run(lists_cli.load(args))
+    if args.command == "outbox-relay":
+        return asyncio.run(relay_cli.run(args))
     if args.command == "create-operator":
         return asyncio.run(identity_cli.create_operator(args))
     if args.command == "interactions-load-medic":

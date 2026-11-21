@@ -168,8 +168,12 @@ async def me(
 
 @router.delete("/me", status_code=204, summary="Delete the account and everything saved in it")
 async def delete_me(
+    request: Request,
     principal: Annotated[Principal, Depends(current_principal)],
     service: Annotated[IdentityService, Depends(get_identity)],
 ) -> Response:
+    watchlist = request.app.state.watchlist  # saved medicines, allergies and alerts go with it
+    if watchlist is not None:
+        await watchlist.forget(principal.user_id)
     await service.delete_account(principal.user_id)
     return Response(status_code=204)

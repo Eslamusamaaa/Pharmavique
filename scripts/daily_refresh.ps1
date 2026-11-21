@@ -65,6 +65,8 @@ try {
         if ((Invoke-Step "drugs-update" $update) -eq 0) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
+            # price changes, withdrawals and relistings become alerts for the people who saved them
+            Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null
             $changes = Join-Path $root "data\sfda\$run\changes.md"
             if (Test-Path $changes) { Copy-Item $changes (Join-Path $logs "drug-changes.md") -Force }
         }

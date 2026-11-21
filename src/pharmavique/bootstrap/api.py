@@ -19,6 +19,7 @@ from pharmavique.bootstrap import (
     api_drugs,
     api_interactions,
     api_lasa,
+    api_me,
     api_pictures,
     api_recognition,
     api_shortage,
@@ -36,9 +37,18 @@ from pharmavique.bootstrap.api_pictures import PictureLookup
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
-from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogListItems, CatalogQueries
+from pharmavique.catalog.contracts.queries import (
+    CatalogDetails,
+    CatalogIngredients,
+    CatalogListItems,
+    CatalogQueries,
+)
 from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
 from pharmavique.catalog.infrastructure.persistence.pictures import SqlAlchemyPictureStore
+from pharmavique.catalog.infrastructure.persistence.price_changes import (
+    SqlAlchemyIngredientReader,
+    SqlAlchemyPriceChangeReader,
+)
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
@@ -67,6 +77,8 @@ from pharmavique.voice.application.extract import ExtractDrugName
 from pharmavique.voice.application.ports import DrugNameExtractor
 from pharmavique.voice.application.speak import Speak, Transcribe
 from pharmavique.voice.infrastructure.audio_cache import AudioCache
+from pharmavique.watchlist.application.service import WatchlistService
+from pharmavique.watchlist.infrastructure.postgres import PostgresWatchlistStore
 
 
 @asynccontextmanager
@@ -91,7 +103,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             engine = create_engine(secret.get_secret_value())
             session_factory = create_session_factory(engine)
             app.state.search = SearchProductsHandler(PostgresSearchIndex(session_factory))
-            catalog = ReadProductCardsHandler(SqlAlchemyProductReader(session_factory))
+            catalog = ReadProductCardsHandler(
+                SqlAlchemyProductReader(session_factory),
+                SqlAlchemyPriceChangeReader(session_factory),
+            )
             app.state.catalog = catalog
             app.state.details = catalog
             app.state.assistant = build_assistant(
@@ -105,6 +120,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.scanner = build_scanner(settings, search=app.state.search, catalog=catalog)
             app.state.pictures = SqlAlchemyPictureStore(session_factory)
             app.state.list_items = SqlAlchemyListItemReader(session_factory)
+            app.state.ingredients = SqlAlchemyIngredientReader(session_factory)
+            app.state.watchlist = WatchlistService(
+                PostgresWatchlistStore(session_factory), SystemClock()
+            )
             if settings.jwt_secret is not None:
                 tokens = JwtAccessTokens(settings.jwt_secret.get_secret_value())
                 app.state.token_verifier = tokens
@@ -142,6 +161,8 @@ def create_app(
     contraindications: ContraindicationChecks | None = None,
     list_items: CatalogListItems | None = None,
     identity: IdentityService | None = None,
+    watchlist: WatchlistService | None = None,
+    ingredients: CatalogIngredients | None = None,
     token_verifier: TokenVerifier | None = None,
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
@@ -168,6 +189,8 @@ def create_app(
     app.state.list_items = list_items
     app.state.lasa = None
     app.state.identity = identity
+    app.state.watchlist = watchlist
+    app.state.ingredients = ingredients
     app.state.token_verifier = token_verifier
     app.state.interactions = interactions
     app.state.contraindications = contraindications
@@ -199,6 +222,7 @@ def create_app(
     app.include_router(api_drugs.router)
     app.include_router(api_compare.router)
     app.include_router(api_lasa.router)
+    app.include_router(api_me.router)
     app.include_router(api_pictures.router)
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
