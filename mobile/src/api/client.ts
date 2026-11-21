@@ -68,10 +68,14 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number | null,
+    readonly detail: string = '',
   ) {
     super(message);
   }
 }
+
+/** Why a request never got an answer, short enough to show on screen. */
+const reason = (error: unknown) => (error instanceof Error ? error.message : String(error)).slice(0, 160);
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   let response: Response;
@@ -79,7 +83,7 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
     response = await fetch(`${API_URL}${path}`, { signal, headers: { Accept: 'application/json' } });
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
-    throw new ApiError('network', null);
+    throw new ApiError('network', null, reason(error));
   }
   if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
   return (await response.json()) as T;
@@ -118,7 +122,10 @@ export function fold(text: string): string {
 
 export function friendlyError(e: unknown): string {
   const status = e instanceof ApiError ? e.status : null;
-  if (status === null) return 'مش قادر أوصل للسيرفر. اتأكد إن الـ API شغال وإن الموبايل على نفس الشبكة.';
+  if (status === null) {
+    const detail = e instanceof ApiError && e.detail ? `\n${e.detail}` : '';
+    return `مش قادر أوصل للسيرفر. اتأكد إن الـ API شغال وإن الموبايل على نفس الشبكة.\n(${API_URL})${detail}`;
+  }
   if (status === 404) return 'الدواء ده مش موجود في السجل.';
   if (status === 429) return 'المساعد مشغول لحظات. جرّب تاني بعد ثواني.';
   return `السيرفر رد بخطأ (${status}).`;
@@ -178,7 +185,7 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
     });
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
-    throw new ApiError('network', null);
+    throw new ApiError('network', null, reason(error));
   }
   if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
   return (await response.json()) as T;
@@ -203,8 +210,8 @@ async function postFile<T>(path: string, field: string, uri: string, name: strin
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, { method: 'POST', body: form, headers: { Accept: 'application/json' } });
-  } catch {
-    throw new ApiError('network', null);
+  } catch (error) {
+    throw new ApiError('network', null, reason(error));
   }
   if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
   return (await response.json()) as T;
