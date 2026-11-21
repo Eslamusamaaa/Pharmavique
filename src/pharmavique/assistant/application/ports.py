@@ -64,6 +64,11 @@ class DrugFacts(Protocol):
         self, query: str, register_numbers: Sequence[str], limit: int
     ) -> list[dict[str, Any]]: ...
 
+    async def contraindications(self, register_number: str) -> list[dict[str, Any]]:
+        """Conditions the product's ingredients are recorded as contraindicated with (source and
+        label text each), then one `coverage` record: a missing record is never a clearance."""
+        ...
+
     async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
         """Recorded interactions and duplicated ingredients among these products, each with its
         source, then one `coverage` record naming the ingredients the source cannot judge."""

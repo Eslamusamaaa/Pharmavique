@@ -17,7 +17,11 @@ from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.interactions.application.check import CheckInteractions
-from pharmavique.interactions.infrastructure.postgres import PostgresInteractionStore
+from pharmavique.interactions.application.contraindications import ListContraindications
+from pharmavique.interactions.infrastructure.postgres import (
+    PostgresContraindicationStore,
+    PostgresInteractionStore,
+)
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibleEmbedder
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
@@ -129,7 +133,15 @@ def build_assistant(
     passages = RetrievePassages(PostgresPassageSearch(session_factory), build_embedder(settings))
     interactions = CheckInteractions(PostgresInteractionStore(session_factory))
     facts = ContractDrugFacts(
-        search, catalog, catalog, equivalence, passages, interactions=interactions
+        search,
+        catalog,
+        catalog,
+        equivalence,
+        passages,
+        interactions=interactions,
+        contraindication_checks=ListContraindications(
+            PostgresContraindicationStore(session_factory)
+        ),
     )
     detector = None
     if settings.groq_api_key is not None and settings.prompt_guard_model:

@@ -34,6 +34,19 @@ class FakeFacts:
     ) -> list[dict[str, Any]]:
         return [{"chunk_id": "c9", "title": "DHPC", "text": "...", "source_ref": "https://s/d"}]
 
+    async def contraindications(self, register_number: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "register_number": register_number,
+                "ingredient": "WARFARIN SODIUM",
+                "disease": "pregnancy",
+                "text": "Contraindicated in pregnancy.",
+                "source": "medic",
+                "source_ref": "https://medic.renci.org/",
+            },
+            {"kind": "coverage", "register_number": register_number, "note": "not a clearance"},
+        ]
+
     async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
         return [
             {
@@ -93,6 +106,7 @@ async def test_the_runner_calls_tools_and_keeps_only_the_cited_records() -> None
         "same_ingredient",
         "search_documents",
         "check_interactions",
+        "contraindications",
     ]
     tool_results = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
     assert '"cite": 1' in tool_results[0].content
@@ -304,3 +318,18 @@ async def test_fewer_than_two_or_bad_register_numbers_for_interactions_are_a_too
     (result,) = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
     assert "at least two" in result.content
     assert run.tool_calls[0].ok is False
+
+
+async def test_contraindications_are_cited_with_the_source_and_the_prompt_has_the_rule() -> None:
+    model = ScriptedModel(
+        call("contraindications", {"register_number": "1-1"}, "a"),
+        AIMessage("نشرات الدواء تسجّل أنه لا يُستخدم في الحمل [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("ينفع في الحمل؟", Level.PATIENT, "1-1")
+
+    assert [c.source_id for c in run.citations] == [
+        "contraindication:medic:1-1:WARFARIN SODIUM:pregnancy"
+    ]
+    assert run.citations[0].url == "https://medic.renci.org/"
+    assert "contraindications" in model.seen[0][0].content

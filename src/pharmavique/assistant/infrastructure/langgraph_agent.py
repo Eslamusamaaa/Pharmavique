@@ -102,6 +102,23 @@ def _interaction_citation(record: dict[str, Any]) -> Citation:
     )
 
 
+def _contraindication_citation(record: dict[str, Any]) -> Citation:
+    disease = str(record.get("disease") or record.get("kind") or "")
+    key = f"{record.get('register_number', '')}:{record.get('ingredient', '')}:{disease}"
+    title = (
+        f"موانع الاستعمال المسجّلة في نشرات الدواء · {disease}"
+        if record.get("disease")
+        else "تغطية موانع الاستعمال"
+    )
+    return Citation(
+        f"contraindication:{record.get('source') or 'pharmavique'}:{key}",
+        title,
+        record.get("source_ref") or "https://medic.renci.org/",
+        "contraindication",
+        None,
+    )
+
+
 _REGISTER = re.compile(r"^[A-Za-z0-9-]{3,30}$")
 MAX_TOOL_CALLS = 8  # per question: enough for search, details, equivalents and documents
 MAX_QUERY = 200
@@ -132,6 +149,7 @@ class ToolBox:
             "catalog": _drug_citation,
             "document": _document_citation,
             "interaction": _interaction_citation,
+            "contraindication": _contraindication_citation,
         }
         maker = makers[kind]
         return [{"cite": self._citations.number(maker(r)), **r} for r in records]
@@ -218,12 +236,27 @@ class ToolBox:
 
             return await self._call("check_interactions", work)
 
+        async def contraindications(register_number: str) -> str:
+            """Conditions (diseases, pregnancy and so on) the active ingredients of one product
+            are recorded as contraindicated with, from drug labels, each with its source. A
+            missing record is never a clearance."""
+
+            async def work() -> list[dict[str, Any]]:
+                rows = await self._facts.contraindications(_register(register_number))
+                for row in rows:
+                    if "text" in row:
+                        row["text"] = str(row["text"])[:MAX_DOCUMENT_TEXT]
+                return self._cite(rows, "contraindication")
+
+            return await self._call("contraindications", work)
+
         functions = (
             search_drugs,
             drug_details,
             same_ingredient,
             search_documents,
             check_interactions,
+            contraindications,
         )
         return [StructuredTool.from_function(coroutine=f, name=f.__name__) for f in functions]
 

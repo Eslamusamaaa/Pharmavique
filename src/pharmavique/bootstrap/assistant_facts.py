@@ -9,7 +9,11 @@ from decimal import Decimal
 from typing import Any
 
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries, ProductDetails
-from pharmavique.interactions.contracts.queries import InteractionChecks, ProductIngredients
+from pharmavique.interactions.contracts.queries import (
+    ContraindicationChecks,
+    InteractionChecks,
+    ProductIngredients,
+)
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
@@ -80,6 +84,7 @@ class ContractDrugFacts:
         passages: RetrievePassages,
         market: Market = Market.SA,
         interactions: InteractionChecks | None = None,
+        contraindication_checks: ContraindicationChecks | None = None,
     ) -> None:
         self._search = search
         self._catalog = catalog
@@ -88,6 +93,7 @@ class ContractDrugFacts:
         self._passages = passages
         self._market = market
         self._interactions = interactions
+        self._contraindications = contraindication_checks
 
     async def search_drugs(self, query: str, limit: int) -> list[dict[str, Any]]:
         result = await self._search.search(SearchQuery(query, self._market, limit, False))
@@ -194,6 +200,45 @@ class ContractDrugFacts:
                 "note": (
                     "A missing record is never a safety verdict: the source is incomplete and "
                     "ingredients listed here could not be judged at all."
+                ),
+            }
+        )
+        return rows
+
+    async def contraindications(self, register_number: str) -> list[dict[str, Any]]:
+        if self._contraindications is None:
+            raise ValueError("the contraindication source is not available")
+        cards = await self._catalog.get_cards(self._market, [register_number.strip()])
+        if not cards:
+            raise ValueError("no product with this register number")
+        card = cards[0]
+        report = await self._contraindications.run(
+            [
+                ProductIngredients(
+                    card.register_number,
+                    card.trade_name_en or card.trade_name_ar or "",
+                    card.ingredient_names,
+                )
+            ]
+        )
+        rows: list[dict[str, Any]] = [
+            {
+                "register_number": item.register_number,
+                "ingredient": item.ingredient,
+                "disease": item.disease,
+                "text": item.text,
+                "source": item.source,
+                "source_ref": "https://medic.renci.org/",
+            }
+            for item in report.items
+        ]
+        rows.append(
+            {
+                "kind": "coverage",
+                "register_number": card.register_number,
+                "note": (
+                    "A missing record is never a clearance: the source covers only some "
+                    "ingredients and only what drug labels state."
                 ),
             }
         )
