@@ -294,3 +294,19 @@ async def test_a_list_that_cannot_be_sorted_is_never_asked_for_a_sort(tmp_path: 
     manifest = await made.run()
     assert manifest["status"] == "partial"
     assert not any("order=" in call for call in fetcher.calls)
+
+
+def test_the_catalog_knows_the_lists_found_in_sfdas_information_lists_page() -> None:
+    expected = {
+        "marketed-products": "/en/marketed-products",
+        "licensed-establishments": "/en/licensed-establishments-list",
+        "periodic-safety": "/en/periodic_safety",
+        "released-vaccines": "/en/released-vaccines",
+        "under-studying": "/en/underStudyingList",
+        "clinical-trials": "/en/drug_clinical_trials_list",
+        "evaluation-reports": "/en/drug-evaluation-reports",
+        "weekly-alert": "/en/weekly_alert",
+    }
+    for name, path in expected.items():
+        assert get_list(name).path == path
+        assert not get_list(name).is_giant

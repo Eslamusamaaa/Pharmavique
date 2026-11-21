@@ -82,6 +82,21 @@ SFDA_LISTS: tuple[ListSpec, ...] = (
         sort_fields=("title",),
     ),
     ListSpec("drug-companies", "/en/drug-companies", "Drug Companies", 616),
+    ListSpec("marketed-products", "/en/marketed-products", "Marketed products", 1),
+    ListSpec(
+        "evaluation-reports", "/en/drug-evaluation-reports", "Saudi public assessment reports", 9
+    ),
+    ListSpec("periodic-safety", "/en/periodic_safety", "Periodic safety reporting schedule", 69),
+    ListSpec("clinical-trials", "/en/drug_clinical_trials_list", "Drug clinical trials", 79),
+    ListSpec("weekly-alert", "/en/weekly_alert", "Weekly alerts", 76),
+    ListSpec("released-vaccines", "/en/released-vaccines", "Released vaccines", 132),
+    ListSpec("under-studying", "/en/underStudyingList", "Products under study", 261),
+    ListSpec(
+        "licensed-establishments",
+        "/en/licensed-establishments-list",
+        "Licensed establishments",
+        2_787,
+    ),
     ListSpec("vet-drugs", "/en/vet-drugs", "Veterinary drugs", 136),
     ListSpec("cosmetic-ingredients", "/en/AllCosmeticList", "Cosmetic ingredients", 235),
     ListSpec("feed", "/en/feed-list", "Feed List", 2_081),
