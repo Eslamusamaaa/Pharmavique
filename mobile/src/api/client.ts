@@ -44,6 +44,7 @@ export type DrugPage = Omit<Product, 'ingredients'> & {
   marketing_company_country: string | null;
   manufacturers: { name: string; country: string | null }[];
   price: Price | null;
+  price_change: { old_price: Price; new_price: Price; changed_at: string } | null;
   provenance: { source: string | null; source_ref: string | null; fetched_at: string | null; trust: string | null };
   disclaimer: string;
 };

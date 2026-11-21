@@ -37,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="assistant" />
         <Stack.Screen name="interactions" />
         <Stack.Screen name="my-medicines" />
+        <Stack.Screen name="my-list" />
         <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>
     </SafeAreaProvider>

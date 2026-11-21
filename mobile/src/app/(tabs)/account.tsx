@@ -61,7 +61,16 @@ export default function Account() {
             <T size={15} color={c.ink2} align="center">
               {ROLE_LABEL[account.role] ?? account.role}
             </T>
-            <Pressable onPress={() => signOut()} style={[outline, { borderColor: c.pr, marginTop: 8 }]} accessibilityRole="button">
+            <Pressable
+              onPress={() => router.push('/my-list')}
+              style={[outline, { borderColor: c.pr, backgroundColor: c.pr, marginTop: 8 }]}
+              accessibilityRole="button"
+            >
+              <T weight={700} color={c.prt}>
+                قائمتي وتنبيهاتي
+              </T>
+            </Pressable>
+            <Pressable onPress={() => signOut()} style={[outline, { borderColor: c.pr }]} accessibilityRole="button">
               <T weight={600} color={c.pr}>
                 تسجيل الخروج
               </T>

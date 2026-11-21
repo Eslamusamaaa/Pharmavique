@@ -36,8 +36,10 @@ import {
   type Shortage,
   type SimilarNames,
 } from '@/api/client';
+import { arabicMeError, getAllergyCheck, saveMedicine, type AllergyCheck } from '@/api/me';
 import { DrugPicture } from '@/components/DrugPicture';
 import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
+import { useAccount } from '@/state/auth';
 import { cardShadow, radius, useTheme } from '@/theme';
 
 type State = { kind: 'loading' } | { kind: 'done'; drug: DrugPage } | { kind: 'error'; detail: string };
@@ -76,6 +78,9 @@ export default function DrugScreen() {
   const [contra, setContra] = useState<Contraindications | null>(null);
   const [shortage, setShortage] = useState<Shortage | null>(null);
   const [similar, setSimilar] = useState<SimilarNames | null>(null);
+  const { account } = useAccount();
+  const [allergy, setAllergy] = useState<AllergyCheck | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
   const [sort, setSort] = useState<'price' | 'name'>('price');
 
   useEffect(() => {
@@ -100,6 +105,28 @@ export default function DrugScreen() {
       .catch(() => setSimilar(null));
     return () => controller.abort();
   }, [register]);
+
+  useEffect(() => {
+    if (!account) {
+      setAllergy(null);
+      return;
+    }
+    const controller = new AbortController();
+    getAllergyCheck(register, controller.signal)
+      .then(setAllergy)
+      .catch(() => setAllergy(null));
+    return () => controller.abort();
+  }, [register, account]);
+
+  const save = () => {
+    if (!account) {
+      router.push('/sign-in');
+      return;
+    }
+    saveMedicine(register)
+      .then(() => setSaveNote('اتحفظ في قائمتي'))
+      .catch((e: unknown) => setSaveNote(arabicMeError(e)));
+  };
 
   const shortageSet = useMemo(
     () => new Set((shortage?.substitutes ?? []).filter((s) => s.also_on_shortage_list).map((s) => s.register_number)),
@@ -233,6 +260,25 @@ export default function DrugScreen() {
           </Row>
         </View>
 
+        {allergy && allergy.matches.length > 0 ? (
+          <View style={[styles.banner, { borderColor: c.wn, backgroundColor: c.sf }]}>
+            <Row gap={8}>
+              <WarningIcon size={20} color={c.wn} weight="fill" />
+              <T weight={700} style={{ flex: 1 }}>
+                فيه مادة إنت مسجّل حساسية منها
+              </T>
+            </Row>
+            {allergy.matches.map((m) => (
+              <T key={`${m.allergy}-${m.ingredient}`} size={13.5}>
+                الدواء فيه {m.ingredient}، وإنت مسجّل حساسية من {m.allergy}.
+              </T>
+            ))}
+            <T size={12.5} color={c.ink2}>
+              اسأل الصيدلي أو الدكتور قبل أي استخدام. {allergy.note}
+            </T>
+          </View>
+        ) : null}
+
         {/* SFDA's shortage list: what it says and how sure the link is. Never "switch". */}
         {shortage && shortage.status !== 'not_listed' ? (
           <View
@@ -340,6 +386,12 @@ export default function DrugScreen() {
               <T size={14}>{currencyLabel(d.price)}</T>
               <InfoIcon size={20} color={c.pr} />
             </Row>
+            {d.price_change ? (
+              <Pill
+                tone="wn"
+                label={`السعر اتغيّر من ${d.price_change.old_price.amount} إلى ${d.price_change.new_price.amount} في ${arabicDate(d.price_change.changed_at) ?? ''}`}
+              />
+            ) : null}
             <T size={12.5} color={c.ink2}>
               السعر المسجّل في الهيئة، وتاريخ الأسعار يبدأ من 16 نوفمبر 2026
             </T>
@@ -478,10 +530,10 @@ export default function DrugScreen() {
 
       {/* note 8: actions are save / compare / share only. No buy, no availability. */}
       <View style={[styles.actions, { backgroundColor: c.sf, paddingBottom: Math.max(insets.bottom, 26) }]}>
-        <Pressable style={[styles.actionMain, { backgroundColor: c.pr }]} accessibilityRole="button">
+        <Pressable onPress={save} style={[styles.actionMain, { backgroundColor: c.pr }]} accessibilityRole="button">
           <BookmarkSimpleIcon size={20} color={c.prt} />
           <T weight={700} color={c.prt}>
-            حفظ في قائمتي
+            {saveNote ?? 'حفظ في قائمتي'}
           </T>
         </Pressable>
         <Pressable
