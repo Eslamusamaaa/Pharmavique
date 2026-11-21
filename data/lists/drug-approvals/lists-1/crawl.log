@@ -1,0 +1,11 @@
+2026-11-21 14:43:36,277 INFO list drug-approvals (run lists-1, output data\lists\drug-approvals\lists-1)
+2026-11-21 14:43:37,075 INFO list page 0 of 46
+2026-11-21 14:44:12,725 INFO list page 20 of 46
+2026-11-21 14:44:47,287 INFO list page 40 of 46
+2026-11-21 14:44:59,706 INFO repair pass 2: fetching 26 list pages again (435 of 462 rows known)
+2026-11-21 14:45:44,498 INFO repair pass 3: fetching 26 list pages again (435 of 462 rows known)
+2026-11-21 14:46:30,490 INFO repair pass 4: fetching 47 list pages again (435 of 462 rows known)
+2026-11-21 14:47:54,351 WARNING the list shows 435 rows but 462 were expected; see the manifest
+2026-11-21 14:47:54,351 INFO sorted sweep ('title', 'asc'): 435 of 462 rows known
+2026-11-21 14:49:17,414 INFO sorted sweep ('title', 'desc'): 461 of 462 rows known
+2026-11-21 14:50:39,149 INFO drug-approvals finished with status complete
