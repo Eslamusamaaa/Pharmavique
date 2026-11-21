@@ -102,6 +102,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Company views, operator board | Done | `analytics` read model rebuilt from the catalog: market map per ingredient, thin and missing strengths and forms, change radar; operator data-quality board ([ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md)). Registry facts only, no sales or demand figures |
 | Nearby licensed pharmacies | Done, at city precision | By city from the SFDA list, using the person's position once and never keeping it; the list has no street or coordinates, so no distance to a pharmacy and never a stock claim ([ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md)) |
 | Medicine history as memory | Done | A signed-in patient's saved medicines (current or past) are compared with any new drug, with recorded interactions from DDInter and openFDA, and with their allergies; never advice, and the language model never sees the list ([ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md)) |
+| Pharmacist shelf scan | Built, off by default | Many boxes in one photo, every box for review, a confirmed shelf list; **accuracy not measured** because no real shelf photos exist yet ([ADR-015](docs/adr/ADR-015-shelf-scan.md)) |
 
 ## 3. Screens and UI design
 
@@ -551,6 +552,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | Variable | Default | Purpose |
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
+| `SHELF_SCAN_ENABLED` | `false` | Switch on the pharmacist's shelf scan (many boxes in one photo); off until it has been tried on real shelf photos |
 | `REDIS_URL` | none | Redis connection: shared rate limit, read cache, audio links, job queue (use `127.0.0.1`, not `localhost`, on Windows) |
 | `CACHE_TTL_SECONDS` | `600` | How long a cached search or drug-page answer lives at most |
 | `TRUSTED_PROXY_HOPS` | `0` | Reverse proxies of ours in front of the API (1 behind one load balancer) |
@@ -632,6 +634,8 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | PUT | `/v1/me/medicines/{n}/status` | Mark a saved medicine as one I take now (`current`) or took before (`past`) |
 | GET | `/v1/me/history/check/{n}` | A drug against the medicines I take now: recorded interactions, duplicate ingredients, my allergies (never advice) |
 | GET | `/v1/me/history/interactions` | Recorded interactions among the medicines I take now |
+| GET | `/v1/features` | Which optional features this server has switched on |
+| GET, POST | `/v1/me/shelf`, DELETE `/v1/me/shelf/{n}` | A pharmacist's shelf list: the medicines they confirmed after a shelf scan (pharmacists only) |
 | GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
@@ -762,6 +766,7 @@ migrations/           Alembic environment
 | [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
 | [ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md) | Company views and the operator's quality board |
 | [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md) | Shared state, read cache and background jobs |
+| [ADR-015](docs/adr/ADR-015-shelf-scan.md) | The pharmacist's shelf scan, behind a flag |
 | [ADR-014](docs/adr/ADR-014-medicine-history-as-memory.md) | The patient's medicine history checked against a new drug |
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |

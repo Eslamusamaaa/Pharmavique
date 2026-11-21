@@ -190,6 +190,8 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 
 | H Patient history as memory | Built ([ADR-014](adr/ADR-014-medicine-history-as-memory.md)): current and past medicines, `GET /v1/me/history/check/{n}` and `/interactions`, the assistant can attach the check (`use_history`, the model never sees the medicines), drug page card, my list status toggle and a card of interactions among my current medicines. Checked on real data (aspirin with warfarin: major, ddinter-2.0). Not built: the person's conditions, a timeline, history inside background jobs |
 
+| G Pharmacist shelf scan | Built **behind a flag, off by default** ([ADR-015](adr/ADR-015-shelf-scan.md)): `kind=shelf` on the scan endpoint (pharmacists only), every box for review with its score, a confirmed shelf list under row-level security that also raises alerts, `GET /v1/features`, the `shelf` screen. **Not measured**: no real shelf photos exist (Q-32), so its accuracy is unknown |
+
 ## 7. Proposed start
 
 Wave A first (four independent items, no decisions needed), then B, because C and D wait on it. After
