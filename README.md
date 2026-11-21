@@ -99,7 +99,7 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
 | Accounts and roles | Done | Email and password, roles patient, pharmacist, company, operator, refresh-token rotation with replay detection, sign-in screens in the app ([ADR-009](docs/adr/ADR-009-identity-and-sessions.md)) |
 | Saved medicines, allergies, alerts, weekly digest, price-changed mark | Done | `watchlist` context under row-level security, the catalog outbox relay, alerts for price changes, withdrawals and relistings ([ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md)). Shortage and safety-notice alerts are not built yet |
-| Company views, operator board | Planned | `analytics` is still a skeleton; see the [Phase 3 plan](docs/PHASE_3_PLAN.md) |
+| Company views, operator board | Done | `analytics` read model rebuilt from the catalog: market map per ingredient, thin and missing strengths and forms, change radar; operator data-quality board ([ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md)). Registry facts only, no sales or demand figures |
 
 ## 3. Screens and UI design
 
@@ -325,7 +325,7 @@ checked on every run and in CI.
 | `interactions` | Ingredient name matching, drug-drug pairs, contraindications, duplicate ingredients | Done |
 | `identity` | Accounts, tenants, roles | Planned |
 | `watchlist` | Alerts on a user's medicines (recalls, price changes) | Planned |
-| `analytics` | Company analytics | Planned |
+| `analytics` | Company analytics and the operator's quality board | Built (read model, company and operator endpoints) |
 
 Shared building blocks: `shared_kernel` (market, currency, money, provenance, Arabic and Latin text
 normalization), `foundation` (database engine, throttling, robots rules, concurrency helpers) and
@@ -576,6 +576,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique sfda-scrape --run-id ID` | Full crawl of the registered drugs list (resumable) |
 | `pharmavique sfda-update --run-id ID` | Incremental refresh against the latest run |
 | `pharmavique outbox-relay [--once]` | Deliver the catalog's events to subscribers (the watchlist makes alerts); the daily refresh runs it with `--once` |
+| `pharmavique analytics-rebuild` | Rebuild the company views' read model from the catalog (the daily refresh runs it) |
 | `pharmavique create-operator --email E` | Create an operator account (password from a prompt or `PHARMAVIQUE_OPERATOR_PASSWORD`) |
 | `pharmavique sfda-diff --old A --new B` | Changes between two runs |
 | `pharmavique sfda-load --run-id ID [--from-records]` | Load a run into the catalog |
@@ -609,6 +610,10 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/me/alerts` | Alerts about my saved medicines, with the unread count |
 | POST | `/v1/me/alerts/read` | Mark one alert, or all of them, as read |
 | GET | `/v1/me/digest?days=7` | What changed for my saved medicines, with a template summary |
+| GET | `/v1/company/market?ingredient=` | Market map: products, makers, forms, strengths and price ranges per ingredient set (company or operator role) |
+| GET | `/v1/company/gaps?ingredient=&thin_at=` | Strengths and forms with few registered makers, and strength and form pairs that never meet |
+| GET | `/v1/company/radar?ingredient=&days=` | New, withdrawn, relisted and repriced products lately |
+| GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
 | GET | `/health` | Liveness |
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/v1/search?q=&limit=&include_withdrawn=` | Find drugs by name, ingredient or register number |
@@ -736,6 +741,7 @@ migrations/           Alembic environment
 | [Phase 3 plan](docs/PHASE_3_PLAN.md) | Accounts, alerts, company views, scale, shortages, compare, LASA, pharmacies |
 | [ADR-009](docs/adr/ADR-009-identity-and-sessions.md) | Accounts, roles and sessions |
 | [ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md) | Outbox relay, watchlist, allergies and alerts |
+| [ADR-011](docs/adr/ADR-011-company-views-and-quality-board.md) | Company views and the operator's quality board |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
 | [Media pipeline](docs/MEDIA_PIPELINE.md) | Product pictures |

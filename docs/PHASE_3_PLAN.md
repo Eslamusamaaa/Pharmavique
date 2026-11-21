@@ -38,6 +38,7 @@ Dependencies decide the order, not the order of the request.
 | E | Redis read cache with invalidation on ingest; Arq job queue for scan and assistant; k6 load test | Independent of B-D, best after A so the load test covers real routes |
 | F | Nearby pharmacies | Geocoding source and map choice (Q-23) |
 | G | Pharmacist shelf scan | B (the pharmacy's shelf list), real shelf photos (Q-32), vision provider (Q-12) |
+| H | Patient history as memory: new drugs checked against the saved medicines | B, C and the `interactions` data; Q-9 before real users |
 
 ### Wave A
 
@@ -111,6 +112,22 @@ Dependencies decide the order, not the order of the request.
 - Result says "licensed pharmacy near you"; **never** that it has a drug in stock. Directions open in the
   phone's own maps app, so no maps SDK or key is needed for the first version.
 
+### Wave H: the patient's medicine history as memory (added 2026-11-21 at the owner's request)
+
+Each signed-in patient already has saved medicines on the server (`watchlist`). Wave H makes that list
+the patient's history and checks every new question against it:
+
+- When the patient asks about a new drug (drug page, search, or the assistant), compare its active
+  ingredients with every saved medicine through the existing `interactions` contract (documented
+  interactions and contraindications only) and show: "you saved X; the sources document an interaction
+  with this drug; ask your pharmacist". Same allergy check as today.
+- History, not only a list: when a medicine was added, and (new) a "past" state so a patient can keep a
+  medicine they stopped without it counting as current. Deleting stays possible.
+- The assistant may use the history only for signed-in patients who allow it, only to point at documented
+  interactions from the interaction data, and never to advise: no dosing, no "stop", no "switch".
+- Sensitive: health data, opt-in, never logged, deleted with the account, behind row-level security as now.
+  Needs the legal review (Q-9) before real users. Depends on: B, C (done) and the `interactions` data.
+
 ### Wave G: shelf scan
 
 Extend the box scan to many boxes in one photo: detect each box, read the name, match the registry, show a
@@ -126,7 +143,7 @@ location are sensitive: minimum collection, encrypted at rest, never logged, del
 Done means `ruff check`, `ruff format --check`, `mypy src tests`, `lint-imports`, `pytest` pass (real output
 reported), docs and ADRs updated, migrations reversible. Tests before adapters; one commit per unit of work.
 
-New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 location handling.
+New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011 company views and the quality board, ADR-012 location handling.
 
 ## 5. Questions, each with the default I will use if told "go"
 
@@ -151,6 +168,7 @@ New ADRs: ADR-009 identity and tenancy, ADR-010 outbox relay and alerts, ADR-011
 | A4 Schedule the daily refresh | Needs the owner to register the task (see section 3) |
 | B Accounts and roles | Built: `identity` context (scrypt passwords, JWT access tokens, rotating refresh tokens with replay detection), `/v1/auth/*`, `require_roles` guard, `create-operator` command, sign-in and account screens, [ADR-009](adr/ADR-009-identity-and-sessions.md). Integration tests pass on a real Postgres. Not yet done: row-level security (comes with the first tenant-owned tables in Wave C), a lockout per account |
 | C Relay, alerts, allergies, price mark, digest | Built: `outbox-relay` command and `foundation` relay (at-least-once), `watchlist` context with row-level security (isolation tested at the database as an ordinary role), `/v1/me/*` endpoints, price-change mark on the drug page, template weekly digest, app screens (`my-list`, save button, allergy banner), [ADR-010](adr/ADR-010-outbox-relay-and-alerts.md). Not built: alerts for new shortage or safety-notice links (the list loader emits no events yet), push notifications (Q-18), class allergies. Production must connect as a non-superuser role or row-level security does nothing |
+| D Company views, operator quality board | Built: `analytics` read model (`analytics-rebuild`), `/v1/company/{market,gaps,radar}` for the company and operator roles, `/v1/operator/quality` for the operator, app screens (`company`, `operator`), the daily refresh rebuilds the model, [ADR-011](adr/ADR-011-company-views-and-quality-board.md). Registry facts only: no sales or demand figures. Not built: a company tenant tied to its marketing-company name; the radar starts at the first rebuild |
 
 ## 7. Proposed start
 
