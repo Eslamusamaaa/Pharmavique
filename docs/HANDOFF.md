@@ -139,11 +139,17 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   complete runs in a row, at most 50 at once (`sfda-withdraw-absent`, Q-40: both numbers are guesses). A
   change that is only in a details page can take up to a month to be seen (`--recheck 300`).
 - The assistant's cited passages (pgvector chunks of the DHPC letters, safety alerts, circulars, RMM and
-  safety labeling) are not refreshed by the daily routine. **Do not add `knowledge-build` to it as it is:**
-  a daily lists run (`lists-<date>`) holds only `records.jsonl`, while `lists-1` also has `details.jsonl` and
-  `texts.jsonl` (PDF and OCR text), and `knowledge-build` replaces a list's chunks with what the run has, so
-  it would swap the full chunks for thin row-only ones. A safe update needs the details, files and text of the
-  new rows only, and chunks that are added rather than replaced.
+  safety labeling) are updated by the daily routine for **new rows only**: `knowledge-new-rows` writes a small
+  run (`know-<date>`) with the rows that have no chunk yet, their details, files, text and OCR are fetched,
+  and `knowledge-build --additive` adds their chunks, then `knowledge-embed` gives them vectors. **Never run
+  plain `knowledge-build` on a daily run** (`lists-<date>` holds only `records.jsonl`, so it would replace a
+  list's full chunks with thin ones). Checked for real on 2026-11-22: one new RMM row became one chunk with a
+  vector, and the other lists kept their chunk counts. A row that was edited (not new) is not re-read.
+- The assistant has a `web_search` tool (ADR-017) for a medicine the registry does not know. It is off until
+  `PHARMAVIQUE_TAVILY_API_KEY` is set (free plan, 1,000 searches a month), and it has never run against the
+  real service: the tests use a mocked transport. Its results are shown as unverified.
+- Photos: the assistant screen has a photo button (box scan reads the name, the name becomes the question).
+  Not tried on a phone.
 - Not built: Redis failover, replicas, CDN, shared picture storage, the pictures image on ghcr (the push
   never completed; the pictures exist only on the laptop), push notifications (dropped), the Egypt adapter.
 
