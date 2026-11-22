@@ -135,6 +135,26 @@ try {
             if ($loadable.Count -gt 0) {
                 Invoke-Step "lists-load" @("sfda-lists-load", "--lists", ($loadable -join ","), "--run-id", $run) | Out-Null
                 Invoke-Step "cache-invalidate-lists" @("cache-invalidate") | Out-Null
+
+                # The assistant's cited passages (pgvector). A daily run holds only the list rows, so
+                # a plain knowledge-build would replace a list's full chunks with thin ones. Only the
+                # rows that have no chunks yet get their documents fetched, and their chunks are ADDED.
+                $knowledgeLists = @("dhpc", "safety-alert", "drugs-circulars", "rmm", "safety-labeling") |
+                    Where-Object { $loadable -contains $_ }
+                if ($knowledgeLists.Count -gt 0) {
+                    $csv = $knowledgeLists -join ","
+                    $into = "know-$stamp"
+                    Invoke-Step "knowledge-new-rows" @("knowledge-new-rows", "--run-id", $run, "--into", $into, "--lists", $csv) | Out-Null
+                    $newRows = Get-Content (Join-Path $logs "knowledge-new-rows.log") -Raw
+                    if ($newRows -match "total new rows: ([1-9]\d*)") {
+                        Invoke-Step "knowledge-details" @("sfda-list-details", "--list-run-id", $into, "--lists", $csv) | Out-Null
+                        Invoke-Step "knowledge-files" @("sfda-list-files", "--list-run-id", $into, "--lists", $csv) | Out-Null
+                        Invoke-Step "knowledge-texts" @("sfda-list-texts", "--list-run-id", $into, "--lists", $csv) | Out-Null
+                        Invoke-Step "knowledge-ocr" @("sfda-list-ocr", "--list-run-id", $into, "--lists", $csv) | Out-Null
+                        Invoke-Step "knowledge-build" @("knowledge-build", "--run-id", $into, "--lists", $csv, "--additive") | Out-Null
+                        Invoke-Step "knowledge-embed" @("knowledge-embed") | Out-Null
+                    }
+                }
             }
         }
     }
