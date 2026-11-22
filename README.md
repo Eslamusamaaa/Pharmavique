@@ -571,6 +571,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 |---|---|---|
 | `DATABASE_URL` | none | PostgreSQL connection (async driver) |
 | `SHELF_SCAN_ENABLED` | `true` | The pharmacist's shelf scan (many boxes in one photo); every box is still confirmed by the pharmacist. Set `false` to switch it off |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | none | Cloudflare Workers AI (free 10,000 Neurons a day, shared by all models). With both set, the assistant's model falls back to `@cf/openai/gpt-oss-120b` there when Groq is rate limited, slow or unreachable (`CLOUDFLARE_LLM_MODEL` changes it) |
 | `TAVILY_API_KEY` | none | Web search for the assistant (ADR-017): used only for a medicine the registry does not know, with the product's name alone; results are shown as unverified. Free plan 1,000 searches a month. Without it the tool is off |
 | `EMAIL_BACKEND` | `console` | `console` prints emails in the API output (development only, refused in prod); `smtp` sends through any provider |
 | `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_STARTTLS` | sender, none, `587`, none, none, `true` | The SMTP provider (the password only from the environment) |

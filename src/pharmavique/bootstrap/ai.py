@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.application.ports import AssistantObserver
+from pharmavique.assistant.infrastructure.fallback_model import FallbackChatModel
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
 from pharmavique.assistant.infrastructure.web_search import TavilyWebSearch
@@ -55,24 +56,42 @@ def build_embedder(settings: Settings) -> OpenAICompatibleEmbedder | None:
 
 
 def build_chat_model(settings: Settings) -> Any | None:
-    """A LangChain chat model with tool calling, over an OpenAI-compatible endpoint."""
+    """A LangChain chat model with tool calling, over an OpenAI-compatible endpoint.
+
+    With Cloudflare configured it is Groq (or OpenRouter) first and the same model on Cloudflare as
+    the backup: Groq's free plan allows 8,000 tokens a minute, about one answer.
+    """
     from langchain_openai import ChatOpenAI  # imported here: only the API process needs it
 
     if settings.llm_provider == "groq":
         key, base_url = settings.groq_api_key, GROQ_BASE_URL
     else:
         key, base_url = settings.openrouter_api_key, OPENROUTER_BASE_URL
+    cloudflare_url = settings.cloudflare_base_url
+    backup = (
+        ChatOpenAI(
+            model=settings.cloudflare_llm_model,
+            base_url=cloudflare_url,
+            api_key=settings.cloudflare_api_token,
+            temperature=0,
+            timeout=60,
+            max_retries=1,
+        )
+        if cloudflare_url is not None
+        else None
+    )
     if key is None:
-        return None
-    return ChatOpenAI(
+        return backup
+    first = ChatOpenAI(
         model=settings.llm_model,
         base_url=base_url,
         api_key=key,
         temperature=0,
         timeout=60,
-        # The free tier allows 8,000 tokens a minute: wait out short limits instead of failing.
-        max_retries=4,
+        # Alone, wait out short limits instead of failing. With a backup, hand over at once.
+        max_retries=0 if backup is not None else 4,
     )
+    return FallbackChatModel(first, backup) if backup is not None else first
 
 
 def build_name_extractor(settings: Settings) -> LlmDrugNameExtractor | None:

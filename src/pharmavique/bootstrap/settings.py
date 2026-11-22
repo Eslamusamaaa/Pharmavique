@@ -79,9 +79,15 @@ class Settings(BaseSettings):
     elevenlabs_api_key: SecretStr | None = None
     # Web search for medicines the registry does not know (ADR-017); without a key the tool is off.
     tavily_api_key: SecretStr | None = None
+    # Cloudflare Workers AI (free 10,000 Neurons a day, shared by every model): the assistant's
+    # backup model and others. Both values are needed; without them nothing changes.
+    cloudflare_api_token: SecretStr | None = None
+    cloudflare_account_id: str | None = None
     # The assistant's language model (needs tool calling).
     llm_provider: Literal["groq", "openrouter"] = "groq"
     llm_model: str = "openai/gpt-oss-120b"
+    # The same model on Cloudflare Workers AI, used when the first one is rate limited or slow.
+    cloudflare_llm_model: str = "@cf/openai/gpt-oss-120b"
     # Prompt-injection classifier (Groq); adds to the rule-based guardrails. Empty disables it.
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
     # Embeddings through an OpenAI-compatible endpoint (ADR-006); the column holds 1024 dimensions.
@@ -105,6 +111,14 @@ class Settings(BaseSettings):
     tts_model: str = "canopylabs/orpheus-arabic-saudi"
     tts_voice: str = "noura"  # Saudi voices: abdullah, fahad, sultan, lulwa, noura, aisha
 
+    @property
+    def cloudflare_base_url(self) -> str | None:
+        """The OpenAI-compatible Workers AI endpoint, when a token and an account are set."""
+        if self.cloudflare_api_token is None or not self.cloudflare_account_id:
+            return None
+        account = self.cloudflare_account_id.strip()
+        return f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1"
+
     @field_validator(
         "database_url",
         "redis_url",
@@ -113,6 +127,8 @@ class Settings(BaseSettings):
         "groq_api_key",
         "elevenlabs_api_key",
         "tavily_api_key",
+        "cloudflare_api_token",
+        "cloudflare_account_id",
         "smtp_password",
         mode="before",
     )

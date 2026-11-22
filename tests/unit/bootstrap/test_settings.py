@@ -19,3 +19,17 @@ def test_a_filled_variable_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(_env_file=None)
     assert settings.redis_url is not None
     assert settings.redis_url.get_secret_value() == "redis://127.0.0.1:6379/0"
+
+
+def test_cloudflare_is_configured_only_with_both_a_token_and_an_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHARMAVIQUE_CLOUDFLARE_API_TOKEN", "token")
+    monkeypatch.setenv("PHARMAVIQUE_CLOUDFLARE_ACCOUNT_ID", "")
+    assert Settings(_env_file=None).cloudflare_base_url is None
+
+    monkeypatch.setenv("PHARMAVIQUE_CLOUDFLARE_ACCOUNT_ID", "abc123")
+    settings = Settings(_env_file=None)
+    assert settings.cloudflare_base_url == (
+        "https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1"
+    )
