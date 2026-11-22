@@ -123,3 +123,35 @@ async def test_a_search_result_says_whether_the_name_matched_or_only_looked_alik
         ("1", "exact"),
         ("2", "similar_name_only"),
     ]
+
+
+class PrefixSearch:
+    """A search that found the product only by similarity, as it does for a shortened name."""
+
+    async def search(self, query: Any) -> Any:
+        from pharmavique.search.contracts.queries import SearchMatch, SearchResult
+
+        return SearchResult((SearchMatch(Market.SA, "1", 0.5, False, ()),))
+
+
+async def test_a_shortened_name_is_the_same_medicine_not_a_look_alike() -> None:
+    nothing = cast(Any, None)
+    named = card("1", "PANADOL 500 mg film-coated tablet", "PARACETAMOL")
+    source = ContractDrugFacts(PrefixSearch(), FakeCatalog(named), nothing, nothing, nothing)
+
+    rows = await source.search_drugs("Panadol 500", 8)
+
+    assert rows[0]["name_match"] == "exact"
+
+
+@pytest.mark.parametrize("typed", ["Panadole", "Panadol Extra Strong", "paracetamol 650"])
+async def test_a_name_that_is_not_contained_in_the_product_name_stays_a_look_alike(
+    typed: str,
+) -> None:
+    nothing = cast(Any, None)
+    named = card("1", "PANADOL 500 mg film-coated tablet", "PARACETAMOL")
+    source = ContractDrugFacts(PrefixSearch(), FakeCatalog(named), nothing, nothing, nothing)
+
+    rows = await source.search_drugs(typed, 8)
+
+    assert rows[0]["name_match"] == "similar_name_only"

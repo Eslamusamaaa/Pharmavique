@@ -8,7 +8,12 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
-from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogQueries, ProductDetails
+from pharmavique.catalog.contracts.queries import (
+    CatalogDetails,
+    CatalogQueries,
+    ProductCard,
+    ProductDetails,
+)
 from pharmavique.interactions.contracts.queries import (
     ContraindicationChecks,
     InteractionChecks,
@@ -17,6 +22,7 @@ from pharmavique.interactions.contracts.queries import (
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.text import normalize_text
 from pharmavique.substitution.contracts.queries import (
     EquivalenceQueries,
     IngredientFacts,
@@ -74,6 +80,20 @@ def _facts(d: ProductDetails) -> ProductFacts:
     )
 
 
+def _name_match(query: str, card: ProductCard, exact: bool) -> str:
+    """ "exact" when the search found the name exactly, or when every word typed starts a word of
+    the product's own name (a shortened name: "Panadol 500" for "PANADOL 500 mg ..."). Anything
+    else the forgiving search returned is a look-alike name, not the medicine asked for."""
+    if exact:
+        return "exact"
+    typed = normalize_text(query).split()
+    names = (card.trade_name_ar, card.trade_name_en)
+    words = [word for name in names if name for word in normalize_text(name).split()]
+    if typed and all(any(word.startswith(part) for word in words) for part in typed):
+        return "exact"
+    return "similar_name_only"
+
+
 class ContractDrugFacts:
     def __init__(
         self,
@@ -110,7 +130,7 @@ class ContractDrugFacts:
                 "dosage_form": c.dosage_form_ar or c.dosage_form_en,
                 "marketing_company": c.marketing_company,
                 # the search is forgiving: a look-alike name is not the medicine that was asked for
-                "name_match": "exact" if m.exact else "similar_name_only",
+                "name_match": _name_match(query, c, m.exact),
             }
             for m in result.matches
             if (c := by_number.get(m.register_number)) is not None
