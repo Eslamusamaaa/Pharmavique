@@ -219,7 +219,7 @@ export type AssistantCitation = {
   source_id: string;
   title: string;
   url: string | null;
-  kind: 'catalog' | 'document' | string;
+  kind: 'catalog' | 'document' | 'web' | string;
   published: string | null;
 };
 
@@ -227,6 +227,7 @@ export type AssistantAnswer = {
   answer: string;
   citations: AssistantCitation[];
   grounded: boolean;
+  web: boolean; // pages from the open web are cited: unverified (ADR-017)
   general: boolean;
   urgent: boolean;
   refused: boolean;

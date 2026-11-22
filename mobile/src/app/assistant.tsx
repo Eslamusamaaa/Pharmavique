@@ -2,7 +2,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowRightIcon,
+  CameraIcon,
   FileTextIcon,
+  GlobeIcon,
   FirstAidKitIcon,
   InfoIcon,
   LinkSimpleIcon,
@@ -14,9 +16,11 @@ import {
   StopIcon,
   WarningIcon,
 } from 'phosphor-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Linking,
   Keyboard,
@@ -29,7 +33,13 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { askAssistant, friendlyError, type AssistantAnswer, type ConversationTurn } from '@/api/client';
+import {
+  askAssistant,
+  friendlyError,
+  scanImage,
+  type AssistantAnswer,
+  type ConversationTurn,
+} from '@/api/client';
 import { askWithMyMedicines } from '@/api/me';
 import { HistoryCard } from '@/components/history-card';
 import { useAccount } from '@/state/auth';
@@ -61,6 +71,8 @@ export default function Assistant() {
   const mic = useVoiceInput();
   const speaker = useSpeaker();
   const busy = turns.some((t) => t.role === 'pending');
+  const [reading, setReading] = useState(false);
+  const readingNow = useRef(false);
 
   const ask = async (question: string, spoken = false) => {
     const q = question.trim();
@@ -91,6 +103,61 @@ export default function Assistant() {
       setTurns((all) => all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'error', text: friendlyError(e) } : t)));
     }
   };
+
+  // Photo of a box: the existing box scan only transcribes what is printed on it; the name it read
+  // becomes the question. No image goes to the assistant's language model (ADR-017).
+  const readPhoto = async (picked: ImagePicker.ImagePickerResult) => {
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset || readingNow.current) return;
+    readingNow.current = true;
+    setReading(true);
+    try {
+      const result = await scanImage(asset.uri, asset.mimeType ?? 'image/jpeg', 'box');
+      const line = result.lines[0];
+      if (!line) {
+        setTurns((all) => [
+          ...all,
+          { id: nextId(), role: 'error', text: 'ما قدرت أقرأ اسم الدواء من الصورة. جرّب صورة أوضح للاسم والتركيز.' },
+        ]);
+        return;
+      }
+      const printed = [line.name, line.strength, line.form].filter(Boolean).join(' ').slice(0, 120);
+      const asked = text.trim() || 'وش هذا الدواء؟ وش مادته الفعالة وبدائله؟';
+      readingNow.current = false;
+      setReading(false);
+      await ask(`${asked}
+مكتوب على العلبة (مقروء من صورة): "${printed}"`);
+    } catch (e) {
+      setTurns((all) => [...all, { id: nextId(), role: 'error', text: friendlyError(e) }]);
+    } finally {
+      readingNow.current = false;
+      setReading(false);
+    }
+  };
+
+  const onPhoto = () =>
+    Alert.alert('أضف صورة دواء', 'صوّر العلبة أو اختر صورة من المعرض', [
+      {
+        text: 'الكاميرا',
+        onPress: async () => {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!permission.granted) {
+            setTurns((all) => [
+              ...all,
+              { id: nextId(), role: 'error', text: 'نحتاج إذن الكاميرا. فعّله من إعدادات الجوال.' },
+            ]);
+            return;
+          }
+          await readPhoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }));
+        },
+      },
+      {
+        text: 'المعرض',
+        onPress: async () =>
+          readPhoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 })),
+      },
+      { text: 'إلغاء', style: 'cancel' },
+    ]);
 
   useEffect(() => {
     if (params.q) ask(params.q);
@@ -188,6 +255,14 @@ export default function Assistant() {
               </View>
             );
           })}
+          {reading ? (
+            <Row gap={8} style={[styles.pending, { backgroundColor: c.sf }]}>
+              <ActivityIndicator size="small" color={c.ink2} />
+              <T size={14} color={c.ink2}>
+                جارٍ قراءة الصورة…
+              </T>
+            </Row>
+          ) : null}
           {mic.error ? (
             <T size={13} color={c.rd}>
               {mic.error}
@@ -220,6 +295,14 @@ export default function Assistant() {
             style={[styles.input, { backgroundColor: c.sf, color: c.ink, fontFamily: fonts.ar[400] }, cardShadow]}
           />
           <Pressable
+            onPress={onPhoto}
+            disabled={busy || reading}
+            style={[styles.roundBtn, { backgroundColor: c.prs, opacity: busy || reading ? 0.5 : 1 }]}
+            accessibilityLabel="أضف صورة دواء"
+          >
+            <CameraIcon size={22} color={c.pr} />
+          </Pressable>
+          <Pressable
             onPress={onMic}
             style={[styles.roundBtn, { backgroundColor: mic.state === 'listening' ? c.rd : c.prs }]}
             accessibilityLabel={mic.state === 'listening' ? 'إيقاف التسجيل' : 'اسأل بصوتك'}
@@ -239,6 +322,19 @@ export default function Assistant() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+// A drug cited from the registry opens inside the app; a page from the web or an official
+// document opens in the browser.
+function openCitation(cite: AssistantAnswer['citations'][number]) {
+  if (cite.kind === 'catalog') {
+    const register = cite.source_id.slice('catalog:'.length);
+    if (register) {
+      router.push({ pathname: '/drug/[register]', params: { register } });
+      return;
+    }
+  }
+  if (cite.url) Linking.openURL(cite.url);
 }
 
 function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; listening: boolean; onListen: () => void }) {
@@ -296,16 +392,30 @@ function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; 
           {answer.citations.map((cite) => (
             <Pressable
               key={cite.source_id}
-              onPress={() => (cite.url ? Linking.openURL(cite.url) : undefined)}
-              style={[styles.citeChip, { backgroundColor: c.prs }]}
+              onPress={() => openCitation(cite)}
+              style={[styles.citeChip, { backgroundColor: cite.kind === 'web' ? c.wns : c.prs }]}
             >
-              {cite.kind === 'document' ? <FileTextIcon size={14} color={c.pr} /> : <LinkSimpleIcon size={14} color={c.pr} />}
-              <T size={12.5} weight={600} color={c.pr} numberOfLines={1} style={{ maxWidth: 240 }}>
+              {cite.kind === 'document' ? (
+                <FileTextIcon size={14} color={c.pr} />
+              ) : cite.kind === 'web' ? (
+                <GlobeIcon size={14} color={c.wn} />
+              ) : (
+                <LinkSimpleIcon size={14} color={c.pr} />
+              )}
+              <T size={12.5} weight={600} color={cite.kind === 'web' ? c.wn : c.pr} numberOfLines={1} style={{ maxWidth: 240 }}>
                 {`[${cite.number}] ${cite.title}`}
               </T>
             </Pressable>
           ))}
         </View>
+      ) : null}
+      {answer.web && answer.grounded ? (
+        <Row gap={4}>
+          <InfoIcon size={14} color={c.wn} weight="fill" />
+          <T size={12} color={c.ink2}>
+            جزء من الإجابة من الإنترنت وهو غير موثّق من الهيئة
+          </T>
+        </Row>
       ) : null}
       <Row style={{ justifyContent: 'space-between', marginTop: 2 }}>
         {answer.grounded ? (
@@ -319,7 +429,7 @@ function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; 
           <Row gap={4}>
             <InfoIcon size={14} color={c.wn} weight="fill" />
             <T size={12} color={c.ink2}>
-              معلومة عامة، ليست من سجل الهيئة
+              {answer.web ? 'معلومات من الإنترنت، غير موثّقة من الهيئة' : 'معلومة عامة، ليست من سجل الهيئة'}
             </T>
           </Row>
         )}
