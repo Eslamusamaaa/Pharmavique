@@ -37,7 +37,7 @@ jobs:
       - name: Read the first pages with our own crawler (4 minutes at most)
         run: |
           set +e
-          timeout 240 uv run pharmavique sfda-update --out /tmp/probe --run-id probe --delay 1.5 --jitter 0.5 2>&1 | tail -40
+          timeout 240 uv run pharmavique sfda-update --baseline full-20261116 --run-id probe --recheck 0 2>&1 | tail -40
           echo "exit code of the crawler (124 means it was stopped by the time limit while working): ${PIPESTATUS[0]}"
-          ls /tmp/probe/probe 2>/dev/null | head
-          cat /tmp/probe/probe/manifest.json 2>/dev/null | head -c 1500 || true
+          ls data/sfda/probe 2>/dev/null | head
+          head -c 1500 data/sfda/probe/manifest.json 2>/dev/null || true
