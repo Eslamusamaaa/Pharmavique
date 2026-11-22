@@ -120,7 +120,7 @@ export default function Home() {
           </Pressable>
           {role === 'pharmacist' || role === 'patient' ? (
             <Pressable
-              onPress={() => router.push(role === 'pharmacist' ? '/interactions' : '/my-medicines')}
+              onPress={() => router.push(role === 'pharmacist' ? '/interactions' : '/medicines')}
               style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
               accessibilityRole="button"
             >

@@ -20,6 +20,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="search" />
       <Tabs.Screen name="scan" />
+      <Tabs.Screen name="medicines" />
       <Tabs.Screen name="account" />
     </Tabs>
   );

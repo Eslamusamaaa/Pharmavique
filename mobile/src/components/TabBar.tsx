@@ -1,6 +1,6 @@
 // Bottom tab bar from the wireframes (B1, B3): الرئيسية · بحث · المسح الضوئي · حسابي, right to left.
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { HouseIcon, MagnifyingGlassIcon, ScanIcon, UserIcon } from 'phosphor-react-native';
+import { HouseIcon, MagnifyingGlassIcon, PillIcon, ScanIcon, UserIcon } from 'phosphor-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ const TABS = {
   index: { label: 'الرئيسية', Icon: HouseIcon },
   search: { label: 'بحث', Icon: MagnifyingGlassIcon },
   scan: { label: 'المسح الضوئي', Icon: ScanIcon },
+  medicines: { label: 'أدويتي', Icon: PillIcon },
   account: { label: 'حسابي', Icon: UserIcon },
 } as const;
 
