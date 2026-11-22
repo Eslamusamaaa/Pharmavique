@@ -52,3 +52,29 @@ async def test_vectors_of_the_wrong_size_are_refused() -> None:
 
     with pytest.raises(EmbeddingError, match="2 dimensions"):
         await embedder(handler).embed(["a"])
+
+
+async def test_a_provider_can_use_another_model_id_than_the_label_stored_with_the_vectors() -> None:
+    # the same bge-m3 is "baai/bge-m3" on OpenRouter and "@cf/baai/bge-m3" on Cloudflare: vectors
+    # keep one label, so nothing is re-embedded when the host changes
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1.0, 0.0, 0.0]}]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    cloud = OpenAICompatibleEmbedder(
+        "https://api.test/v1",
+        "secret",
+        "baai/bge-m3",
+        3,
+        client,
+        api_model="@cf/baai/bge-m3",
+        send_dimensions=False,
+    )
+
+    await cloud.embed(["a"])
+
+    assert cloud.model == "baai/bge-m3"
+    assert seen["body"] == {"model": "@cf/baai/bge-m3", "input": ["a"]}

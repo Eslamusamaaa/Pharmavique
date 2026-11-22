@@ -22,10 +22,17 @@ class OpenAICompatibleEmbedder:
         dimensions: int,
         client: httpx.AsyncClient | None = None,
         timeout: float = 60.0,
+        *,
+        api_model: str | None = None,
+        send_dimensions: bool = True,
     ) -> None:
+        """`model` is the label stored with the vectors; `api_model` is the id the provider wants,
+        when it differs (the same bge-m3 is `baai/bge-m3` and `@cf/baai/bge-m3`)."""
         self._url = base_url.rstrip("/") + "/embeddings"
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._model = model
+        self._api_model = api_model or model
+        self._send_dimensions = send_dimensions
         self._dimensions = dimensions
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
@@ -33,10 +40,16 @@ class OpenAICompatibleEmbedder:
     def model(self) -> str:
         return self._model
 
+    @property
+    def url(self) -> str:
+        return self._url
+
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
-        payload = {"model": self._model, "input": list(texts), "dimensions": self._dimensions}
+        payload: dict[str, object] = {"model": self._api_model, "input": list(texts)}
+        if self._send_dimensions:
+            payload["dimensions"] = self._dimensions
         response = await self._client.post(self._url, json=payload, headers=self._headers)
         if response.status_code != 200:
             raise EmbeddingError(f"embedding provider answered HTTP {response.status_code}")

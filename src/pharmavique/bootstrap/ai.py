@@ -45,6 +45,19 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def build_embedder(settings: Settings) -> OpenAICompatibleEmbedder | None:
+    """bge-m3 on Cloudflare when it is configured (free, and its vectors are identical to the ones
+    OpenRouter made: cosine 1.0 on six stored chunks), else on OpenRouter. The label stored with
+    the vectors stays `embedding_model` either way, so nothing is re-embedded."""
+    cloudflare_url = settings.cloudflare_base_url
+    if cloudflare_url is not None and settings.cloudflare_api_token is not None:
+        return OpenAICompatibleEmbedder(
+            cloudflare_url,
+            settings.cloudflare_api_token.get_secret_value(),
+            settings.embedding_model,
+            settings.embedding_dimensions,
+            api_model=settings.cloudflare_embedding_model,
+            send_dimensions=False,
+        )
     if settings.openrouter_api_key is None:
         return None
     return OpenAICompatibleEmbedder(
@@ -128,14 +141,24 @@ def build_voice(settings: Settings) -> tuple[Transcribe | None, Speak | None]:
 def build_scanner(
     settings: Settings, *, search: ProductSearch, catalog: ReadProductCardsHandler
 ) -> ScanImage | None:
-    """The vision model (through OpenRouter) and the registry search for its candidates."""
-    if settings.openrouter_api_key is None:
+    """The vision readers, tried in order: Cloudflare first when configured (Llama 4 Scout read a
+    test picture correctly in 3.5 s for about 12 Neurons), then the free models on OpenRouter."""
+    readers: list[OpenAICompatibleVisionReader] = []
+    cloudflare_url = settings.cloudflare_base_url
+    if cloudflare_url is not None and settings.cloudflare_api_token is not None:
+        key = settings.cloudflare_api_token.get_secret_value()
+        readers.append(
+            OpenAICompatibleVisionReader(cloudflare_url, key, settings.cloudflare_vision_model)
+        )
+    if settings.openrouter_api_key is not None:
+        key = settings.openrouter_api_key.get_secret_value()
+        readers.extend(
+            OpenAICompatibleVisionReader(OPENROUTER_BASE_URL, key, m)
+            for m in settings.vision_models
+        )
+    if not readers:
         return None
-    key = settings.openrouter_api_key.get_secret_value()
-    reader = FallbackVisionReader(
-        [OpenAICompatibleVisionReader(OPENROUTER_BASE_URL, key, m) for m in settings.vision_models]
-    )
-    return ScanImage(reader, SearchCandidateFinder(search, catalog))
+    return ScanImage(FallbackVisionReader(readers), SearchCandidateFinder(search, catalog))
 
 
 def build_assistant(

@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     llm_model: str = "openai/gpt-oss-120b"
     # The same model on Cloudflare Workers AI, used when the first one is rate limited or slow.
     cloudflare_llm_model: str = "@cf/openai/gpt-oss-120b"
+    # bge-m3 on Cloudflare: the same model as `embedding_model`, with identical vectors.
+    cloudflare_embedding_model: str = "@cf/baai/bge-m3"
+    # Reads boxes and prescriptions (Llama 4 Scout, with image input through the chat endpoint).
+    cloudflare_vision_model: str = "@cf/meta/llama-4-scout-17b-16e-instruct"
     # Prompt-injection classifier (Groq); adds to the rule-based guardrails. Empty disables it.
     prompt_guard_model: str = "meta-llama/llama-prompt-guard-2-86m"
     # Embeddings through an OpenAI-compatible endpoint (ADR-006); the column holds 1024 dimensions.
