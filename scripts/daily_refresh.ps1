@@ -61,7 +61,9 @@ try {
         # compare with the last complete update; on a fresh clone there is none yet, so the
         # committed full crawl is the baseline
         $update = @("sfda-update", "--recheck", "$Recheck", "--run-id", $run)
-        if (-not (Test-Path (Join-Path $root "data\sfda\latest.json"))) { $update += @("--baseline", "full-20261116") }
+        $latest = Join-Path $root "data\sfda\latest.json"
+        if (Test-Path $latest) { $baselineId = (Get-Content $latest -Raw | ConvertFrom-Json).run_id }
+        else { $baselineId = "full-20261116"; $update += @("--baseline", $baselineId) }
         $code = Invoke-Step "drugs-update" $update
         # Exit 3 after a lost internet connection (the browser could not resolve the site's name) is
         # not a block by the site: wait and resume the same run, which continues from the pages it
@@ -96,6 +98,11 @@ try {
         Set-Content -Path (Join-Path $root "data\refresh\ATTENTION.md") -Value $note -Encoding UTF8
         if ($code -eq 0 -or $code -eq 2) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
+            # A drug missing from two complete runs in a row is withdrawn (never after a partial run,
+            # never more than 50 at once; exit 2 means a safeguard held and nothing was withdrawn).
+            if ($baselineId -ne $run) {
+                Invoke-Step "drugs-withdraw" @("sfda-withdraw-absent", "--run-id", $run, "--baseline", $baselineId) @(0, 2) | Out-Null
+            }
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them
             Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null

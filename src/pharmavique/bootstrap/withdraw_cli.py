@@ -59,6 +59,10 @@ async def withdraw_absent(args: argparse.Namespace) -> int:
     if settings.database_url is None:
         print("set PHARMAVIQUE_DATABASE_URL first", file=sys.stderr)
         return EXIT_NO_INPUT
+    if args.run_id == args.baseline:
+        # a run compared with itself would count one absence as two
+        print("the run and its baseline must be different runs", file=sys.stderr)
+        return EXIT_NO_INPUT
     run = SnapshotStore(Path(args.out), args.run_id)
     baseline = SnapshotStore(Path(args.out), args.baseline)
     manifest = run.load_manifest()
