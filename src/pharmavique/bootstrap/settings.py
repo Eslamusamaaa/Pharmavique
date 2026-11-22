@@ -72,6 +72,9 @@ class Settings(BaseSettings):
 
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
+    # Public address of a bucket that holds the same pictures (`products/SA/...`); when set, the
+    # picture endpoint redirects there instead of reading the media folder.
+    picture_base_url: str | None = None
     # Folder the daily refresh writes its summaries to; the operator board reads it (read-only).
     refresh_dir: str = "data/refresh"
 

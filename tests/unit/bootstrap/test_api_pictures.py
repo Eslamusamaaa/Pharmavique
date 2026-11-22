@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from pharmavique.bootstrap.api import create_app
-from pharmavique.bootstrap.api_pictures import resolve_picture_file
+from pharmavique.bootstrap.api_pictures import picture_key, resolve_picture_file
 from pharmavique.catalog.infrastructure.persistence.pictures import StoredPicture
 
 JPEG = b"\xff\xd8\xff" + b"x" * 100
@@ -64,6 +64,42 @@ async def test_a_real_picture_is_served(tmp_path: Path, monkeypatch: pytest.Monk
     assert response.content == JPEG
     assert response.headers["content-type"] == "image/jpeg"
     assert response.headers["x-picture-status"] == "matched"
+
+
+@pytest.mark.parametrize(
+    ("stored", "key"),
+    [
+        (r"data\media\images\products\SA\1\a.jpg", "products/SA/1/a.jpg"),
+        ("products/SA/1/a.jpg", "products/SA/1/a.jpg"),
+        ("data/media/images/../../secret.txt", None),
+        ("/etc/passwd", None),
+        ("", None),
+    ],
+)
+def test_the_bucket_key_is_the_path_after_images(stored: str, key: str | None) -> None:
+    assert picture_key(stored) == key
+
+
+async def test_with_a_bucket_the_picture_is_a_redirect_to_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # nothing is read from the disk: on a host without the media folder the bucket holds the files
+    monkeypatch.setenv("PHARMAVIQUE_MEDIA_DIR", str(tmp_path / "missing"))
+    monkeypatch.setenv("PHARMAVIQUE_PICTURE_BASE_URL", "https://bucket.example/pics/")
+    from pharmavique.bootstrap.settings import get_settings
+
+    get_settings.cache_clear()
+    row = StoredPicture("real", r"data\media\images\products\SA\1\a.jpg", "image/jpeg", "matched")
+    app = create_app(pictures=FakePictures({"1": row}))
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/products/1/picture", follow_redirects=False)
+
+    get_settings.cache_clear()
+    assert response.status_code == 307
+    assert response.headers["location"] == "https://bucket.example/pics/products/SA/1/a.jpg"
+    assert response.headers["cache-control"] == "public, max-age=86400"
 
 
 async def test_a_generated_card_or_unknown_product_has_no_picture() -> None:
