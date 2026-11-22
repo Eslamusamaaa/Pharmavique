@@ -129,7 +129,7 @@ export default function Assistant() {
           accessibilityState={{ checked: useMine }}
         >
           <T size={14} weight={600} style={{ flex: 1 }}>
-            {useMine ? 'هقارن الدوا ده بأدويتي الحالية' : 'قارن الدوا ده بأدويتي الحالية'}
+            {useMine ? 'بقارن هذا الدواء بأدويتي الحالية' : 'قارن هذا الدواء بأدويتي الحالية'}
           </T>
           <T size={12.5} color={c.ink2}>
             {useMine ? 'شغّال' : 'مقفول'}
@@ -214,7 +214,7 @@ export default function Assistant() {
             value={text}
             onChangeText={setText}
             onSubmitEditing={() => ask(text)}
-            placeholder={mic.state === 'listening' ? 'بنسمعك… دوس تاني لما تخلص' : 'اكتب أو تكلّم عن اسم أو مادة أو سعر'}
+            placeholder={mic.state === 'listening' ? 'نسمعك… اضغط مرة ثانية إذا خلصت' : 'اكتب أو تكلّم عن اسم أو مادة أو سعر'}
             placeholderTextColor={c.ink2}
             multiline
             style={[styles.input, { backgroundColor: c.sf, color: c.ink, fontFamily: fonts.ar[400] }, cardShadow]}
@@ -319,7 +319,7 @@ function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; 
           <Row gap={4}>
             <InfoIcon size={14} color={c.wn} weight="fill" />
             <T size={12} color={c.ink2}>
-              معلومة عامة، مش من سجل الهيئة
+              معلومة عامة، ليست من سجل الهيئة
             </T>
           </Row>
         )}

@@ -76,7 +76,7 @@ export default function ShelfScan() {
     if (registers.length === 0) return;
     try {
       const out = await confirmShelf(registers);
-      setMessage(`اتضاف ${out.added} دواء لرف الصيدلية${out.already_on_the_shelf ? ` (${out.already_on_the_shelf} كانوا موجودين)` : ''}.`);
+      setMessage(`انضاف ${out.added} دواء لرف الصيدلية${out.already_on_the_shelf ? ` (${out.already_on_the_shelf} كانوا موجودين)` : ''}.`);
       setStage({ kind: 'start' });
       await loadShelf();
     } catch (e) {
@@ -107,11 +107,11 @@ export default function ShelfScan() {
           <Loading />
         ) : (
           <Message
-            title={account === null ? 'الشاشة دي لحسابات الصيادلة' : 'مسح الرف مش متفعّل على السيرفر ده'}
+            title={account === null ? 'هذي الشاشة لحسابات الصيادلة' : 'مسح الرف غير مفعّل على هذا السيرفر'}
             detail={
               account === null
                 ? 'سجّل الدخول بحساب صيدلي.'
-                : 'الميزة دي مقفولة على السيرفر ده. المسؤول عن السيرفر هو اللي يفتحها.'
+                : 'هذي الميزة مقفلة على هذا السيرفر. المسؤول عن السيرفر هو من يفعّلها.'
             }
           />
         )}
@@ -133,9 +133,9 @@ export default function ShelfScan() {
         {stage.kind === 'start' ? (
           <>
             <PrimaryButton label="صوّر الرف" icon={<CameraIcon size={20} color={c.prt} />} onPress={shoot} />
-            <PrimaryButton label="اختار صورة" icon={<ImageIcon size={20} color={c.pr} />} onPress={pick} outline />
+            <PrimaryButton label="اختر صورة" icon={<ImageIcon size={20} color={c.pr} />} onPress={pick} outline />
             <T size={13} color={c.ink2}>
-              الصورة بتتقرا وتتمسح، ومابتتحفظش. الأسماء المقترحة محتاجة مراجعتك: مفيش دواء بيتضاف من غير ما تأكّده.
+              الصورة تُقرأ وتُمسح ولا تُحفظ. الأسماء المقترحة تحتاج مراجعتك: ما فيه دواء يُضاف بدون ما تأكّده.
             </T>
           </>
         ) : null}
@@ -163,7 +163,7 @@ export default function ShelfScan() {
                 <Pressable
                   onPress={() => removeFromShelf(i.register_number).then(loadShelf)}
                   style={styles.iconBtn}
-                  accessibilityLabel="شيل من الرف"
+                  accessibilityLabel="احذف من الرف"
                 >
                   <TrashIcon size={20} color={c.ink2} />
                 </Pressable>
@@ -195,13 +195,13 @@ function Review({
   if (result.lines.length === 0)
     return (
       <T size={14} color={c.ink2}>
-        ماقدرتش أقرا أي اسم دوا في الصورة. جرّب صورة أقرب وأوضح.
+        ما قدرت أقرأ أي اسم دواء في الصورة. جرّب صورة أقرب وأوضح.
       </T>
     );
   return (
     <View style={{ gap: 12 }}>
       <T size={13} color={c.ink2}>
-        {result.lines.length} صندوق مقترح. اختار المطابقة الصح لكل واحد، وسيب اللي مش متأكد منه.
+        {result.lines.length} صندوق مقترح. اختر المطابقة الصحيحة لكل واحد، واترك اللي مو متأكد منه.
       </T>
       {result.lines.map((line: ScanLine, index: number) => (
         <Card key={`${line.raw_text}-${index}`} style={{ gap: 6 }}>
@@ -209,7 +209,7 @@ function Review({
             {line.raw_text}
           </T>
           {line.candidates.length === 0 ? (
-            <Pill tone="muted" label="مفيش مطابقة في السجل" />
+            <Pill tone="muted" label="ما فيه مطابقة في السجل" />
           ) : (
             line.candidates.map((cand) => {
               const on = chosen[index] === cand.register_number;

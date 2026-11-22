@@ -74,8 +74,8 @@ export function mapsSearchUrl(pharmacy: Pharmacy): string {
 
 export function arabicPharmacyError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 503) return 'الخدمة دي لسه مش متفعلة على السيرفر';
-    if (error.status === null) return 'مش قادر أوصل للسيرفر';
+    if (error.status === 503) return 'هذي الخدمة غير مفعّلة على السيرفر للحين';
+    if (error.status === null) return 'ما قدرت أوصل للسيرفر';
   }
-  return 'حصلت مشكلة. جرّب تاني';
+  return 'صار خطأ. جرّب مرة ثانية';
 }

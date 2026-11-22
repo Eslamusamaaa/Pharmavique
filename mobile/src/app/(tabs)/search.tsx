@@ -188,7 +188,7 @@ export default function Search() {
       {params.compareWith ? (
         <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
           <T size={13.5} weight={600} color={c.pr}>
-            اختار الدواء التاني للمقارنة
+            اختر الدواء الثاني للمقارنة
           </T>
         </View>
       ) : null}
@@ -218,7 +218,7 @@ export default function Search() {
           <RecentList onPick={(q) => submit(q)} />
           {!recents.length ? (
             <T size={14} color={c.ink2}>
-              اكتب اسم الدواء بالعربي أو الإنجليزي، حتى لو فيه غلطة إملائية.
+              اكتب اسم الدواء بالعربي أو الإنجليزي، حتى لو فيه خطأ إملائي.
             </T>
           ) : null}
         </ScrollView>
@@ -261,7 +261,7 @@ export default function Search() {
           {results.kind === 'error' && <Message title="حصلت مشكلة" detail={results.detail} />}
           {results.kind === 'idle' && <Message title="اكتب اسم الدواء" />}
           {results.kind === 'done' && hits.length === 0 && (
-            <Message title="مفيش نتايج" detail="جرّب الاسم العلمي أو اكتبه بطريقة تانية." />
+            <Message title="ما فيه نتائج" detail="جرّب الاسم العلمي أو اكتبه بطريقة ثانية." />
           )}
           {results.kind === 'done' && hits.length > 0 && (
             <FlatList

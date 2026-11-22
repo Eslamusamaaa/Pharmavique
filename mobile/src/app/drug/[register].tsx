@@ -138,7 +138,7 @@ export default function DrugScreen() {
       return;
     }
     saveMedicine(register)
-      .then(() => setSaveNote('اتحفظ في قائمتي'))
+      .then(() => setSaveNote('انحفظ في قائمتي'))
       .catch((e: unknown) => setSaveNote(arabicMeError(e)));
   };
 
@@ -178,7 +178,7 @@ export default function DrugScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
         {header}
         <DisclaimerBar />
-        {state.kind === 'loading' ? <Loading /> : <Message title="مش قادر أجيب بيانات الدواء" detail={state.detail} />}
+        {state.kind === 'loading' ? <Loading /> : <Message title="ما قدرت أجيب بيانات الدواء" detail={state.detail} />}
       </SafeAreaView>
     );
   }
@@ -279,16 +279,16 @@ export default function DrugScreen() {
             <Row gap={8}>
               <WarningIcon size={20} color={c.wn} weight="fill" />
               <T weight={700} style={{ flex: 1 }}>
-                فيه مادة إنت مسجّل حساسية منها
+                فيه مادة أنت مسجّل حساسية منها
               </T>
             </Row>
             {allergy.matches.map((m) => (
               <T key={`${m.allergy}-${m.ingredient}`} size={13.5}>
-                الدواء فيه {m.ingredient}، وإنت مسجّل حساسية من {m.allergy}.
+                الدواء فيه {m.ingredient}، وأنت مسجّل حساسية من {m.allergy}.
               </T>
             ))}
             <T size={12.5} color={c.ink2}>
-              اسأل الصيدلي أو الدكتور قبل أي استخدام. {allergy.note}
+              اسأل الصيدلي أو الطبيب قبل أي استخدام. {allergy.note}
             </T>
           </View>
         ) : null}
@@ -307,18 +307,18 @@ export default function DrugScreen() {
               <WarningIcon size={20} color={shortage.status === 'listed_in_shortage' ? c.wn : c.ink2} weight="fill" />
               <T weight={700} style={{ flex: 1 }}>
                 {shortage.status === 'listed_in_shortage'
-                  ? 'الهيئة مدرجة الدواء ده في قائمة النواقص'
-                  : 'الهيئة سجّلت إن نقص الدواء ده اتحل'}
+                  ? 'الهيئة مدرجة هذا الدواء في قائمة النواقص'
+                  : 'الهيئة سجّلت أن نقص هذا الدواء انحل'}
               </T>
             </Row>
             {shortage.items.some((i) => i.confidence === 'possible') ? (
               <T size={13} color={c.ink2}>
-                ربط الدواء بسجل النقص محتمل وبيحتاج مراجعة الصيدلي.
+                ربط الدواء بسجل النقص محتمل ويحتاج مراجعة الصيدلي.
               </T>
             ) : null}
             {shortage.status === 'listed_in_shortage' ? (
               <T size={13} color={c.ink2}>
-                المنتجات اللي بنفس المادة الفعالة تحت. الصيدلي أو الدكتور هو اللي يقرر لو ينفع تحل محله.
+                المنتجات اللي بنفس المادة الفعالة تحت. الصيدلي أو الطبيب هو من يقرر إذا كان ينفع تحل محله.
               </T>
             ) : null}
             {shortage.items[0]?.source_ref ? (
@@ -405,7 +405,7 @@ export default function DrugScreen() {
             {d.price_change ? (
               <Pill
                 tone="wn"
-                label={`السعر اتغيّر من ${d.price_change.old_price.amount} إلى ${d.price_change.new_price.amount} في ${arabicDate(d.price_change.changed_at) ?? ''}`}
+                label={`السعر تغيّر من ${d.price_change.old_price.amount} إلى ${d.price_change.new_price.amount} في ${arabicDate(d.price_change.changed_at) ?? ''}`}
               />
             ) : null}
             <T size={12.5} color={c.ink2}>
@@ -452,7 +452,7 @@ export default function DrugScreen() {
         {/* look-alike names: a prompt to double-check the name, computed from spelling and sound only */}
         {similar && similar.results.length > 0 ? (
           <View style={{ gap: 10 }}>
-            <H2>أسماء متشابهة، اتأكد من الاسم</H2>
+            <H2>أسماء متشابهة، تأكد من الاسم</H2>
             {similar.results.map((r) => (
               <Pressable
                 key={r.register_number}
@@ -473,8 +473,8 @@ export default function DrugScreen() {
               </Pressable>
             ))}
             <T size={12.5} color={c.ink2}>
-              الأسماء دي متشابهة في الكتابة أو النطق. اتأكد من اسم الدواء على العلبة أو الروشتة. القائمة محسوبة من الأسماء بس ولسه ما راجعهاش صيدلي.
-              {similar.hidden_weaker ? ` فيه ${similar.hidden_weaker} أسماء تانية أقل تشابهًا مش معروضة.` : ''}
+              هذي الأسماء متشابهة في الكتابة أو النطق. تأكد من اسم الدواء على العلبة أو الوصفة. القائمة محسوبة من الأسماء فقط وللحين ما راجعها صيدلي.
+              {similar.hidden_weaker ? ` فيه ${similar.hidden_weaker} أسماء ثانية أقل تشابهًا غير معروضة.` : ''}
             </T>
           </View>
         ) : null}
@@ -531,7 +531,7 @@ export default function DrugScreen() {
           >
             <ChatCircleDotsIcon size={18} color={c.pr} />
             <T size={14} weight={600} color={c.pr}>
-              اسأل المساعد عن الدواء ده
+              اسأل المساعد عن هذا الدواء
             </T>
           </Pressable>
           {d.provenance.source_ref ? (
@@ -611,7 +611,7 @@ function SameRow({ row, onShortage }: { row: SameIngredient; onShortage: boolean
           {meta}
         </T>
         <Pill label={tier.label} tone={tier.tone} radiusSize={radius.md} icon={tier.icon} />
-        {onShortage ? <Pill tone="wn" label="مدرج هو كمان في قائمة النواقص" radiusSize={radius.md} /> : null}
+        {onShortage ? <Pill tone="wn" label="مدرج أيضًا في قائمة النواقص" radiusSize={radius.md} /> : null}
       </Card>
     </Pressable>
   );

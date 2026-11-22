@@ -23,7 +23,7 @@ export function useVoiceInput() {
     setError(null);
     const permission = await requestRecordingPermissionsAsync();
     if (!permission.granted) {
-      setError('محتاجين إذن الميكروفون عشان نسمعك. فعّله من إعدادات الموبايل.');
+      setError('نحتاج إذن المايك عشان نسمعك. فعّله من إعدادات الجوال.');
       return false;
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
@@ -40,18 +40,18 @@ export function useVoiceInput() {
     const uri = recorder.uri;
     if (!uri) {
       setState('idle');
-      setError('مقدرناش نسجل الصوت. جرّب تاني.');
+      setError('ما قدرنا نسجّل الصوت. جرّب مرة ثانية.');
       return null;
     }
     setState('transcribing');
     try {
       const { text } = await transcribeAudio(uri);
       setState('idle');
-      if (!text.trim()) setError('مسمعناش كلام واضح. جرّب تتكلم أقرب للموبايل.');
+      if (!text.trim()) setError('ما سمعنا كلام واضح. جرّب تتكلم أقرب للجوال.');
       return text.trim() || null;
     } catch {
       setState('idle');
-      setError('مقدرناش نحوّل الصوت لكلام دلوقتي. جرّب تاني أو اكتب سؤالك.');
+      setError('ما قدرنا نحوّل الصوت لنص الحين. جرّب مرة ثانية أو اكتب سؤالك.');
       return null;
     }
   }, [recorder, state]);
@@ -75,7 +75,7 @@ export function useSpeaker() {
         player.replace({ uri: url });
         player.play();
       } catch {
-        setError('الصوت مش متاح دلوقتي. جرّب كمان شوية.');
+        setError('الصوت غير متاح الحين. جرّب بعد شوي.');
       } finally {
         setLoadingId(null);
       }

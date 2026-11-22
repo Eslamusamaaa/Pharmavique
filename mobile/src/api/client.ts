@@ -203,11 +203,11 @@ export function friendlyError(e: unknown): string {
   const status = e instanceof ApiError ? e.status : null;
   if (status === null) {
     const detail = e instanceof ApiError && e.detail ? `\n${e.detail}` : '';
-    return `مش قادر أوصل للسيرفر. اتأكد إن الـ API شغال وإن الموبايل على نفس الشبكة.\n(${API_URL})${detail}`;
+    return `ما قدرت أوصل للسيرفر. تأكد أن الـ API شغال وأن الجوال على نفس الشبكة.\n(${API_URL})${detail}`;
   }
-  if (status === 404) return 'الدواء ده مش موجود في السجل.';
-  if (status === 429) return 'المساعد مشغول لحظات. جرّب تاني بعد ثواني.';
-  return `السيرفر رد بخطأ (${status}).`;
+  if (status === 404) return 'هذا الدواء غير موجود في السجل.';
+  if (status === 429) return 'المساعد مشغول لحظات. جرّب مرة ثانية بعد ثواني.';
+  return `السيرفر رجّع خطأ (${status}).`;
 }
 
 // ---- assistant, voice and scan --------------------------------------------------------------
@@ -334,7 +334,7 @@ export async function speakLink(text: string): Promise<string> {
   return `${API_URL}${url}`;
 }
 
-/** The drug name inside a spoken request ("أنا عايز بنادول" -> "بنادول"), to search for. */
+/** The drug name inside a spoken request ("أبغى بنادول" -> "بنادول"), to search for. */
 export function extractDrugName(text: string): Promise<{ query: string; name: string | null; understood: boolean }> {
   return postJson('/v1/voice/drug-name', { text });
 }

@@ -110,12 +110,12 @@ export type Quality = {
 export const getQuality = (signal?: AbortSignal) => authed<Quality>('GET', '/v1/operator/quality', undefined, signal);
 
 export function arabicCompanyError(error: unknown): string {
-  if (error instanceof AuthError) return 'سجّل الدخول الأول';
+  if (error instanceof AuthError) return 'سجّل الدخول أول';
   if (error instanceof ApiError) {
-    if (error.status === 403) return 'حسابك مش مسموح له بالشاشة دي';
+    if (error.status === 403) return 'حسابك غير مسموح له بهذي الشاشة';
     if (error.status === 422) return 'اكتب اسم مادة فعالة (حرفين على الأقل)';
-    if (error.status === 503) return 'الخدمة دي لسه مش متفعلة على السيرفر';
-    if (error.status === null) return 'مش قادر أوصل للسيرفر';
+    if (error.status === 503) return 'هذي الخدمة غير مفعّلة على السيرفر للحين';
+    if (error.status === null) return 'ما قدرت أوصل للسيرفر';
   }
-  return 'حصلت مشكلة. جرّب تاني';
+  return 'صار خطأ. جرّب مرة ثانية';
 }

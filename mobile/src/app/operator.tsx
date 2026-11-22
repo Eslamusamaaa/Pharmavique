@@ -56,7 +56,7 @@ export default function Operator() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
         {header}
-        <Message title="الشاشة دي لمشغّل المنصة" detail="سجّل الدخول بحساب المشغّل." />
+        <Message title="هذي الشاشة لمشغّل المنصة" detail="سجّل الدخول بحساب المشغّل." />
       </SafeAreaView>
     );
   }
@@ -77,7 +77,7 @@ export default function Operator() {
           action={
             <Pressable onPress={load} style={[styles.main, { backgroundColor: c.pr }]}>
               <T weight={700} color={c.prt}>
-                حاول تاني
+                حاول مرة ثانية
               </T>
             </Pressable>
           }
@@ -88,11 +88,11 @@ export default function Operator() {
 
   const k = data.catalog;
   const rows: [string, number][] = [
-    ['من غير سعر', k.listed_without_price],
-    ['من غير مواد فعالة', k.listed_without_ingredients],
-    ['فيه مادة من غير تركيز', k.listed_with_missing_strength],
-    ['من غير شركة مصنّعة أو مسوّقة', k.listed_without_manufacturer],
-    ['من غير صورة', k.listed_without_picture],
+    ['بدون سعر', k.listed_without_price],
+    ['بدون مواد فعالة', k.listed_without_ingredients],
+    ['فيه مادة بدون تركيز', k.listed_with_missing_strength],
+    ['بدون شركة مصنّعة أو مسوّقة', k.listed_without_manufacturer],
+    ['بدون صورة', k.listed_without_picture],
   ];
   const refresh = data.refresh;
 
@@ -103,10 +103,10 @@ export default function Operator() {
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={{ gap: 4 }}>
           <T weight={700}>
-            {num(k.listed)} دواء مسجّل · {num(k.withdrawn)} اتسحب · الإجمالي {num(k.products)}
+            {num(k.listed)} دواء مسجّل · {num(k.withdrawn)} مسحوب · الإجمالي {num(k.products)}
           </T>
           <T size={13} color={c.ink2}>
-            الأعداد دي للأدوية المسجّلة (غير المسحوبة) إلا لو مكتوب غير كده.
+            هذي الأعداد للأدوية المسجّلة (غير المسحوبة) إلا إذا كُتب غير ذلك.
           </T>
         </Card>
 
@@ -133,7 +133,7 @@ export default function Operator() {
         <View style={{ gap: 8 }}>
           <H2>التحديث اليومي</H2>
           {!refresh.available ? (
-            <Pill tone="wn" label="مفيش سجل تحديث على السيرفر ده: الحالة غير معروفة" />
+            <Pill tone="wn" label="ما فيه سجل تحديث على هذا السيرفر: الحالة غير معروفة" />
           ) : (
             <>
               <Pill
@@ -164,7 +164,7 @@ export default function Operator() {
                     </T>
                   )}
                   <T size={13} color={c.ink2}>
-                    اتحمّل {num(d.load?.loaded)} · اتخطّى {num(d.load?.skipped)} · اترفض {num(d.load?.rejected)}
+                    تم تحميل {num(d.load?.loaded)} · تم تخطّي {num(d.load?.skipped)} · تم رفض {num(d.load?.rejected)}
                   </T>
                 </Card>
               ))}
@@ -173,20 +173,20 @@ export default function Operator() {
         </View>
 
         <View style={{ gap: 8 }}>
-          <H2>القوايم الرسمية</H2>
+          <H2>القوائم الرسمية</H2>
           {k.lists.map((l) => (
             <Card key={l.list_name} style={{ gap: 2 }}>
               <T weight={700} latin align="left">
                 {l.list_name}
               </T>
               <T size={13} color={c.ink2}>
-                {num(l.rows)} صف · مربوط بدقة {num(l.linked_matched)} · محتمل {num(l.linked_possible)} · من غير ربط{' '}
+                {num(l.rows)} صف · مربوط بدقة {num(l.linked_matched)} · محتمل {num(l.linked_possible)} · بدون ربط{' '}
                 {num(l.unlinked)}
               </T>
             </Card>
           ))}
           <T size={12.5} color={c.ink2}>
-            صف من غير ربط عادي في القوايم اللي مش عن الأدوية.
+            صف بدون ربط، وهذا طبيعي في القوائم اللي ليست عن الأدوية.
           </T>
         </View>
 
@@ -194,11 +194,11 @@ export default function Operator() {
           <H2>بيانات شاشات الشركات</H2>
           {data.analytics && data.analytics.built_at ? (
             <T size={14}>
-              {num(data.analytics.products)} دواء · اتبنت {new Date(data.analytics.built_at).toLocaleString('ar-EG')} ·{' '}
+              {num(data.analytics.products)} دواء · انبنت {new Date(data.analytics.built_at).toLocaleString('ar-EG')} ·{' '}
               {num(data.analytics.events_7d)} تغيير في آخر ٧ أيام
             </T>
           ) : (
-            <Pill tone="wn" label="لسه ما اتبنتش: شغّل analytics-rebuild" />
+            <Pill tone="wn" label="للحين ما انبنت: شغّل analytics-rebuild" />
           )}
         </View>
       </ScrollView>

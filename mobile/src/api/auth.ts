@@ -218,27 +218,27 @@ export async function deleteAccount(): Promise<void> {
 }
 
 export function arabicAuthError(error: unknown): string {
-  if (!(error instanceof AuthError)) return 'حصلت مشكلة. جرّب تاني.';
+  if (!(error instanceof AuthError)) return 'صار خطأ. جرّب مرة ثانية.';
   switch (error.kind) {
     case 'wrong_login':
-      return 'الإيميل أو كلمة المرور غلط';
+      return 'الإيميل أو كلمة المرور غير صحيحة';
     case 'email_taken':
-      return 'الإيميل ده عليه حساب بالفعل. جرّب تسجيل الدخول';
+      return 'هذا الإيميل عليه حساب بالفعل. جرّب تسجيل الدخول';
     case 'invalid':
       return 'اكتب إيميل صحيح وكلمة مرور من 10 حروف على الأقل';
     case 'unavailable':
-      return 'الحسابات مش متفعلة على السيرفر لسه';
+      return 'الحسابات غير مفعّلة على السيرفر للحين';
     case 'network':
-      return 'مش قادر أوصل للسيرفر. اتأكد من النت';
+      return 'ما قدرت أوصل للسيرفر. تأكد من الإنترنت';
     case 'expired':
-      return 'الجلسة انتهت. سجّل الدخول تاني';
+      return 'انتهت الجلسة. سجّل الدخول مرة ثانية';
     case 'email_not_verified':
-      return 'لازم تأكّد الإيميل الأول بالرمز اللي اتبعتلك';
+      return 'لازم تأكّد الإيميل أول بالرمز اللي أرسلناه لك';
     case 'wrong_code':
-      return 'الرمز غلط أو انتهت صلاحيته';
+      return 'الرمز غير صحيح أو انتهت صلاحيته';
     case 'code_locked':
-      return 'غلطت في الرمز مرات كتير. اطلب رمز جديد';
+      return 'أخطأت في الرمز مرات كثيرة. اطلب رمز جديد';
     default:
-      return 'حصلت مشكلة. جرّب تاني.';
+      return 'صار خطأ. جرّب مرة ثانية.';
   }
 }

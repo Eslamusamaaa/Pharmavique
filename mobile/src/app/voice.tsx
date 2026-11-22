@@ -96,7 +96,7 @@ export default function VoiceSearch() {
           )}
         </Pressable>
         <T size={18} weight={700} align="center">
-          {listening ? 'جارٍ الاستماع… دوس لما تخلص' : transcribing ? 'بنكتب اللي قلته…' : heard ? 'تمام، راجع اللي سمعناه' : 'دوس على الميكروفون واتكلم'}
+          {listening ? 'جارٍ الاستماع… اضغط إذا خلصت' : transcribing ? 'نكتب اللي قلته…' : heard ? 'تمام، راجع اللي سمعناه' : 'اضغط على الميكروفون وتكلّم'}
         </T>
         {mic.error ? (
           <T size={14} color={c.rd} align="center">
@@ -113,7 +113,7 @@ export default function VoiceSearch() {
             <TextInput
               value={heard}
               onChangeText={setHeard}
-              placeholder="هيظهر هنا اللي قلته"
+              placeholder="بيظهر هنا اللي قلته"
               placeholderTextColor={c.ink2}
               style={[styles.input, { color: c.ink, fontFamily: fonts.ar[600] }]}
             />

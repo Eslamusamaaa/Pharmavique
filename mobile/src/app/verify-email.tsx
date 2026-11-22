@@ -45,7 +45,7 @@ export default function VerifyEmail() {
   const again = async () => {
     if (wait > 0) return;
     setError(null);
-    setNote('لو الإيميل ده عليه حساب محتاج رمز، هيوصله رمز جديد.');
+    setNote('إذا كان هذا الإيميل عليه حساب يحتاج رمز، بيوصله رمز جديد.');
     setCode('');
     setWait(WAIT_SECONDS);
     await resendCode(email).catch(() => undefined);
@@ -68,13 +68,13 @@ export default function VerifyEmail() {
       <DisclaimerBar />
       <FormScroll contentStyle={styles.content}>
         <T>
-          بعتنا رمز من 6 أرقام على
+          أرسلنا رمز من 6 أرقام على
         </T>
         <T weight={700} latin align="left">
           {email}
         </T>
         <T size={13} color={c.ink2}>
-          الرمز صالح 10 دقايق. لو ماوصلش شوف مجلد الرسائل غير المرغوبة.
+          الرمز صالح 10 دقائق. إذا ما وصلك شوف مجلد الرسائل غير المرغوبة.
         </T>
         <TextInput
           value={code}

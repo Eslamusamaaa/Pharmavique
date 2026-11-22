@@ -31,16 +31,16 @@ export function HistoryCard({ check }: { check: HistoryCheck }) {
       <Row gap={8}>
         {hasFindings ? <WarningIcon size={20} color={c.wn} weight="fill" /> : <InfoIcon size={20} color={c.ink2} />}
         <T weight={700} style={{ flex: 1 }}>
-          {hasFindings ? 'فيه تداخل مسجّل مع أدويتك الحالية' : 'اتقارن بأدويتك الحالية'}
+          {hasFindings ? 'فيه تداخل مسجّل مع أدويتك الحالية' : 'تمت المقارنة بأدويتك الحالية'}
         </T>
       </Row>
       <T size={13} color={c.ink2}>
-        اتقارن مع: {check.compared_with.map((m) => m.name).join('، ')}
+        قورن مع: {check.compared_with.map((m) => m.name).join('، ')}
       </T>
       {check.findings.map((f) => (
         <View key={`${f.kind}-${f.with_register_number}-${f.ingredients.join('+')}`} style={{ gap: 4 }}>
           <T weight={600}>
-            {f.kind === 'duplicate_ingredient' ? 'نفس المادة الفعالة موجودة في دوا تاني بتاخده' : 'تداخل مسجّل'}: {f.with_name}
+            {f.kind === 'duplicate_ingredient' ? 'نفس المادة الفعالة موجودة في دواء ثاني تأخذه' : 'تداخل مسجّل'}: {f.with_name}
           </T>
           <T size={13} latin align="left">
             {f.ingredients.join(' ↔ ')}
@@ -55,12 +55,12 @@ export function HistoryCard({ check }: { check: HistoryCheck }) {
       ))}
       {check.already_taken ? (
         <T size={13} color={c.ink2}>
-          الدوا ده موجود أصلًا في أدويتك الحالية.
+          هذا الدواء موجود أصلًا في أدويتك الحالية.
         </T>
       ) : null}
       {check.unmatched_ingredients.length > 0 ? (
         <T size={12.5} color={c.ink2}>
-          المصدر مايقدرش يحكم على: {check.unmatched_ingredients.join('، ')}. ده مش معناه إن مفيش تداخل.
+          المصدر ما يقدر يحكم على: {check.unmatched_ingredients.join('، ')}. وهذا لا يعني أنه ما فيه تداخل.
         </T>
       ) : null}
       <T size={12.5} color={c.ink2}>

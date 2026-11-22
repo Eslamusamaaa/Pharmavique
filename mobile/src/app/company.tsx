@@ -33,14 +33,14 @@ const TABS: { key: Tab; label: string }[] = [
 const KIND_AR: Record<RadarItem['kind'], string> = {
   added: 'دواء جديد في السجل',
   relisted: 'رجع للسجل',
-  withdrawn: 'اتسحب من السجل',
+  withdrawn: 'انسحب من السجل',
   price_changed: 'تغيّر السعر',
 };
 
 const BASIS_AR: Record<string, string> = {
   source_stated: 'العملة مذكورة في المصدر',
-  owner_assumption: 'العملة افتراض مننا',
-  unconfirmed: 'العملة مش مؤكدة',
+  owner_assumption: 'العملة افتراض منّا',
+  unconfirmed: 'العملة غير مؤكدة',
 };
 
 function priceText(r: PriceRange): string {
@@ -112,7 +112,7 @@ export default function Company() {
       <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
         {header}
         <Message
-          title="الشاشة دي لحسابات الشركات"
+          title="هذي الشاشة لحسابات الشركات"
           detail="سجّل الدخول بحساب شركة أو مخزن أدوية."
           action={
             <Pressable onPress={() => router.push('/sign-in')} style={[styles.main, { backgroundColor: c.pr }]}>
@@ -177,7 +177,7 @@ export default function Company() {
         {loading ? <Loading /> : null}
         {!ingredient && tab !== 'radar' ? (
           <T size={14} color={c.ink2}>
-            اختار مادة فعالة عشان تشوف الأرقام.
+            اختر مادة فعالة عشان تشوف الأرقام.
           </T>
         ) : null}
 
@@ -198,12 +198,12 @@ function MarketView({ data }: { data: MarketMap }) {
           {data.ingredient}
         </T>
         <T weight={700}>
-          {data.listed} دواء مسجّل · {data.makers} شركة · {data.withdrawn} اتسحب
+          {data.listed} دواء مسجّل · {data.makers} شركة · {data.withdrawn} مسحوب
         </T>
       </Card>
       {data.top_makers.length > 0 ? (
         <View style={{ gap: 6 }}>
-          <H2>أكتر الشركات تسجيلًا</H2>
+          <H2>أكثر الشركات تسجيلًا</H2>
           {data.top_makers.map((m) => (
             <Row key={m.name} style={{ justifyContent: 'space-between' }}>
               <T size={14} latin style={{ flex: 1 }} align="left">
@@ -222,7 +222,7 @@ function MarketView({ data }: { data: MarketMap }) {
             {g.ingredients.join(' + ')}
           </T>
           <T size={14}>
-            {g.listed} مسجّل · {g.makers} شركة · {g.withdrawn} اتسحب
+            {g.listed} مسجّل · {g.makers} شركة · {g.withdrawn} مسحوب
           </T>
           {g.price_ranges.map((r) => (
             <T key={`${r.currency_code}-${r.currency_basis}`} size={13} color={c.ink2}>
@@ -252,7 +252,7 @@ function GapsView({ data }: { data: Gaps }) {
       <H2>تركيزات وأشكال قليلة الشركات</H2>
       {thin.length === 0 ? (
         <T size={14} color={c.ink2}>
-          مفيش تركيز وشكل عدد شركاته {data.thin_at} أو أقل.
+          ما فيه تركيز وشكل عدد شركاته {data.thin_at} أو أقل.
         </T>
       ) : (
         thin.slice(0, 40).map((x) => (
@@ -269,7 +269,7 @@ function GapsView({ data }: { data: Gaps }) {
       )}
       {data.missing.length > 0 ? (
         <View style={{ gap: 6 }}>
-          <H2>تركيز وشكل موجودين بس مش مع بعض</H2>
+          <H2>تركيز وشكل موجودان لكن ليسا معًا</H2>
           {data.missing.slice(0, 40).map((m) => (
             <T key={`${m.strength}-${m.dosage_form}`} size={13.5} latin align="left">
               {m.strength} · {m.dosage_form}
@@ -291,7 +291,7 @@ function RadarView({ data }: { data: Radar }) {
       <H2>آخر {data.days} يوم</H2>
       {data.items.length === 0 ? (
         <T size={14} color={c.ink2}>
-          مفيش تغييرات متسجّلة لسه. الرادار بيبدأ العدّ من أول مرة اتبنت فيها البيانات.
+          ما فيه تغييرات مسجّلة للحين. الرادار يبدأ العدّ من أول مرة انبنت فيها البيانات.
         </T>
       ) : (
         data.items.map((i) => (

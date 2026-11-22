@@ -33,7 +33,7 @@ import { radius, useTheme } from '@/theme';
 
 const KIND_AR: Record<AlertItem['kind'], string> = {
   price_changed: 'تغيّر السعر',
-  withdrawn: 'اتسحب من السجل',
+  withdrawn: 'انسحب من السجل',
   relisted: 'رجع للسجل',
 };
 
@@ -129,7 +129,7 @@ export default function MyList() {
         <DisclaimerBar />
         <Message
           title="سجّل الدخول عشان تحفظ أدويتك"
-          detail="القايمة والتنبيهات والحساسية محفوظة في حسابك، ومفيش حد غيرك بيشوفها."
+          detail="القائمة والتنبيهات والحساسية محفوظة في حسابك، وما أحد غيرك يشوفها."
           action={
             <Pressable onPress={() => router.push('/sign-in')} style={[styles.main, { backgroundColor: c.pr }]}>
               <T weight={700} color={c.prt}>
@@ -209,7 +209,7 @@ export default function MyList() {
             ))
           ) : (
             <T size={14} color={c.ink2}>
-              مفيش تنبيهات. هتظهر هنا لو سعر دواء محفوظ اتغيّر أو اتسحب من السجل.
+              ما فيه تنبيهات. بتظهر هنا إذا تغيّر سعر دواء محفوظ أو انسحب من السجل.
             </T>
           )}
         </View>
@@ -253,25 +253,25 @@ export default function MyList() {
                       </T>
                     ) : null}
                   </Pressable>
-                  <Pressable onPress={() => run(() => removeMedicine(m.register_number))} accessibilityLabel="شيل من القايمة" style={styles.iconBtn}>
+                  <Pressable onPress={() => run(() => removeMedicine(m.register_number))} accessibilityLabel="احذف من القائمة" style={styles.iconBtn}>
                     <TrashIcon size={20} color={c.ink2} />
                   </Pressable>
                 </Row>
-                {m.status === 'past' ? <Pill tone="muted" label="كنت باخده قبل كده" /> : null}
+                {m.status === 'past' ? <Pill tone="muted" label="كنت آخذه قبل" /> : null}
                 <Pressable
                   onPress={() => run(() => setMedicineStatus(m.register_number, m.status === 'past' ? 'current' : 'past'))}
                   accessibilityRole="button"
                   style={{ minHeight: 40, justifyContent: 'center' }}
                 >
                   <T size={13} weight={600} color={c.pr}>
-                    {m.status === 'past' ? 'باخده دلوقتي' : 'مش باخده دلوقتي (كنت باخده قبل كده)'}
+                    {m.status === 'past' ? 'آخذه الحين' : 'ما آخذه الحين (كنت آخذه قبل)'}
                   </T>
                 </Pressable>
                 {m.allergy_matches.map((x) => (
                   <Pill
                     key={`${x.allergy}-${x.ingredient}`}
                     tone="wn"
-                    label={`فيه ${x.ingredient}، وإنت مسجّل حساسية من ${x.allergy}. اسأل الصيدلي`}
+                    label={`فيه ${x.ingredient}، وأنت مسجّل حساسية من ${x.allergy}. اسأل الصيدلي`}
                     icon={<WarningIcon size={14} color={c.wn} weight="fill" />}
                   />
                 ))}
@@ -279,7 +279,7 @@ export default function MyList() {
             ))
           ) : (
             <T size={14} color={c.ink2}>
-              لسه مفيش أدوية محفوظة. افتح أي دواء واضغط "حفظ في قائمتي".
+              للحين ما فيه أدوية محفوظة. افتح أي دواء واضغط "حفظ في قائمتي".
             </T>
           )}
         </View>
@@ -288,7 +288,7 @@ export default function MyList() {
           <H2>الحساسية</H2>
           <Row gap={8} style={{ flexWrap: 'wrap' }}>
             {allergies.map((a) => (
-              <Pressable key={a} onPress={() => run(() => removeAllergy(a))} accessibilityLabel={`شيل ${a}`}>
+              <Pressable key={a} onPress={() => run(() => removeAllergy(a))} accessibilityLabel={`احذف ${a}`}>
                 <Pill tone="wn" label={`${a}  ✕`} />
               </Pressable>
             ))}
@@ -319,7 +319,7 @@ export default function MyList() {
           ))}
           <T size={12.5} color={c.ink2}>
             {saved?.allergy_note ??
-              'المطابقة باسم المادة الفعالة بس. حساسية الفصيلة (زي البنسلين) مش مغطاة، وعدم وجود تحذير مش معناه إن الدواء آمن.'}
+              'المطابقة باسم المادة الفعالة فقط. حساسية الفصيلة (مثل البنسلين) غير مغطاة، وعدم وجود تحذير لا يعني أن الدواء آمن.'}
           </T>
         </View>
       </ScrollView>

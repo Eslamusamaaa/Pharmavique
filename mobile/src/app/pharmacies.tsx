@@ -23,7 +23,7 @@ import { Card, DisclaimerBar, H2, Loading, Pill, PrimaryButton, Row, T } from '@
 import { radius, useTheme } from '@/theme';
 
 const NOTE =
-  'دي صيدليات مرخّصة من قايمة الهيئة، متجمّعة بالمدينة. القايمة مفيهاش شارع ولا إحداثيات، فالمسافة لوسط المدينة مش للصيدلية. وجودها في القايمة مش معناه إن عندها دواء أو إنها مفتوحة دلوقتي: اتصل قبل ما تروح.';
+  'هذي صيدليات مرخّصة من قائمة الهيئة، مجمّعة حسب المدينة. القائمة ما فيها شارع ولا إحداثيات، فالمسافة لوسط المدينة وليست للصيدلية. وجودها في القائمة لا يعني أن عندها الدواء أو أنها مفتوحة الحين: اتصل قبل ما تروح.';
 
 type Mode = 'start' | 'nearby' | 'city';
 
@@ -50,7 +50,7 @@ export default function Pharmacies() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') {
-        setError('مفيش إذن للموقع. تقدر تختار مدينتك من القايمة تحت.');
+        setError('ما فيه إذن للموقع. تقدر تختار مدينتك من القائمة تحت.');
         return;
       }
       const here = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -105,9 +105,9 @@ export default function Pharmacies() {
           <>
             <PrimaryButton label="استخدم موقعي" icon={<MapPinIcon size={20} color={c.prt} />} onPress={useMyLocation} />
             <T size={13} color={c.ink2}>
-              موقعك بيتبعت مرة واحدة عشان نعرف أقرب المدن، ومابيتخزّنش في التطبيق ولا على السيرفر.
+              موقعك يُرسل مرة واحدة عشان نعرف أقرب المدن، ولا يُخزَّن في التطبيق ولا على السيرفر.
             </T>
-            <H2>أو اختار مدينتك</H2>
+            <H2>أو اختر مدينتك</H2>
             <View style={styles.chips}>
               {cities.map((city) => (
                 <Pressable
@@ -153,13 +153,13 @@ function NearbyView({ data, onRetry }: { data: Nearby; onRetry: () => void }) {
   if (data.cities.length === 0) {
     return (
       <View style={{ gap: 10 }}>
-        <T weight={700}>مفيش مدينة فيها صيدليات في حدود {data.radius_km} كم منك.</T>
+        <T weight={700}>ما فيه مدينة فيها صيدليات ضمن {data.radius_km} كم منك.</T>
         {data.nearest_outside ? (
           <T size={14}>
-            أقرب مدينة في القايمة: {data.nearest_outside.city} (حوالي {data.nearest_outside.distance_km} كم).
+            أقرب مدينة في القائمة: {data.nearest_outside.city} (حوالي {data.nearest_outside.distance_km} كم).
           </T>
         ) : null}
-        <PrimaryButton label="اختار مدينة" outline onPress={onRetry} />
+        <PrimaryButton label="اختر مدينة" outline onPress={onRetry} />
       </View>
     );
   }
@@ -170,7 +170,7 @@ function NearbyView({ data, onRetry }: { data: Nearby; onRetry: () => void }) {
       ))}
       {data.pharmacies_without_a_city > 0 ? (
         <T size={12.5} color={c.ink2}>
-          {data.pharmacies_without_a_city} صيدلية في القايمة عنوانها من غير مدينة، فمش معروضة هنا.
+          {data.pharmacies_without_a_city} صيدلية في القائمة عنوانها بدون مدينة، فهي غير معروضة هنا.
         </T>
       ) : null}
     </View>
@@ -188,7 +188,7 @@ function CityBlock({ city }: { city: CityPharmacies }) {
         <PharmacyCard key={`${p.name}-${p.address}`} p={p} />
       ))}
       {city.total > city.shown ? (
-        <T size={13}>وفي {city.total - city.shown} صيدلية تانية في {city.city}.</T>
+        <T size={13}>وفيه {city.total - city.shown} صيدلية ثانية في {city.city}.</T>
       ) : null}
     </View>
   );
@@ -222,11 +222,11 @@ function PharmacyCard({ p }: { p: Pharmacy }) {
           onPress={() => Linking.openURL(mapsSearchUrl(p))}
           style={[styles.action, { borderColor: c.pr }]}
           accessibilityRole="button"
-          accessibilityLabel={`ابحث عن ${p.name} في الخرايط`}
+          accessibilityLabel={`ابحث عن ${p.name} في الخرائط`}
         >
           <MapPinIcon size={16} color={c.pr} />
           <T size={13} weight={600} color={c.pr}>
-            ابحث في الخرايط
+            ابحث في الخرائط
           </T>
         </Pressable>
       </Row>

@@ -71,7 +71,7 @@ export default function CompareScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
         {header}
         <DisclaimerBar />
-        {state.kind === 'loading' ? <Loading /> : <Message title="مش قادر أقارن الدوائين" detail={state.detail} />}
+        {state.kind === 'loading' ? <Loading /> : <Message title="ما قدرت أقارن الدوائين" detail={state.detail} />}
       </SafeAreaView>
     );
   }
@@ -124,7 +124,7 @@ export default function CompareScreen() {
         <View style={{ gap: 6 }}>
           <Pill label={tier.label} tone={tier.tone} radiusSize={radius.md} icon={tier.icon} />
           <T size={12.5} color={c.ink2}>
-            الحكم محسوب بقواعد ثابتة من بيانات السجل. الصيدلي أو الدكتور هو اللي يقرر.
+            الحكم محسوب بقواعد ثابتة من بيانات السجل. الصيدلي أو الطبيب هو من يقرر.
           </T>
         </View>
 

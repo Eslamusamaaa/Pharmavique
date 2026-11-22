@@ -98,7 +98,7 @@ export default function Scan() {
           <View style={styles.center}>
             <CameraIcon size={56} color="#FFFFFF" />
             <T color="#FFFFFF" align="center">
-              محتاجين إذن الكاميرا عشان نقرا اسم الدواء
+              نحتاج إذن الكاميرا عشان نقرأ اسم الدواء
             </T>
             <Pressable onPress={requestPermission} style={[styles.permission, { backgroundColor: c.pr }]}>
               <T weight={700} color={c.prt}>
@@ -123,7 +123,7 @@ export default function Scan() {
           <View style={[styles.center, styles.overlay]}>
             <ActivityIndicator size="large" color="#FFFFFF" />
             <T color="#FFFFFF" weight={600}>
-              بنقرا الصورة…
+              نقرأ الصورة…
             </T>
           </View>
         ) : null}
@@ -131,14 +131,14 @@ export default function Scan() {
         {stage.kind === 'error' ? (
           <View style={[styles.center, styles.overlay]}>
             <T color="#FFFFFF" weight={700} align="center">
-              مقدرناش نقرا الصورة
+              ما قدرنا نقرأ الصورة
             </T>
             <T size={14} color="#FFFFFF" align="center">
               {stage.detail}
             </T>
             <Pressable onPress={reset} style={[styles.permission, { backgroundColor: c.pr }]}>
               <T weight={700} color={c.prt}>
-                جرّب تاني
+                جرّب مرة ثانية
               </T>
             </Pressable>
           </View>
@@ -165,7 +165,7 @@ export default function Scan() {
           >
             <View style={styles.shutterInner} />
           </Pressable>
-          <Pressable onPress={pick} disabled={stage.kind === 'reading'} style={styles.gallery} accessibilityLabel="اختار صورة من المعرض">
+          <Pressable onPress={pick} disabled={stage.kind === 'reading'} style={styles.gallery} accessibilityLabel="اختر صورة من المعرض">
             <ImageIcon size={26} color="#FFFFFF" />
           </Pressable>
         </Row>
@@ -199,7 +199,7 @@ function Candidates({ line }: { line: ScanLine }) {
   if (!line.candidates.length)
     return (
       <T size={13} color={c.ink2}>
-        ملقيناش اسم قريب في السجل الرسمي. عدّل الاسم وابحث.
+        ما لقينا اسم قريب في السجل الرسمي. عدّل الاسم وابحث.
       </T>
     );
   return (
@@ -242,13 +242,13 @@ function PickCandidates({
   if (!line.candidates.length)
     return (
       <T size={13} color={c.ink2}>
-        ملقيناش اسم قريب في السجل الرسمي. عدّل الاسم وابحث.
+        ما لقينا اسم قريب في السجل الرسمي. عدّل الاسم وابحث.
       </T>
     );
   return (
     <View style={{ gap: 6 }}>
       <T size={12.5} color={c.ink2}>
-        اختار الدواء الصح من السجل الرسمي
+        اختر الدواء الصحيح من السجل الرسمي
       </T>
       {line.candidates.map((cand) => {
         const on = picked?.register_number === cand.register_number;
@@ -292,7 +292,7 @@ function BoxReview({ photo, result, onBack }: { photo: string; result: ScanResul
         </T>
         {result.status === 'nothing_read' ? (
           <View style={[styles.card, { backgroundColor: c.sf }, cardShadow]}>
-            <T weight={700}>مقدرناش نقرا اسم دواء في الصورة</T>
+            <T weight={700}>ما قدرنا نقرأ اسم دواء في الصورة</T>
             <T size={14} color={c.ink2}>
               جرّب صورة أوضح للاسم والتركيز، أو اكتب الاسم هنا.
             </T>
@@ -366,7 +366,7 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
         <T size={14} color={c.ink2}>
           {result.lines.length
             ? `${result.lines.length} أسماء مقروءة. أكّد كل صف قبل البحث.`
-            : 'مقدرناش نقرا أسماء أدوية في الوصفة. جرّب صورة أوضح.'}
+            : 'ما قدرنا نقرأ أسماء أدوية في الوصفة. جرّب صورة أوضح.'}
         </T>
         {result.lines.map((line, i) => (
           <View
@@ -379,7 +379,7 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
           >
             <Row style={{ justifyContent: 'space-between' }}>
               <T size={13} color={c.ink2}>{`سطر ${i + 1}`}</T>
-              {confirmed[i] ? <Pill tone="ok" label="مؤكَّد" /> : <Pill tone="wn" label="محتاج مراجعة" />}
+              {confirmed[i] ? <Pill tone="ok" label="مؤكَّد" /> : <Pill tone="wn" label="يحتاج مراجعة" />}
             </Row>
             <Row gap={8}>
               <TextInput
@@ -461,11 +461,11 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
                 style={[styles.primary, { backgroundColor: c.sf, borderWidth: 1.5, borderColor: c.pr, opacity: unique.length ? 1 : 0.5 }]}
                 accessibilityRole="button"
               >
-                <T weight={700} color={c.pr}>{`ضيف المؤكَّد لأدويتي (${unique.length})`}</T>
+                <T weight={700} color={c.pr}>{`أضف المؤكَّد لأدويتي (${unique.length})`}</T>
               </Pressable>
             ) : null}
             <T size={12.5} color={c.ink2} align="center">
-              الفحص بيستخدم تداخلات مسجّلة في مصدر خارجي وهو مش نصيحة طبية. عدم ظهور تداخل مش معناه إن الجمع آمن، والصيدلي أو الدكتور هو اللي يقرر.
+              الفحص يستخدم تداخلات مسجّلة في مصدر خارجي وليس نصيحة طبية. عدم ظهور تداخل لا يعني أن الجمع آمن، والصيدلي أو الطبيب هو من يقرر.
             </T>
           </>
         ) : null}

@@ -186,12 +186,12 @@ export async function searchIngredients(q: string, signal?: AbortSignal): Promis
 }
 
 export function arabicMeError(error: unknown): string {
-  if (error instanceof AuthError) return 'سجّل الدخول الأول';
+  if (error instanceof AuthError) return 'سجّل الدخول أول';
   if (error instanceof ApiError) {
-    if (error.status === 404) return 'الدواء ده مش موجود في السجل';
-    if (error.status === 422) return 'اختار مادة فعالة من القايمة';
-    if (error.status === 503) return 'الخدمة دي مش متفعلة على السيرفر لسه';
-    if (error.status === null) return 'مش قادر أوصل للسيرفر';
+    if (error.status === 404) return 'هذا الدواء غير موجود في السجل';
+    if (error.status === 422) return 'اختر مادة فعالة من القائمة';
+    if (error.status === 503) return 'هذي الخدمة غير مفعّلة على السيرفر للحين';
+    if (error.status === null) return 'ما قدرت أوصل للسيرفر';
   }
-  return 'حصلت مشكلة. جرّب تاني';
+  return 'صار خطأ. جرّب مرة ثانية';
 }

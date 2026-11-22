@@ -26,7 +26,7 @@ export default function Account() {
   const current = roleInfo(role ?? 'patient');
 
   const confirmDelete = () =>
-    Alert.alert('حذف الحساب', 'هيتمسح الحساب وكل اللي محفوظ فيه. مفيش رجوع.', [
+    Alert.alert('حذف الحساب', 'بيتم حذف الحساب وكل ما هو محفوظ فيه. ما فيه رجعة.', [
       { text: 'إلغاء', style: 'cancel' },
       {
         text: 'احذف',
@@ -65,7 +65,7 @@ export default function Account() {
               <View style={{ flex: 1 }}>
                 <T weight={600}>تنبيهات على الإيميل</T>
                 <T size={12.5} color={c.ink2}>
-                  رسالة واحدة بتغيّر سعر أو سحب أي دواء محفوظ. التنبيهات بتفضل ظاهرة في التطبيق في كل الأحوال.
+                  رسالة واحدة عند تغيّر سعر أو سحب أي دواء محفوظ. التنبيهات تظل ظاهرة في التطبيق في كل الأحوال.
                 </T>
               </View>
               <Switch
@@ -150,7 +150,7 @@ export default function Account() {
               </T>
             </Pressable>
             <T size={13} color={c.ink2} align="center">
-              البحث والمساعد شغالين من غير حساب. الحساب للأدوية المحفوظة والتنبيهات.
+              البحث والمساعد يشتغلون بدون حساب. الحساب للأدوية المحفوظة والتنبيهات.
             </T>
           </>
         )}

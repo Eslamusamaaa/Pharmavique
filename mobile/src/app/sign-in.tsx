@@ -102,7 +102,7 @@ export default function SignIn() {
         {mode === 'up' ? (
           <View style={{ gap: 8 }}>
             <T size={14} weight={600}>
-              أنت مين؟
+              وش دورك؟
             </T>
             {ROLES.map((r) => (
               <Pressable
@@ -119,7 +119,7 @@ export default function SignIn() {
               </Pressable>
             ))}
             <T size={12.5} color={c.ink2}>
-              اختيارك للدور بيحدد الشاشات اللي هتظهر لك. لسه مفيش توثيق للصيدلي أو الشركة، ومفيش حد بيشوف بيانات حد تاني.
+              اختيارك للدور يحدد الشاشات اللي بتظهر لك. للحين ما فيه توثيق للصيدلي أو الشركة، وما أحد يشوف بيانات أحد ثاني.
             </T>
           </View>
         ) : null}
@@ -154,7 +154,7 @@ export default function SignIn() {
           style={{ minHeight: 44, justifyContent: 'center' }}
         >
           <T size={14} weight={600} color={c.pr} align="center">
-            {mode === 'in' ? 'معندكش حساب؟ أنشئ حساب' : 'عندك حساب؟ سجّل الدخول'}
+            {mode === 'in' ? 'ما عندك حساب؟ أنشئ حساب' : 'عندك حساب؟ سجّل الدخول'}
           </T>
         </Pressable>
       </FormScroll>
