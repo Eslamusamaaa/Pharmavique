@@ -14,16 +14,47 @@ from starlette.responses import Response
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
+# The export names every script, font and picture after its content, so those never change under
+# one address and can be kept for a year. Everything else (the page shell, the manifest, the home
+# screen icons) can change under the same address and is never cached.
+_HASHED_FOLDERS = ("_expo/static/", "assets/")
+_IMMUTABLE = "public, max-age=31536000, immutable"
+_CONDITIONAL = (b"if-none-match", b"if-modified-since")
+
+
+def _without_conditional_headers(scope: Scope) -> Scope:
+    """A copy of the request that never asks "has it changed?". The answer is computed from the
+    file's date and size, and some hosts (Vercel) give every file the same date: a new page of the
+    same size then looked unchanged, the browser kept the old one, and the old page asked for
+    scripts that no longer existed (a blank screen after each deployment)."""
+    headers = [(name, value) for name, value in scope["headers"] if name not in _CONDITIONAL]
+    return {**scope, "headers": headers}
+
 
 class SinglePageStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope: Scope) -> Response:
+        # Starlette hands over the path with the separator of the operating system
+        hashed = path.replace("\\", "/").startswith(_HASHED_FOLDERS)
+        if not hashed:
+            scope = _without_conditional_headers(scope)
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as error:
             is_screen = error.status_code == 404 and "." not in Path(path).name
             if is_screen and not path.startswith(("v1/", "v1")):
-                return await super().get_response("index.html", scope)
-            raise
+                response = await super().get_response("index.html", scope)
+            else:
+                raise
+        if hashed:
+            response.headers["Cache-Control"] = _IMMUTABLE
+        else:
+            response.headers["Cache-Control"] = "no-store"
+            # No validators: a host's edge compares If-None-Match with the ETag of a response
+            # and answers 304 on its own, even when the application sent the full file.
+            for validator in ("etag", "last-modified"):
+                if validator in response.headers:
+                    del response.headers[validator]
+        return response
 
 
 def mount_web_app(app: FastAPI, directory: Path) -> bool:

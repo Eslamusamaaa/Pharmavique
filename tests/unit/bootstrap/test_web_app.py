@@ -59,6 +59,30 @@ def test_a_missing_file_with_an_extension_is_a_404_not_the_shell(site: Path) -> 
     assert web.get("/icon-nobody-made.png").status_code == 404
 
 
+def test_the_app_shell_is_never_cached_and_never_answered_with_304(site: Path) -> None:
+    # Vercel gives every file the same modification date, so an ETag (date + size) of a new
+    # index.html can equal the old one. A browser then got "304 not modified", kept the old page
+    # and asked for scripts that no longer exist: a blank screen after every deployment.
+    web = client(site)
+    first = web.get("/")
+    etag = first.headers.get("etag", '"same"')
+
+    for address in ("/", "/drug/1-1", "/manifest.webmanifest"):
+        answer = web.get(address, headers={"If-None-Match": etag})
+        assert answer.status_code == 200, address
+        assert answer.headers["cache-control"] == "no-store", address
+        # no validator at all: the host's edge compares a request's If-None-Match with the ETag
+        # of a response and answers 304 itself, whatever the application returned
+        assert "etag" not in answer.headers, address
+        assert "last-modified" not in answer.headers, address
+
+
+def test_files_under_a_hashed_folder_are_cached_for_good(site: Path) -> None:
+    answer = client(site).get("/_expo/static/app.js")
+
+    assert answer.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
 def test_a_missing_folder_leaves_the_api_alone(tmp_path: Path) -> None:
     app = create_app(cors_origins=[], rate_limit_per_minute=1000)
 
