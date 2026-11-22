@@ -30,7 +30,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'legal', label: 'الحالة النظامية' },
 ];
 
-const LEGAL_AR: Record<string, string> = { OTC: 'بدون وصفة طبية', Prescription: 'بوصفة طبية' };
+const LEGAL_AR: Record<string, string> = { OTC: 'بدون روشتة طبية', Prescription: 'بروشتة طبية' };
 
 function valueOf(hit: SearchHit, key: FilterKey): string | null {
   if (key === 'form') return hit.dosage_form_ar ?? hit.dosage_form_en;

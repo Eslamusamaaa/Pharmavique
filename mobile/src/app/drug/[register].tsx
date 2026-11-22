@@ -46,7 +46,7 @@ import { cardShadow, radius, useTheme } from '@/theme';
 type State = { kind: 'loading' } | { kind: 'done'; drug: DrugPage } | { kind: 'error'; detail: string };
 
 const UNIT_AR: Record<string, string> = { mg: 'ملجم', mcg: 'ميكروجرام', g: 'جم', ml: 'مل', iu: 'وحدة دولية' };
-const LEGAL_AR: Record<string, string> = { OTC: 'بدون وصفة طبية', Prescription: 'بوصفة طبية' };
+const LEGAL_AR: Record<string, string> = { OTC: 'بدون روشتة طبية', Prescription: 'بروشتة طبية' };
 const DIST_AR: Record<string, string> = { Pharmacy: 'صيدلية', Hospital: 'مستشفى' };
 const PACKAGE_AR: Record<string, string> = { Blister: 'شريط', Bottle: 'زجاجة', Vial: 'فيال', Ampoule: 'أمبولة', Tube: 'أنبوب' };
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -473,7 +473,7 @@ export default function DrugScreen() {
               </Pressable>
             ))}
             <T size={12.5} color={c.ink2}>
-              هذي الأسماء متشابهة في الكتابة أو النطق. تأكد من اسم الدواء على العلبة أو الوصفة. القائمة محسوبة من الأسماء فقط وللحين ما راجعها صيدلي.
+              هذي الأسماء متشابهة في الكتابة أو النطق. تأكد من اسم الدواء على العلبة أو الروشتة. القائمة محسوبة من الأسماء فقط وللحين ما راجعها صيدلي.
               {similar.hidden_weaker ? ` فيه ${similar.hidden_weaker} أسماء ثانية أقل تشابهًا غير معروضة.` : ''}
             </T>
           </View>

@@ -113,7 +113,7 @@ export default function Scan() {
             <View style={[styles.guide, kind === 'prescription' && styles.guidePage]} />
             <View style={styles.hint}>
               <T size={14} color="#FFFFFF" align="center">
-                {kind === 'box' ? 'وجّه الكاميرا للاسم والتركيز' : 'ضع الوصفة داخل الإطار وتأكد من وضوح الأسماء'}
+                {kind === 'box' ? 'وجّه الكاميرا للاسم والتركيز' : 'ضع الروشتة داخل الإطار وتأكد من وضوح الأسماء'}
               </T>
             </View>
           </View>
@@ -150,7 +150,7 @@ export default function Scan() {
           {(['box', 'prescription'] as const).map((k) => (
             <Pressable key={k} onPress={() => setKind(k)} style={[styles.toggleItem, kind === k && { backgroundColor: '#FFFFFF' }]}>
               <T size={14} weight={kind === k ? 700 : 400} color={kind === k ? c.pr : '#FFFFFF'} align="center">
-                {k === 'box' ? 'علبة' : 'وصفة'}
+                {k === 'box' ? 'علبة' : 'روشتة'}
               </T>
             </Pressable>
           ))}
@@ -366,7 +366,7 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
         <T size={14} color={c.ink2}>
           {result.lines.length
             ? `${result.lines.length} أسماء مقروءة. أكّد كل صف قبل البحث.`
-            : 'ما قدرنا نقرأ أسماء أدوية في الوصفة. جرّب صورة أوضح.'}
+            : 'ما قدرنا نقرأ أسماء أدوية في الروشتة. جرّب صورة أوضح.'}
         </T>
         {result.lines.map((line, i) => (
           <View
