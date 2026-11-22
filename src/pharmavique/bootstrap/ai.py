@@ -12,6 +12,7 @@ from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.application.ports import AssistantObserver
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
+from pharmavique.assistant.infrastructure.web_search import TavilyWebSearch
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
@@ -148,4 +149,11 @@ def build_assistant(
         detector = GroqPromptGuard(
             settings.groq_api_key.get_secret_value(), settings.prompt_guard_model
         )
-    return AskAssistant(LangGraphAgentRunner(model, facts), detector=detector, observer=observer)
+    web = (
+        TavilyWebSearch(settings.tavily_api_key.get_secret_value())
+        if settings.tavily_api_key is not None
+        else None
+    )
+    return AskAssistant(
+        LangGraphAgentRunner(model, facts, web=web), detector=detector, observer=observer
+    )

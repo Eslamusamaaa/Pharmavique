@@ -75,11 +75,29 @@ SPOKEN = (
 )
 
 
-def system_prompt(level: Level, register_number: str | None, *, spoken: bool = False) -> str:
+WEB = """
+9. web_search (the open web, unverified): use it only when search_drugs found no match for a
+   medicine the user asked about (it may be sold in another country, for example Egypt). Search
+   with the product's name and ingredient words only, never anything about the person. Then say
+   plainly that this comes from the web and is not verified by SFDA, cite it [n], and tell what it
+   is (active ingredient, strength, form, what it is generally used for). Next look the active
+   ingredient up with search_drugs: Saudi products with the same ingredient may be offered as
+   POSSIBLE alternatives that a pharmacist must check for strength and form; never call them
+   equivalent or interchangeable. Never take a dose, price, availability or legal status from the
+   web. If the web has nothing clear, say so."""
+
+
+def system_prompt(
+    level: Level, register_number: str | None, *, spoken: bool = False, web: bool = False
+) -> str:
     context = (
         f"The user is looking at the product with register number {register_number}."
         if register_number
         else ""
     )
     level_text = _LEVELS[level] + (SPOKEN if spoken else "")
-    return SYSTEM_PROMPT.format(level=level_text, context=context)
+    prompt = SYSTEM_PROMPT.format(level=level_text, context=context)
+    if not web:
+        return prompt
+    marker = "\n\nThis is a conversation:"
+    return prompt.replace(marker, WEB + marker, 1)

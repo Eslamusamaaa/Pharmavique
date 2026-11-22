@@ -347,3 +347,25 @@ async def test_an_answer_that_is_only_dosing_is_still_replaced() -> None:
     answer = await AskAssistant(FakeRunner("خذ قرصين كل 6 ساعات.")).ask("x", Level.PATIENT, None)
 
     assert answer.text == RULE_REFUSAL
+
+
+async def test_an_answer_with_only_web_sources_is_not_grounded_in_the_registry() -> None:
+    web = Citation("web:https://web.test/c", "Cataflam", "https://web.test/c", "web", None)
+    runner = FakeRunner("حسب الإنترنت، المادة الفعالة ديكلوفيناك [1].", (web,))
+
+    answer = await AskAssistant(runner).ask("وش هذا؟", Level.PATIENT, None)
+
+    assert answer.grounded is False
+    assert answer.general is True
+    assert answer.outcome == "web"
+    assert answer.citations == (web,)
+
+
+async def test_an_answer_with_a_registry_record_and_a_web_page_stays_grounded() -> None:
+    web = Citation("web:https://web.test/c", "Cataflam", "https://web.test/c", "web", None)
+    runner = FakeRunner("المادة ديكلوفيناك [1] وموجودة في السجل [2].", (web, CITE))
+
+    answer = await AskAssistant(runner).ask("وش هذا؟", Level.PATIENT, None)
+
+    assert answer.grounded is True
+    assert answer.outcome == "answered"

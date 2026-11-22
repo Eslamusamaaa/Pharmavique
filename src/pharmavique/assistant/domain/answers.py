@@ -44,7 +44,7 @@ class Citation:
     )
     title: str
     url: str | None
-    kind: str  # "catalog", "document" or "interaction"
+    kind: str  # "catalog", "document", "interaction", "contraindication" or "web" (unverified)
     published: str | None
 
 
@@ -58,7 +58,7 @@ class Answer:
     tools_used: tuple[str, ...] = ()
     general: bool = False  # an answer without registry citations: general information
     urgent: bool = False  # the question looked like an emergency
-    # answered, general, emergency, injection, rule_refusal, ungrounded, sources_down or empty
+    # answered, web, general, emergency, injection, rule_refusal, ungrounded, sources_down or empty
     outcome: str = "answered"
 
 

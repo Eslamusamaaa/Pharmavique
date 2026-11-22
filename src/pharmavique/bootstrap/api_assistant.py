@@ -47,6 +47,7 @@ class AnswerOut(BaseModel):
     answer: str
     citations: list[CitationOut]
     grounded: bool  # registry records are cited
+    web: bool  # pages from the open web are cited: unverified, shown with that label (ADR-017)
     general: bool  # general information, not from the SFDA registry: shown with that label
     urgent: bool  # the question looked like an emergency: the reply says to call 997
     refused: bool
@@ -117,6 +118,7 @@ def answer_out(answer: Answer) -> AnswerOut:
             for n, c in numbered
         ],
         grounded=answer.grounded,
+        web=any(c.kind == "web" for c in answer.citations),
         general=answer.general,
         urgent=answer.urgent,
         refused=answer.refused,

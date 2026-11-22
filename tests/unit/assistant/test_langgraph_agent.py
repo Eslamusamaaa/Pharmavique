@@ -333,3 +333,74 @@ async def test_contraindications_are_cited_with_the_source_and_the_prompt_has_th
     ]
     assert run.citations[0].url == "https://medic.renci.org/"
     assert "contraindications" in model.seen[0][0].content
+
+
+class FakeWeb:
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    async def search(self, query: str, limit: int) -> list[dict[str, Any]]:
+        self.queries.append(query)
+        return [
+            {"title": "Cataflam 50", "url": "https://web.test/c", "snippet": "diclofenac potassium"}
+        ]
+
+
+async def test_web_search_is_offered_only_when_a_search_is_configured() -> None:
+    plain = ScriptedModel(AIMessage("x"), AIMessage("x"))
+    await LangGraphAgentRunner(plain, FakeFacts()).run("سؤال", Level.PATIENT, None)
+    with_web = ScriptedModel(AIMessage("x"), AIMessage("x"))
+    await LangGraphAgentRunner(with_web, FakeFacts(), web=FakeWeb()).run(
+        "سؤال", Level.PATIENT, None
+    )
+
+    assert "web_search" not in plain.tools
+    assert "web_search" in with_web.tools
+    assert "web_search" not in str(plain.seen[0][0].content)
+    assert "web_search" in str(with_web.seen[0][0].content)
+
+
+async def test_a_web_result_is_cited_as_web_and_marked_as_not_verified() -> None:
+    web = FakeWeb()
+    model = ScriptedModel(
+        call("web_search", {"query": "Cataflam 50 mg"}, "w"),
+        AIMessage("حسب الإنترنت، المادة الفعالة ديكلوفيناك [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts(), web=web).run(
+        "وش هذا الدواء؟", Level.PATIENT, None
+    )
+
+    assert web.queries == ["Cataflam 50 mg"]
+    assert [(c.kind, c.url) for c in run.citations] == [("web", "https://web.test/c")]
+    result = next(m for m in model.seen[-1] if isinstance(m, ToolMessage)).content
+    assert "not verified" in str(result)
+    assert '"cite": 1' in str(result)
+
+
+async def test_a_question_gets_at_most_two_web_searches() -> None:
+    web = FakeWeb()
+    model = ScriptedModel(
+        call("web_search", {"query": "one"}, "1"),
+        call("web_search", {"query": "two"}, "2"),
+        call("web_search", {"query": "three"}, "3"),
+        AIMessage("x [1]"),
+    )
+
+    await LangGraphAgentRunner(model, FakeFacts(), web=web).run("سؤال", Level.PATIENT, None)
+
+    assert web.queries == ["one", "two"]
+    third = [m for m in model.seen[-1] if isinstance(m, ToolMessage)][2].content
+    assert "error" in str(third)
+
+
+async def test_a_web_query_that_is_too_long_is_refused_without_searching() -> None:
+    web = FakeWeb()
+    model = ScriptedModel(
+        call("web_search", {"query": "x" * 200}, "1"),
+        AIMessage("x"),
+    )
+
+    await LangGraphAgentRunner(model, FakeFacts(), web=web).run("سؤال", Level.PATIENT, None)
+
+    assert web.queries == []

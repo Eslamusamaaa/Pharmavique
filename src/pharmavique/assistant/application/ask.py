@@ -108,14 +108,16 @@ class AskAssistant:
             question, level, register_number, spoken=spoken, history=history
         )
         text = run.text.strip()
+        # A page from the open web is unverified (ADR-017): it is cited, but it is not the registry.
+        registry = any(citation.kind != "web" for citation in run.citations)
         base = Answer(
             text,
             run.citations,
             level,
-            grounded=bool(run.citations),
+            grounded=registry,
             tools_used=run.tools_used,
-            general=not run.citations,
-            outcome="answered" if run.citations else "general",
+            general=not registry,
+            outcome="answered" if registry else "web" if run.citations else "general",
         )
         if run.tool_calls and not any(call.ok for call in run.tool_calls):
             # Every lookup failed (database or provider down): an answer now could only come

@@ -75,6 +75,13 @@ class DrugFacts(Protocol):
         ...
 
 
+class WebSearch(Protocol):
+    """The open web, for a medicine the registry does not know (ADR-017). Results are unverified
+    snippets, each `{"title", "url", "snippet"}`; nothing about a person may be searched."""
+
+    async def search(self, query: str, limit: int) -> list[dict[str, Any]]: ...
+
+
 class InjectionDetector(Protocol):
     """A learned classifier for manipulation attempts; it adds to the rules, never replaces them."""
 
@@ -85,7 +92,9 @@ class InjectionDetector(Protocol):
 class AssistantEvent:
     """What is recorded about one question. Never the question or the answer text (health data)."""
 
-    outcome: str  # answered, general, emergency, injection, rule_refusal, ungrounded, empty, error
+    outcome: (
+        str  # answered, web, general, emergency, injection, rule_refusal, ungrounded, empty, error
+    )
     level: str
     spoken: bool
     tool_calls: tuple[str, ...]

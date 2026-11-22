@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     openrouter_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
+    # Web search for medicines the registry does not know (ADR-017); without a key the tool is off.
+    tavily_api_key: SecretStr | None = None
     # The assistant's language model (needs tool calling).
     llm_provider: Literal["groq", "openrouter"] = "groq"
     llm_model: str = "openai/gpt-oss-120b"
@@ -110,6 +112,7 @@ class Settings(BaseSettings):
         "openrouter_api_key",
         "groq_api_key",
         "elevenlabs_api_key",
+        "tavily_api_key",
         "smtp_password",
         mode="before",
     )
