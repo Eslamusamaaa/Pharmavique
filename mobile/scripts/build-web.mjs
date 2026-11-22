@@ -16,7 +16,8 @@ execSync('npx expo export -p web --output-dir dist', {
 });
 
 const HEAD = `
-    <meta name="theme-color" content="#104B55" />
+    <meta name="theme-color" content="#F5F9F8" />
+    <meta name="color-scheme" content="light" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -28,7 +29,6 @@ const HEAD = `
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <style id="pharmavique-page">
       html, body { background: #F5F9F8; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
-      @media (prefers-color-scheme: dark) { html, body { background: #0F2427; } }
     </style>
 `;
 

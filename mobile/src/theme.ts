@@ -1,5 +1,5 @@
 // Design tokens from pharmavique-wireframes (D1 · Design tokens), light and dark.
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 
 export type Palette = {
   bg: string;
@@ -62,7 +62,9 @@ export const dark: Palette = {
 };
 
 export function useTheme(): { c: Palette; isDark: boolean } {
-  const isDark = useColorScheme() === 'dark';
+  // The website is always light, so it looks the same on every computer and phone (the colours of
+  // the wireframes); a native app still follows the device's light or dark setting.
+  const isDark = Platform.OS !== 'web' && useColorScheme() === 'dark';
   return { c: isDark ? dark : light, isDark };
 }
 

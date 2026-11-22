@@ -150,6 +150,16 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   real service: the tests use a mocked transport. Its results are shown as unverified.
 - Photos: the assistant screen holds a photo until the question is sent with it (box scan reads the name,
   the name joins the question). Not tried on a phone.
+- **The app is a website** (no Expo Go needed): `npm run build:web` in `mobile/`, then the API serves `mobile/dist`
+  at `/` (`PHARMAVIQUE_WEB_DIR`, same origin, so no CORS and no http/https mixing). It installs on a phone's
+  home screen (manifest, 192/512/180 px icons made from the app logo, standalone display, RTL). Checked in the
+  browser pane at 375 px and 1366 px: home, search, a drug page, the assistant answering, deep links and
+  reloads. Layout: under 900 px the phone layout; above it a navigation rail on the right and cards in a row
+  on the home screen; pushed screens keep a 880 px column. Not built: the two-column drug page and the dense
+  results table of the desktop wireframes (B10, C7). Always light. The sign-in token is kept in the browser's
+  local storage (no secure store on the web). Camera, microphone and location need HTTPS: over
+  `http://100.85.219.44:8000` they do not work; Tailscale HTTPS is not switched on for the tailnet
+  (`tailscale serve` needs it enabled in the admin console).
 - **Cloudflare Workers AI** (free 10,000 Neurons a day, shared; token and account id in `.env`), measured on
   2026-11-22: the assistant's backup when Groq is rate limited (`Gemma 4 26B`: four real questions answered
   correctly with citations in 31 to 42 s; `gpt-oss-120b` there returned empty text on three of four, `Llama 4

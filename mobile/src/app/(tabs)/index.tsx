@@ -16,6 +16,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DisclaimerBar, Row, T } from '@/components/ui';
+import { useWide } from '@/lib/layout';
 import { useRecentActions, useRecents, type Recent } from '@/state/recents';
 import { roleInfo, useRole } from '@/state/role';
 import { cardShadow, radius, useTheme } from '@/theme';
@@ -31,6 +32,10 @@ export default function Home() {
   const { clear } = useRecentActions();
   const { role } = useRole();
   const current = roleInfo(role ?? 'patient');
+  const wide = useWide();
+  // three cards in a row on a computer, one under the other on a phone
+  const tile = wide ? { flexBasis: '31%', flexGrow: 1 } : { flexBasis: '100%' };
+  const page = wide ? ({ maxWidth: 1100, width: '100%', alignSelf: 'center' } as const) : null;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -55,7 +60,7 @@ export default function Home() {
         </Pressable>
       </View>
       <DisclaimerBar />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, page]} keyboardShouldPersistTaps="handled">
         <T size={28} weight={700} style={{ lineHeight: 39 }}>
           {current.greeting}
         </T>
@@ -92,9 +97,10 @@ export default function Home() {
               </T>
             </Pressable>
           </Row>
+          <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 14 }}>
           <Pressable
             onPress={() => router.push('/assistant')}
-            style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+            style={[styles.assistant, tile, { backgroundColor: c.sf, borderColor: c.ln }]}
             accessibilityRole="button"
           >
             <ChatCircleDotsIcon size={26} color={c.pr} />
@@ -107,7 +113,7 @@ export default function Home() {
           </Pressable>
           <Pressable
             onPress={() => router.push('/pharmacies')}
-            style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+            style={[styles.assistant, tile, { backgroundColor: c.sf, borderColor: c.ln }]}
             accessibilityRole="button"
           >
             <MapPinIcon size={26} color={c.pr} />
@@ -121,7 +127,7 @@ export default function Home() {
           {role === 'pharmacist' || role === 'patient' ? (
             <Pressable
               onPress={() => router.push(role === 'pharmacist' ? '/interactions' : '/medicines')}
-              style={[styles.assistant, { backgroundColor: c.sf, borderColor: c.ln }]}
+              style={[styles.assistant, tile, { backgroundColor: c.sf, borderColor: c.ln }]}
               accessibilityRole="button"
             >
               <WarningIcon size={26} color={c.pr} />
@@ -135,6 +141,7 @@ export default function Home() {
               </View>
             </Pressable>
           ) : null}
+          </View>
         </View>
         {recents.length > 0 ? (
           <View style={{ gap: 6 }}>

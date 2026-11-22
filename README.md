@@ -535,16 +535,26 @@ uv run uvicorn pharmavique.bootstrap.api:create_app --factory --host 0.0.0.0 --p
 
 Open `http://127.0.0.1:8000/docs` for the interactive API documentation and `/metrics` for metrics.
 
-### 11.5 Run the app on a phone
+### 11.5 Open the app as a website (phone and computer)
+
+The app is also a website: no Expo Go and no development server. The API serves it at `/`, so the
+app and the API share one address.
 
 ```bash
 cd mobile
 npm ci
-EXPO_PUBLIC_API_URL=http://<computer LAN address>:8000 npx expo start
+npm run build:web          # builds mobile/dist and adds the home-screen files (manifest, icons)
 ```
 
-Scan the QR code with Expo Go. The phone and the computer must be on the same network. For a browser,
-run `npx expo start --web --port 8081`.
+Set `PHARMAVIQUE_WEB_DIR=mobile/dist` in `.env` and start the API (11.4); open `http://<address>:8000/`.
+On a phone, "Add to Home Screen" (Safari: Share, then Add to Home Screen) installs it with the Pharmavique
+icon, and it opens full screen like an app. The layout follows the window: under 900 px wide it is the phone
+layout (bottom tab bar), above it the computer layout (navigation rail on the right, cards in a row). The
+website always uses the light colours of the wireframes.
+
+A browser only gives a page the camera, the microphone and the location over **HTTPS** (or on
+`localhost`). Over plain `http://` the screens work but those three do not.
+`npx expo start` (Expo Go) still works for development but is not needed to use the app.
 
 ### 11.6 Refresh the SFDA data
 

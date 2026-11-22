@@ -10,14 +10,17 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useWide } from '@/lib/layout';
 import { useTheme } from '@/theme';
 
-// On the website the app keeps the phone's width, centred, so it looks the same on a computer.
-const webColumn = (backgroundColor: string) =>
-  ({ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor }) as const;
+// On the website a phone-sized window fills the screen; a narrow-but-wide window (a tablet held
+// upright) keeps a readable column; a computer gets the full shell up to a comfortable width.
+const webColumn = (backgroundColor: string, wide: boolean) =>
+  ({ flex: 1, width: '100%', maxWidth: wide ? 1360 : 640, alignSelf: 'center', backgroundColor }) as const;
 
 export default function RootLayout() {
   const { c, isDark } = useTheme();
+  const wide = useWide();
   const [loaded] = useFonts({
     IBMPlexSansArabic_400Regular,
     IBMPlexSansArabic_500Medium,
@@ -28,26 +31,32 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  // On a computer a pushed screen keeps a readable column instead of stretching across the window.
+  const column = (maxWidth: number) => ({
+    contentStyle: { backgroundColor: c.bg, width: '100%', maxWidth, alignSelf: 'center' },
+  }) as const;
+  const page = wide ? column(880) : undefined;
+  const dashboard = wide ? column(1100) : undefined;
   if (!loaded) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   return (
     <SafeAreaProvider>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={Platform.OS === 'web' ? webColumn(c.bg) : { flex: 1 }}>
+      <View style={Platform.OS === 'web' ? webColumn(c.bg, wide) : { flex: 1 }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="role" />
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="verify-email" />
-        <Stack.Screen name="drug/[register]" />
-        <Stack.Screen name="compare" />
-        <Stack.Screen name="assistant" />
-        <Stack.Screen name="interactions" />
-        <Stack.Screen name="my-medicines" />
-        <Stack.Screen name="my-list" />
-        <Stack.Screen name="company" />
-        <Stack.Screen name="pharmacies" />
-        <Stack.Screen name="shelf" />
-        <Stack.Screen name="operator" />
+        <Stack.Screen name="role" options={page} />
+        <Stack.Screen name="sign-in" options={page} />
+        <Stack.Screen name="verify-email" options={page} />
+        <Stack.Screen name="drug/[register]" options={page} />
+        <Stack.Screen name="compare" options={page} />
+        <Stack.Screen name="assistant" options={page} />
+        <Stack.Screen name="interactions" options={page} />
+        <Stack.Screen name="my-medicines" options={page} />
+        <Stack.Screen name="my-list" options={page} />
+        <Stack.Screen name="company" options={dashboard} />
+        <Stack.Screen name="pharmacies" options={page} />
+        <Stack.Screen name="shelf" options={page} />
+        <Stack.Screen name="operator" options={dashboard} />
         <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>
       </View>
