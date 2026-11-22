@@ -89,11 +89,23 @@ def test_empty_list_table_gives_no_rows() -> None:
     assert parse_list_page(html).rows == ()
 
 
+def test_the_sites_own_no_results_page_is_an_empty_page_not_an_error() -> None:
+    # seen live on 2026-11-22: page 159 of the drugs list answered this while pages 158 and 160
+    # were full, so the walker must see it as a hole in the list and not stop the whole run
+    html = "<html><body><div>Filter</div><div> No Results  Found </div></body></html>"
+
+    page = parse_list_page(html)
+
+    assert page.rows == ()
+    assert page.last_page is None
+
+
 @pytest.mark.parametrize(
     "html",
     [
         "<html><body><h1>Access denied</h1></body></html>",  # block page, no table
         "<table><tr><th>Name</th><th>Other</th></tr></table>",  # unknown headers
+        "<html><body><h1>No results found for you. Verify you are human</h1></body></html>",
     ],
 )
 def test_unexpected_list_page_raises_instead_of_returning_nothing(html: str) -> None:

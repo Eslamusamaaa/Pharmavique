@@ -96,7 +96,20 @@ def parse_list_page(html: str) -> ListPage:
         rows = tuple(_list_row(tr, indexes, len(headers)) for tr in _data_rows(table))
         return ListPage(rows=rows, last_page=last_page_of(soup), current_page=current_page_of(soup))
 
+    if _says_no_results(soup):
+        # An empty page, not a block page: the walker decides whether it is a hole or the end.
+        return ListPage(rows=(), last_page=None, current_page=None)
+
     raise ParseError("no table with the expected drug list columns was found")
+
+
+def _says_no_results(soup: BeautifulSoup) -> bool:
+    """The site's own "No Results Found" as a text node by itself, never a longer message."""
+
+    def exactly(text: str | None) -> bool:
+        return text is not None and _clean(text).lower() == "no results found"
+
+    return soup.find(string=exactly) is not None
 
 
 def _data_rows(table: Tag) -> list[Tag]:
