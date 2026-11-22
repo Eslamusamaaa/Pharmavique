@@ -8,12 +8,39 @@
 //    and a zoomable viewport; this adds what a phone needs. The icons and the manifest are in
 //    `public/`, which the export copies into `dist/`.
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 execSync('npx expo export -p web --output-dir dist', {
   stdio: 'inherit',
   env: { ...process.env, EXPO_PUBLIC_API_URL: '' },
 });
+
+// 3. The export puts the fonts and the images of packages under `dist/assets/node_modules/`. Some
+//    hosts (Vercel's Python functions) leave every folder called `node_modules` out of what they
+//    serve, so every font answered 404 and the page stayed blank while it waited for them. The
+//    folder is renamed and each reference to it is rewritten.
+const FROM = 'assets/node_modules/';
+const TO = 'assets/vendor/';
+if (existsSync('dist/assets/node_modules')) {
+  renameSync('dist/assets/node_modules', 'dist/assets/vendor');
+  let rewritten = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (/\.(js|json|html|css|map)$/.test(entry.name)) {
+        const text = readFileSync(path, 'utf8');
+        if (text.includes(FROM)) {
+          writeFileSync(path, text.split(FROM).join(TO));
+          rewritten += 1;
+        }
+      }
+    }
+  };
+  walk('dist');
+  console.log(`dist/assets/node_modules renamed to dist/assets/vendor (${rewritten} files rewritten)`);
+}
 
 const HEAD = `
     <meta name="theme-color" content="#F5F9F8" />
