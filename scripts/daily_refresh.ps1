@@ -62,7 +62,20 @@ try {
         # committed full crawl is the baseline
         $update = @("sfda-update", "--recheck", "$Recheck", "--run-id", $run)
         if (-not (Test-Path (Join-Path $root "data\sfda\latest.json"))) { $update += @("--baseline", "full-20261116") }
-        if ((Invoke-Step "drugs-update" $update) -eq 0) {
+        $code = Invoke-Step "drugs-update" $update
+        # Exit 3 after a lost internet connection (the browser could not resolve the site's name) is
+        # not a block by the site: wait and resume the same run, which continues from the pages it
+        # already read. A block (401/403/429) or a robots.txt refusal is never retried.
+        $attempt = 0
+        while ($code -eq 3 -and $attempt -lt 3) {
+            $lastLog = Get-Content (Join-Path $logs $(if ($attempt -eq 0) { "drugs-update.log" } else { "drugs-update-retry$attempt.log" })) -Raw
+            if ($lastLog -notmatch "ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|ERR_CONNECTION_(RESET|REFUSED|TIMED_OUT)|ERR_TIMED_OUT") { break }
+            $attempt++
+            Start-Sleep -Seconds 600
+            $code = Invoke-Step "drugs-update-retry$attempt" $update
+        }
+        if ($code -eq 0 -and $attempt -gt 0) { $failed -= $attempt }  # earlier attempts were recovered
+        if ($code -eq 0) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them

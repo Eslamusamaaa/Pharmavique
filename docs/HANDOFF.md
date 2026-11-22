@@ -102,12 +102,14 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 
 1. **Run the app on a real phone.** It has only been type-checked: location, camera and every new screen
    (sign-up code, my list, company, operator, pharmacies, shelf, prescription check) are untried.
-2. Put `PHARMAVIQUE_JWT_SECRET` in `.env` (without it accounts answer 503) and run `analytics-rebuild` once.
+2. ~~JWT secret and `analytics-rebuild`~~ done on 2026-11-22 (the secret is in `.env`, accounts answer 401 for a wrong password).
 3. Choose the SMTP provider and the sending address (Q-38), then set `PHARMAVIQUE_EMAIL_BACKEND=smtp`,
    the `SMTP_*` values, `EMAIL_FROM` and `PUBLIC_URL`. The console backend only prints emails.
-4. Schedule the daily refresh. Find out why its `drugs-update` step exited with code 3 on 2026-11-21
-   (not investigated).
-5. Change `localhost` to `127.0.0.1` in `.env`.
+4. ~~Schedule the daily refresh~~ registered on 2026-11-22 (task `PharmaviqueDailyRefresh`, 03:00; the laptop must be on).
+   The exit code 3 of 2026-11-21 was a lost internet connection (`ERR_NAME_NOT_RESOLVED` at list page 442 of 459),
+   not a block. `daily_refresh.ps1` now waits 10 minutes and resumes the same run up to three times, only for network
+   errors; a block (401/403/429) or a robots.txt refusal is never retried.
+5. ~~`localhost` to `127.0.0.1` in `.env`~~ done.
 6. Delete the stray file `C:\LUsers\x` (created by mistake; removal was blocked).
 7. Decide about real photos for measuring the scans (Q-32) and a pharmacist reviewing similar names (Q-26).
 
