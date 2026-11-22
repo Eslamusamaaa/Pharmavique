@@ -138,6 +138,12 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   what was not checked). A drug that left the SFDA list is withdrawn only after it is missing from two
   complete runs in a row, at most 50 at once (`sfda-withdraw-absent`, Q-40: both numbers are guesses). A
   change that is only in a details page can take up to a month to be seen (`--recheck 300`).
+- The assistant's cited passages (pgvector chunks of the DHPC letters, safety alerts, circulars, RMM and
+  safety labeling) are not refreshed by the daily routine. **Do not add `knowledge-build` to it as it is:**
+  a daily lists run (`lists-<date>`) holds only `records.jsonl`, while `lists-1` also has `details.jsonl` and
+  `texts.jsonl` (PDF and OCR text), and `knowledge-build` replaces a list's chunks with what the run has, so
+  it would swap the full chunks for thin row-only ones. A safe update needs the details, files and text of the
+  new rows only, and chunks that are added rather than replaced.
 - Not built: Redis failover, replicas, CDN, shared picture storage, the pictures image on ghcr (the push
   never completed; the pictures exist only on the laptop), push notifications (dropped), the Egypt adapter.
 
