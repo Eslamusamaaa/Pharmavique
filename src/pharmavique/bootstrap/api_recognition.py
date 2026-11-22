@@ -3,6 +3,7 @@
 The image is read in memory and dropped with the request; nothing is stored or logged.
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -82,6 +83,8 @@ async def scan(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except VisionError as error:
+        # model names and statuses only: nothing of the image or of what it showed
+        logging.getLogger(__name__).warning("the image could not be read: %s", error)
         raise HTTPException(status_code=502, detail=str(error)) from error
     finally:
         del data  # the image is not kept beyond this request

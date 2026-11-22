@@ -162,3 +162,63 @@ def test_the_shelf_prompt_asks_for_every_legible_box_and_never_for_counts_or_gue
     assert "every" in prompt
     assert "count" in prompt  # told not to count units
     assert "never guess" in prompt
+
+
+def _png(width: int, height: int) -> bytes:
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (width, height), "white").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_a_large_photo_is_shrunk_to_a_jpeg_before_it_goes_to_the_provider() -> None:
+    import io
+
+    from PIL import Image
+
+    from pharmavique.recognition.infrastructure.openai_vision import shrink
+
+    data, media_type = shrink(_png(4000, 3000), "image/png")
+
+    assert media_type == "image/jpeg"
+    with Image.open(io.BytesIO(data)) as shrunk:
+        assert max(shrunk.size) <= 1600
+        assert shrunk.size[0] / shrunk.size[1] == pytest.approx(4 / 3, rel=0.01)
+
+
+def test_a_small_picture_is_left_exactly_as_it_is() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import shrink
+
+    original = _png(640, 320)
+
+    assert shrink(original, "image/png") == (original, "image/png")
+
+
+def test_bytes_that_are_not_an_image_are_passed_on_unchanged() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import shrink
+
+    assert shrink(b"IMG", "image/png") == (b"IMG", "image/png")
+
+
+async def test_when_every_model_fails_the_error_names_each_model_and_status() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429 if json.loads(request.content)["model"] == "first" else 503)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    readers = [
+        OpenAICompatibleVisionReader("https://or.test", "k", m, client) for m in ("first", "second")
+    ]
+
+    with pytest.raises(VisionError) as raised:
+        await FallbackVisionReader(readers).read(b"IMG", "image/png", ScanKind.BOX)
+
+    message = str(raised.value)
+    assert "first" in message
+    assert "429" in message
+    assert "second" in message
+    assert "503" in message

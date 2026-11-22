@@ -207,6 +207,7 @@ export function friendlyError(e: unknown): string {
   }
   if (status === 404) return 'هذا الدواء غير موجود في السجل.';
   if (status === 429) return 'المساعد مشغول لحظات. جرّب مرة ثانية بعد ثواني.';
+  if (status === 502) return 'خدمة قراءة الصور مشغولة الحين. جرّب مرة ثانية بعد شوي، أو اكتب اسم الدواء.';
   return `السيرفر رجّع خطأ (${status}).`;
 }
 

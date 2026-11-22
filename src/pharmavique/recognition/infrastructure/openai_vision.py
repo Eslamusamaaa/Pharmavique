@@ -6,15 +6,38 @@ as a data URL in memory; it is never written to disk or logs, and the key goes o
 """
 
 import base64
+import io
 import json
 import re
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from pharmavique.recognition.application.ports import VisionReader
 from pharmavique.recognition.domain.scans import ExtractedLine, ScanKind
+
+MAX_SIDE = 1600  # pixels: enough to read a printed name, small enough for a free model to answer
+_KEEP_AS_IS_BYTES = 1_500_000
+
+
+def shrink(image: bytes, media_type: str) -> tuple[bytes, str]:
+    """A phone photo is many megapixels and several MB: free vision models often time out or refuse
+    it. Shrink what is large to a JPEG whose longer side is at most `MAX_SIDE`, upright as the phone
+    meant it. A small picture, or bytes that are not an image, are returned untouched."""
+    try:
+        with Image.open(io.BytesIO(image)) as opened:
+            if max(opened.size) <= MAX_SIDE and len(image) <= _KEEP_AS_IS_BYTES:
+                return image, media_type
+            upright = ImageOps.exif_transpose(opened).convert("RGB")
+            upright.thumbnail((MAX_SIDE, MAX_SIDE))
+            buffer = io.BytesIO()
+            upright.save(buffer, format="JPEG", quality=85)
+            return buffer.getvalue(), "image/jpeg"
+    except (UnidentifiedImageError, OSError, ValueError):
+        return image, media_type
+
 
 _PROMPTS = {
     ScanKind.BOX: (
@@ -95,6 +118,7 @@ class OpenAICompatibleVisionReader:
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
     async def read(self, image: bytes, media_type: str, kind: ScanKind) -> list[ExtractedLine]:
+        image, media_type = shrink(image, media_type)
         data_url = f"data:{media_type};base64,{base64.b64encode(image).decode('ascii')}"
         payload = {
             "model": self._model,
@@ -118,11 +142,13 @@ class OpenAICompatibleVisionReader:
                 f"vision provider connection failed ({type(error).__name__})"
             ) from error
         if response.status_code != 200:
-            raise VisionError(f"vision provider answered HTTP {response.status_code}")
+            raise VisionError(
+                f"{self._model}: vision provider answered HTTP {response.status_code}"
+            )
         try:
             body = response.json()
         except ValueError as error:
-            raise VisionError("vision provider answered something that is not JSON") from error
+            raise VisionError(f"{self._model}: answered something that is not JSON") from error
         choices = (body.get("choices") if isinstance(body, dict) else None) or []
         content = (choices[0].get("message") or {}).get("content") if choices else ""
         return parse_lines(content if isinstance(content, str) else "")
@@ -137,11 +163,12 @@ class FallbackVisionReader:
         self._readers = list(readers)
 
     async def read(self, image: bytes, media_type: str, kind: ScanKind) -> list[ExtractedLine]:
-        error: VisionError | None = None
+        failures: list[str] = []
         for reader in self._readers:
             try:
                 return await reader.read(image, media_type, kind)
-            except (VisionError, httpx.TimeoutException) as failure:
-                error = failure if isinstance(failure, VisionError) else VisionError("timed out")
-        assert error is not None  # noqa: S101 (the loop ran at least once)
-        raise error
+            except VisionError as failure:
+                failures.append(str(failure))
+            except httpx.TimeoutException:
+                failures.append("a model timed out")
+        raise VisionError("; ".join(failures))
