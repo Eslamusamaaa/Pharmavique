@@ -31,9 +31,16 @@ class Source:
 class Store:
     def __init__(self) -> None:
         self.saved: dict[str, list[Chunk]] = {}
+        self.added: dict[str, list[Chunk]] = {}
 
     async def replace(self, list_name: str, chunks: Sequence[Chunk]) -> None:
         self.saved[list_name] = list(chunks)
+
+    async def add(self, list_name: str, chunks: Sequence[Chunk]) -> None:
+        self.added.setdefault(list_name, []).extend(chunks)
+
+    async def row_keys(self, list_name: str) -> set[str]:
+        return {c.row_key for c in self.saved.get(list_name, []) + self.added.get(list_name, [])}
 
 
 async def test_every_document_of_a_list_becomes_chunks_in_the_store() -> None:
@@ -70,3 +77,22 @@ async def test_a_list_with_no_documents_is_replaced_by_nothing() -> None:
     report = await BuildChunks(Source([]), store).run("rmm")
     assert report.documents == 0
     assert store.saved == {"rmm": []}
+
+
+async def test_an_additive_build_adds_the_new_chunks_and_never_replaces_the_list() -> None:
+    store = Store()
+    report = await BuildChunks(Source([doc("new#1", "A new letter.")]), store).run_additive("dhpc")
+
+    assert report.documents == 1
+    assert report.chunks == 1
+    assert {c.row_key for c in store.added["dhpc"]} == {"new#1"}
+    assert store.saved == {}  # replace() was never called, so nothing already stored can disappear
+
+
+async def test_an_additive_build_with_nothing_new_touches_nothing() -> None:
+    store = Store()
+    report = await BuildChunks(Source([]), store).run_additive("dhpc")
+
+    assert report.documents == 0
+    assert store.added == {}
+    assert store.saved == {}

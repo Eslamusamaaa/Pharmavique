@@ -86,3 +86,23 @@ async def test_an_unchanged_chunk_keeps_its_vector_when_the_list_is_rebuilt(
     async with factory() as session:
         model = await session.scalar(text("SELECT embedding_model FROM knowledge.chunk"))
     assert model == "fake"
+
+
+async def test_adding_keeps_every_chunk_already_stored_and_lists_the_row_keys(
+    factory: async_sessionmaker[AsyncSession],
+) -> None:
+    store = PostgresChunkStore(factory)
+    await store.replace("dhpc", chunk_document(doc("a#1", "Letter one.")))
+    await store.replace(
+        "drugs-circulars", chunk_document(doc("r#1", "A recall.", "drugs-circulars"))
+    )
+
+    await store.add("dhpc", chunk_document(doc("n#9", "A new letter.")))
+
+    assert await rows(factory) == [
+        ("dhpc", "a#1", False, "Letter one."),
+        ("dhpc", "n#9", False, "A new letter."),
+        ("drugs-circulars", "r#1", False, "A recall."),
+    ]
+    assert await store.row_keys("dhpc") == {"a#1", "n#9"}
+    assert await store.row_keys("rmm") == set()

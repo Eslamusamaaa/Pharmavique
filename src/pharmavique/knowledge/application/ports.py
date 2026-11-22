@@ -19,6 +19,14 @@ class ChunkStore(Protocol):
         their vectors; chunks that are gone are removed."""
         ...
 
+    async def add(self, list_name: str, chunks: Sequence[Chunk]) -> None:
+        """Store these chunks and keep every other chunk of the list, vectors included."""
+        ...
+
+    async def row_keys(self, list_name: str) -> set[str]:
+        """The row keys of `list_name` that have at least one stored chunk."""
+        ...
+
 
 class Embedder(Protocol):
     """Turns texts into vectors with one model (ADR-005). The adapter is chosen by configuration."""

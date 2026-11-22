@@ -43,32 +43,50 @@ class PostgresChunkStore:
 
     async def replace(self, list_name: str, chunks: Sequence[Chunk]) -> None:
         async with self._session_factory() as session, session.begin():
-            if chunks:
-                await session.execute(
-                    _UPSERT,
-                    [
-                        {
-                            "chunk_id": chunk.chunk_id,
-                            "list_name": chunk.list_name,
-                            "row_key": chunk.row_key,
-                            "position": chunk.position,
-                            "title": chunk.title,
-                            "text": chunk.text,
-                            "source_ref": chunk.source_ref,
-                            "snapshot_id": chunk.snapshot_id,
-                            "fetched_at": _when(chunk.fetched_at),
-                            "trust": chunk.trust,
-                            "ocr": chunk.ocr,
-                            "published": chunk.published,
-                            "register_numbers": list(chunk.register_numbers),
-                        }
-                        for chunk in chunks
-                    ],
-                )
+            await self._upsert(session, chunks)
             await session.execute(
                 _DELETE_GONE,
                 {"list_name": list_name, "ids": [chunk.chunk_id for chunk in chunks]},
             )
+
+    async def add(self, list_name: str, chunks: Sequence[Chunk]) -> None:
+        """Upsert only: every other chunk of the list stays, and so does its vector."""
+        async with self._session_factory() as session, session.begin():
+            await self._upsert(session, [c for c in chunks if c.list_name == list_name])
+
+    async def row_keys(self, list_name: str) -> set[str]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text("SELECT DISTINCT row_key FROM knowledge.chunk WHERE list_name = :list_name"),
+                {"list_name": list_name},
+            )
+            return {str(row[0]) for row in result}
+
+    @staticmethod
+    async def _upsert(session: AsyncSession, chunks: Sequence[Chunk]) -> None:
+        if not chunks:
+            return
+        await session.execute(
+            _UPSERT,
+            [
+                {
+                    "chunk_id": chunk.chunk_id,
+                    "list_name": chunk.list_name,
+                    "row_key": chunk.row_key,
+                    "position": chunk.position,
+                    "title": chunk.title,
+                    "text": chunk.text,
+                    "source_ref": chunk.source_ref,
+                    "snapshot_id": chunk.snapshot_id,
+                    "fetched_at": _when(chunk.fetched_at),
+                    "trust": chunk.trust,
+                    "ocr": chunk.ocr,
+                    "published": chunk.published,
+                    "register_numbers": list(chunk.register_numbers),
+                }
+                for chunk in chunks
+            ],
+        )
 
 
 # ---- vectors and retrieval --------------------------------------------------------------------
