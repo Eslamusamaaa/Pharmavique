@@ -105,8 +105,10 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 1. **Run the app on a real phone.** It has only been type-checked: location, camera and every new screen
    (sign-up code, my list, company, operator, pharmacies, shelf, prescription check) are untried.
 2. ~~JWT secret and `analytics-rebuild`~~ done on 2026-11-22 (the secret is in `.env`, accounts answer 401 for a wrong password).
-3. Choose the SMTP provider and the sending address (Q-38), then set `PHARMAVIQUE_EMAIL_BACKEND=smtp`,
-   the `SMTP_*` values, `EMAIL_FROM` and `PUBLIC_URL`. The console backend only prints emails.
+3. ~~SMTP~~ for the proof of concept, emails go out through a project Gmail account with an app password
+   (`PHARMAVIQUE_EMAIL_BACKEND=smtp` in `.env`; the code reached the owner's inbox on 2026-11-22). Gmail caps
+   about 500 messages a day, so for many users a real provider and a verified domain are still needed (Q-38).
+   `PUBLIC_URL` is the laptop's VPN address, so the unsubscribe link only opens on that network.
 4. ~~Schedule the daily refresh~~ registered on 2026-11-22 (task `PharmaviqueDailyRefresh`, 03:00; the laptop must be on).
    The exit code 3 of 2026-11-21 was a lost internet connection (`ERR_NAME_NOT_RESOLVED` at list page 442 of 459),
    not a block. `daily_refresh.ps1` now waits 10 minutes and resumes the same run up to three times, only for network
