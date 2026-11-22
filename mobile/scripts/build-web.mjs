@@ -64,7 +64,10 @@ let html = readFileSync(file, 'utf8');
 html = html.replace('<html lang="en">', '<html lang="ar" dir="rtl">');
 html = html.replace(
   /<meta name="viewport"[^>]*>/,
-  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />',
+  // No `viewport-fit=cover`: with it the page is drawn under the status bar, and on a phone's home
+  // screen iOS blurs that strip over the logo and the role button. Without it the page starts below
+  // the status bar, which is filled with the page colour.
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />',
 );
 html = html.replace('</head>', `${HEAD}  </head>`);
 if (!html.includes('rel="manifest"') || !html.includes('dir="rtl"')) {
