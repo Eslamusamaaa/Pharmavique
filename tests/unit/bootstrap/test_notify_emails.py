@@ -191,7 +191,7 @@ def test_the_digest_says_what_changed_and_never_what_to_do() -> None:
 
     assert "PANADOL EXTRA" in message.text
     assert "5 → 6.5 SAR" in message.text
-    assert "اتسحب من سجل الهيئة" in message.text
+    assert "انسحب من سجل الهيئة" in message.text
     assert "was withdrawn from the SFDA registry" in message.text
     assert "not medical advice" in message.text
     for advice in ("stop taking", "switch to", "اوقف", "بدّل", "غيّر الدواء"):

@@ -251,11 +251,11 @@ def _unsubscribe_secret(request: Request) -> str:
 async def unsubscribe_page(request: Request, token: str) -> HTMLResponse:
     if read_token(_unsubscribe_secret(request), token) is None:
         return HTMLResponse(
-            _PAGE.format(body="<p>الرابط ده مش صحيح. This link is not valid.</p>"), 400
+            _PAGE.format(body="<p>هذا الرابط غير صحيح. This link is not valid.</p>"), 400
         )
     body = (
-        "<h2>إيقاف رسائل التنبيهات</h2><p>هنوقف إرسال تنبيهات أدويتك على الإيميل. "
-        "التنبيهات هتفضل ظاهرة في التطبيق.</p>"
+        "<h2>إيقاف رسائل التنبيهات</h2><p>بنوقف إرسال تنبيهات أدويتك على الإيميل. "
+        "التنبيهات تظل ظاهرة في التطبيق.</p>"
         "<p>Stop emailing alerts about your saved medicines? They stay in the app.</p>"
         f'<form method="post" action="/v1/auth/unsubscribe?token={token}">'
         '<button type="submit" style="font-size:1rem;padding:.6rem 1.2rem">'
@@ -272,7 +272,7 @@ async def unsubscribe(
     user_id = read_token(_unsubscribe_secret(request), token)
     if user_id is None:
         return HTMLResponse(
-            _PAGE.format(body="<p>الرابط ده مش صحيح. This link is not valid.</p>"), 400
+            _PAGE.format(body="<p>هذا الرابط غير صحيح. This link is not valid.</p>"), 400
         )
     await service.set_email_notifications(user_id, False)
     return HTMLResponse(

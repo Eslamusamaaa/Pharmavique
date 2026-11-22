@@ -6,8 +6,8 @@ from pharmavique.shared_kernel.email import EmailMessage
 def verification_email(to: str, code: str, minutes: int) -> EmailMessage:
     text = (
         f"رمز التأكيد في فارماڤيك: {code}\n"
-        f"الرمز صالح لمدة {minutes} دقائق. لو ما أنت اللي طلبته تجاهل هذه الرسالة، ومحدش هيقدر "
-        "يدخل حسابك من غير الرمز.\n\n"
+        f"الرمز صالح لمدة {minutes} دقائق. إذا ما أنت اللي طلبته تجاهل هذه الرسالة، وما أحد يقدر "
+        "يدخل حسابك بدون الرمز.\n\n"
         f"Your Pharmavique verification code: {code}\n"
         f"It is valid for {minutes} minutes. If you did not ask for it, ignore this email: nobody "
         "can use your account without the code.\n"

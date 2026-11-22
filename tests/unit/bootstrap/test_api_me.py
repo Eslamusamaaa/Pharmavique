@@ -285,7 +285,7 @@ async def test_an_empty_digest_says_nothing_changed(client: httpx.AsyncClient) -
     digest = (await client.get("/v1/me/digest", headers=headers(uuid4()))).json()
 
     assert digest["items"] == []
-    assert "مفيش تغييرات" in digest["summary"]
+    assert "ما فيه تغييرات" in digest["summary"]
 
 
 async def test_without_the_database_these_endpoints_say_so() -> None:

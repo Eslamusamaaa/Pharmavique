@@ -321,7 +321,7 @@ async def digest(
     summary = (
         f"خلال آخر {days} أيام: " + "، ".join(parts)
         if parts
-        else f"مفيش تغييرات مسجلة في أدويتك خلال آخر {days} أيام"
+        else f"ما فيه تغييرات مسجلة في أدويتك خلال آخر {days} أيام"
     )
     return DigestOut(
         days=days,

@@ -13,7 +13,7 @@ from pharmavique.watchlist.domain.model import Alert, AlertKind
 MAX_LINES = 20
 
 _AR = {
-    AlertKind.WITHDRAWN: "اتسحب من سجل الهيئة",
+    AlertKind.WITHDRAWN: "انسحب من سجل الهيئة",
     AlertKind.RELISTED: "رجع لسجل الهيئة",
 }
 _EN = {
@@ -34,7 +34,7 @@ def _line(alert: Alert, name: str) -> tuple[str, str]:
     if alert.kind is AlertKind.PRICE_CHANGED:
         price = _price(alert)
         change = price[0] if price else ""
-        basis = " (العملة افتراض مننا)" if price and price[1] == "owner_assumption" else ""
+        basis = " (العملة افتراض منّا)" if price and price[1] == "owner_assumption" else ""
         basis_en = " (currency assumed by us)" if price and price[1] == "owner_assumption" else ""
         return (f"{name}: تغيّر السعر {change}{basis}", f"{name}: price changed {change}{basis_en}")
     return f"{name}: {_AR[alert.kind]}", f"{name} {_EN[alert.kind]}"
@@ -54,9 +54,9 @@ def build_digest(
         ar_lines.append(f"- {ar}")
         en_lines.append(f"- {en}")
     if more > 0:
-        ar_lines.append(f"- وفي {more} تنبيه تاني في التطبيق")
+        ar_lines.append(f"- وفيه {more} تنبيه ثاني في التطبيق")
         en_lines.append(f"- and {more} more in the app")
-    footer_ar = "ده تحديث من سجل الهيئة مش نصيحة طبية. اسأل الصيدلي أو الدكتور عن أي دواء بتاخده."
+    footer_ar = "هذا تحديث من سجل الهيئة وليس نصيحة طبية. اسأل الصيدلي أو الطبيب عن أي دواء تأخذه."
     footer_en = (
         "This is an update from the SFDA registry, not medical advice. "
         "Ask your pharmacist or doctor."
