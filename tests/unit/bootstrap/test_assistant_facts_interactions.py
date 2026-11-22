@@ -1,5 +1,6 @@
 """The assistant's interaction facts: findings with sources, then always a coverage record."""
 
+import dataclasses
 from collections.abc import Collection, Sequence
 from typing import Any, cast
 
@@ -150,6 +151,36 @@ async def test_a_name_that_is_not_contained_in_the_product_name_stays_a_look_ali
 ) -> None:
     nothing = cast(Any, None)
     named = card("1", "PANADOL 500 mg film-coated tablet", "PARACETAMOL")
+    source = ContractDrugFacts(PrefixSearch(), FakeCatalog(named), nothing, nothing, nothing)
+
+    rows = await source.search_drugs(typed, 8)
+
+    assert rows[0]["name_match"] == "similar_name_only"
+
+
+@pytest.mark.parametrize("typed", ["بنادول", "بندول", "بانادول 500"])
+async def test_another_spelling_of_an_arabic_brand_is_the_same_medicine(typed: str) -> None:
+    # People write the long vowels of a transliterated brand in different ways; the registry
+    # spells it "بانادول". The same consonants in the same order is the same name.
+    nothing = cast(Any, None)
+    named = dataclasses.replace(
+        card("1", "PANADOL 500 mg film-coated tablet", "PARACETAMOL"),
+        trade_name_ar="بانادول 500 ملجم",
+    )
+    source = ContractDrugFacts(PrefixSearch(), FakeCatalog(named), nothing, nothing, nothing)
+
+    rows = await source.search_drugs(typed, 8)
+
+    assert rows[0]["name_match"] == "exact"
+
+
+@pytest.mark.parametrize("typed", ["بيندولينت", "بنادوم", "ول"])
+async def test_a_different_arabic_name_stays_a_look_alike(typed: str) -> None:
+    nothing = cast(Any, None)
+    named = dataclasses.replace(
+        card("1", "PANADOL 500 mg film-coated tablet", "PARACETAMOL"),
+        trade_name_ar="بانادول 500 ملجم",
+    )
     source = ContractDrugFacts(PrefixSearch(), FakeCatalog(named), nothing, nothing, nothing)
 
     rows = await source.search_drugs(typed, 8)

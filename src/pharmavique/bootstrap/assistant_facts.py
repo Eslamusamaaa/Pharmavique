@@ -22,7 +22,7 @@ from pharmavique.interactions.contracts.queries import (
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
-from pharmavique.shared_kernel.text import normalize_text
+from pharmavique.shared_kernel.text import arabic_skeleton, normalize_text
 from pharmavique.substitution.contracts.queries import (
     EquivalenceQueries,
     IngredientFacts,
@@ -89,9 +89,18 @@ def _name_match(query: str, card: ProductCard, exact: bool) -> str:
     typed = normalize_text(query).split()
     names = (card.trade_name_ar, card.trade_name_en)
     words = [word for name in names if name for word in normalize_text(name).split()]
-    if typed and all(any(word.startswith(part) for word in words) for part in typed):
+    if typed and all(any(_same_word(word, part) for word in words) for part in typed):
         return "exact"
     return "similar_name_only"
+
+
+def _same_word(word: str, typed: str) -> bool:
+    """The typed word starts the product's word (a shortened name), or is another spelling of it:
+    the same consonants in the same order, at least three of them ("بنادول" for "بانادول")."""
+    if word.startswith(typed):
+        return True
+    skeleton = arabic_skeleton(typed)
+    return len(skeleton) >= 3 and skeleton == arabic_skeleton(word)
 
 
 class ContractDrugFacts:

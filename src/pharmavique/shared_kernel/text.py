@@ -75,3 +75,28 @@ def _normalize_once(text: str) -> str:
 
 def _next_is_digit(text: str, index: int) -> bool:
     return index + 1 < len(text) and text[index + 1].isdecimal()
+
+
+_LONG_VOWEL_LETTERS = frozenset("اوي")  # alef, waw, ya
+_ARABIC_BLOCK = ("؀", "ۿ")
+
+
+def arabic_skeleton(word: str) -> str:
+    """The consonants of an Arabic word, for telling two spellings of one transliterated name apart
+    from two different names. Brand names are written in Arabic letters from another language and
+    the long vowels (alef, waw, ya) are written in more than one way: the registry has "بانادول",
+    people write "بنادول" or "بندول". The first letter stays (it may be a vowel letter), the other
+    alef, waw and ya go, and a doubled letter counts once. A word with no Arabic letter, or one
+    that would be left with fewer than two letters, is returned as it is. `word` is already
+    normalized."""
+    low, high = _ARABIC_BLOCK
+    if not any(low <= char <= high for char in word):
+        return word
+    kept: list[str] = []
+    for index, char in enumerate(word):
+        if index and char in _LONG_VOWEL_LETTERS:
+            continue
+        if kept and kept[-1] == char:
+            continue
+        kept.append(char)
+    return "".join(kept) if len(kept) >= 2 else word

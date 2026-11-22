@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from pharmavique.shared_kernel.text import normalize_text, tokenize
+from pharmavique.shared_kernel.text import arabic_skeleton, normalize_text, tokenize
 
 
 @pytest.mark.parametrize(
@@ -83,3 +83,24 @@ def test_output_has_no_leading_trailing_or_double_spaces(text: str) -> None:
     out = normalize_text(text)
     assert out == out.strip()
     assert "  " not in out
+
+
+@pytest.mark.parametrize(
+    ("word", "expected"),
+    [
+        ("بانادول", "بندل"),  # the registry's spelling
+        ("بنادول", "بندل"),  # how people write it: no alef after the first ba
+        ("بندول", "بندل"),
+        ("اموكسيسيلين", "امكسلن"),
+        ("اموكسيسيللين", "امكسلن"),  # doubled lam
+        ("panadol", "panadol"),  # Latin words are left alone
+        ("500", "500"),
+    ],
+)
+def test_the_arabic_skeleton_ignores_long_vowel_spelling(word: str, expected: str) -> None:
+    assert arabic_skeleton(word) == expected
+
+
+def test_a_word_of_only_vowel_letters_keeps_its_letters() -> None:
+    # nothing is left to compare if every letter were dropped, so the word stays as it is
+    assert arabic_skeleton("او") == "او"
