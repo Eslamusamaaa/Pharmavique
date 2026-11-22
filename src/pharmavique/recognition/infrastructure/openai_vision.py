@@ -109,10 +109,21 @@ class OpenAICompatibleVisionReader:
                 }
             ],
         }
-        response = await self._client.post(self._url, json=payload, headers=self._headers)
+        try:
+            response = await self._client.post(self._url, json=payload, headers=self._headers)
+        except httpx.TransportError as error:
+            # a dropped or refused connection, also in the middle of the answer: a failure of this
+            # provider like any other, so the next model is tried and the API answers 502, not 500
+            raise VisionError(
+                f"vision provider connection failed ({type(error).__name__})"
+            ) from error
         if response.status_code != 200:
             raise VisionError(f"vision provider answered HTTP {response.status_code}")
-        choices = response.json().get("choices") or []
+        try:
+            body = response.json()
+        except ValueError as error:
+            raise VisionError("vision provider answered something that is not JSON") from error
+        choices = (body.get("choices") if isinstance(body, dict) else None) or []
         content = (choices[0].get("message") or {}).get("content") if choices else ""
         return parse_lines(content if isinstance(content, str) else "")
 

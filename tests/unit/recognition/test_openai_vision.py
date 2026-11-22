@@ -99,6 +99,50 @@ async def test_the_next_model_is_tried_when_one_is_busy() -> None:
     assert calls == ["busy", "ok"]
 
 
+async def test_a_connection_dropped_in_the_middle_of_an_answer_tries_the_next_model() -> None:
+    # seen live on 2026-11-22: the provider cut the connection while the answer was being read
+    # (httpx.ReadError) and the whole scan came back as HTTP 500
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content)["model"] == "dropped":
+            raise httpx.ReadError("connection closed", request=request)
+        answer = '{"lines": [{"name": "Panadol"}]}'
+        return httpx.Response(200, json={"choices": [{"message": {"content": answer}}]})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    readers = [
+        OpenAICompatibleVisionReader("https://or.test", "k", m, client) for m in ("dropped", "ok")
+    ]
+
+    (line,) = await FallbackVisionReader(readers).read(b"IMG", "image/png", ScanKind.BOX)
+
+    assert line.name == "Panadol"
+
+
+async def test_when_every_connection_drops_the_scan_fails_as_a_vision_error() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route", request=request)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    readers = [OpenAICompatibleVisionReader("https://or.test", "k", m, client) for m in ("a", "b")]
+
+    with pytest.raises(VisionError):
+        await FallbackVisionReader(readers).read(b"IMG", "image/png", ScanKind.BOX)
+
+
+async def test_an_answer_that_is_not_json_is_a_vision_error() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, text="<html>"))
+    )
+    reader = OpenAICompatibleVisionReader("https://or.test", "k", "m", client)
+
+    with pytest.raises(VisionError):
+        await reader.read(b"IMG", "image/png", ScanKind.BOX)
+
+
 async def test_when_every_model_fails_the_last_error_is_raised() -> None:
     from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
 
