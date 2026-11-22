@@ -689,6 +689,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(labels_cli.labels(args))
     if args.command == "knowledge-build":
         return asyncio.run(knowledge_cli.build(args))
+    if args.command == "knowledge-new-rows":
+        return asyncio.run(knowledge_cli.new_rows_run(args))
     if args.command == "knowledge-embed":
         return asyncio.run(knowledge_cli.embed(args))
     if args.command == "sfda-load":
