@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     elevenlabs_api_key: SecretStr | None = None
     # Web search for medicines the registry does not know (ADR-017); without a key the tool is off.
     tavily_api_key: SecretStr | None = None
+    # The exported website (`mobile/dist`, from `expo export -p web`), served by the API at `/`.
+    web_dir: str | None = None
     # Cloudflare Workers AI (free 10,000 Neurons a day, shared by every model): the assistant's
     # backup model and others. Both values are needed; without them nothing changes.
     cloudflare_api_token: SecretStr | None = None
@@ -134,6 +136,7 @@ class Settings(BaseSettings):
         "groq_api_key",
         "elevenlabs_api_key",
         "tavily_api_key",
+        "web_dir",
         "cloudflare_api_token",
         "cloudflare_account_id",
         "smtp_password",

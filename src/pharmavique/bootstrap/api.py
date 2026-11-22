@@ -49,6 +49,7 @@ from pharmavique.bootstrap.identity_wiring import build_email_sender, build_iden
 from pharmavique.bootstrap.job_handlers import build_handlers
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import get_settings
+from pharmavique.bootstrap.web_app import mount_web_app
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
@@ -345,4 +346,6 @@ def create_app(
     app.include_router(api_recognition.router)
     app.include_router(api_shelf.router)
     app.include_router(api_jobs.router)
+    if settings.web_dir:
+        mount_web_app(app, Path(settings.web_dir))
     return app
