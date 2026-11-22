@@ -36,6 +36,7 @@ from pharmavique.bootstrap import (
     places_cli,
     relay_cli,
     search_cli,
+    withdraw_cli,
     worker_cli,
 )
 from pharmavique.bootstrap.settings import get_settings
@@ -208,6 +209,7 @@ def build_parser() -> argparse.ArgumentParser:
     notify_cli.add_arguments(commands)
     worker_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
+    withdraw_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
 
@@ -669,6 +671,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(notify_cli.run(args))
     if args.command == "geocode-cities":
         return asyncio.run(places_cli.geocode(args))
+    if args.command == "sfda-withdraw-absent":
+        return asyncio.run(withdraw_cli.withdraw_absent(args))
     if args.command == "worker":
         return asyncio.run(worker_cli.run(args))
     if args.command == "cache-invalidate":
