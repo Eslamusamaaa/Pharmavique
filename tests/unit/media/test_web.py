@@ -155,12 +155,44 @@ async def test_an_image_host_without_a_readable_robots_txt_still_serves_the_pict
     assert polite.blocked_hosts == set()
 
 
-async def test_an_image_host_that_refuses_the_picture_itself_is_still_marked_blocked() -> None:
-    site = Site({"/robots.txt": (403, "text/html", b"denied"), "/i.jpg": (403, "text/html", b"no")})
+async def test_an_image_host_that_refuses_every_picture_is_marked_blocked_after_five() -> None:
+    site = Site(
+        {"/robots.txt": (403, "text/html", b"denied")}
+        | {f"/{n}.jpg": (403, "text/html", b"no") for n in range(5)}
+    )
+    polite = web(site)
+    downloader = HttpImageDownloader(polite)
+
+    for n in range(4):
+        assert await downloader.download(f"https://cdn.example.net/{n}.jpg") is None
+    assert polite.blocked_hosts == set()
+    assert await downloader.download("https://cdn.example.net/4.jpg") is None
+    assert polite.blocked_hosts == {"cdn.example.net"}
+
+
+async def test_one_removed_picture_that_answers_403_does_not_block_the_host() -> None:
+    # a CDN answers 403 for a file that no longer exists while serving the others
+    site = Site(
+        {
+            "/robots.txt": (403, "text/html", b"denied"),
+            "/gone.jpg": (403, "text/html", b"no"),
+            "/ok.jpg": (200, "image/jpeg", JPEG),
+        }
+    )
+    polite = web(site)
+    downloader = HttpImageDownloader(polite)
+
+    assert await downloader.download("https://cdn.example.net/gone.jpg") is None
+    assert await downloader.download("https://cdn.example.net/ok.jpg") is not None
+    assert polite.blocked_hosts == set()
+
+
+async def test_a_page_that_answers_403_still_blocks_the_site_at_once() -> None:
+    site = Site({"/robots.txt": (404, "text/plain", b""), "/p/a": html("denied", 403)})
     polite = web(site)
 
-    assert await HttpImageDownloader(polite).download("https://cdn.example.net/i.jpg") is None
-    assert polite.blocked_hosts == {"cdn.example.net"}
+    assert await WebPageReader(polite).read("https://shop.example.sa/p/a") is None
+    assert polite.blocked_hosts == {"shop.example.sa"}
 
 
 async def test_an_image_host_whose_robots_txt_forbids_the_picture_is_obeyed() -> None:

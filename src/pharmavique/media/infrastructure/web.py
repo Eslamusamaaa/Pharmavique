@@ -32,6 +32,7 @@ _BLOCK_STATUSES = (401, 403)
 _COOLDOWN_SECONDS = 120.0  # first 429 without Retry-After; doubles with every strike
 _MAX_COOLDOWN = 1800.0
 _STRIKES_BEFORE_GIVING_UP = 5
+_REFUSALS_BEFORE_BLOCKING = 5  # picture files refused in a row before the host counts as blocking
 _BLOCK_MARKERS = ("just a moment", "attention required", "access denied", "captcha")
 _MAX_PAGE_TEXT = 1_500
 _MAX_IMAGE_BYTES = 5_000_000
@@ -68,6 +69,7 @@ class PoliteWeb:
         self._user_agent = user_agent
         self._robots: dict[str, RobotsPolicy | None] = {}
         self._unreadable: set[str] = set()
+        self._refused: dict[str, int] = {}  # picture files refused (401/403) in a row, per host
         self.blocked_hosts: set[str] = set()
 
     async def get(self, url: str, *, strict_robots: bool = True) -> httpx.Response | None:
@@ -96,9 +98,17 @@ class PoliteWeb:
             self.incidents += 1
             return None
         if self._is_block(response):
+            if not strict_robots and response.status_code in _BLOCK_STATUSES:
+                # A picture file that answers 403 is often one that was removed while the host
+                # serves the others; only a run of refusals means the host is blocking us.
+                self._refused[host] = self._refused.get(host, 0) + 1
+                if self._refused[host] < _REFUSALS_BEFORE_BLOCKING:
+                    self.incidents += 1
+                    return None
             self._block(host, f"HTTP {response.status_code} or a bot check at {url}")
             self.incidents += 1
             return None
+        self._refused.pop(host, None)
         return response
 
     async def _policy_for(self, url: str, *, strict: bool) -> RobotsPolicy | None:
