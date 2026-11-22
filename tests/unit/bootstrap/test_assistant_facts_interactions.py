@@ -93,3 +93,33 @@ async def test_nothing_found_still_returns_a_coverage_record_that_lists_what_was
 async def test_without_the_interaction_source_the_tool_says_so() -> None:
     with pytest.raises(ValueError, match="not available"):
         await facts(with_interactions=False).check_interactions(["1", "2"])
+
+
+class FakeSearch:
+    async def search(self, query: Any) -> Any:
+        from pharmavique.search.contracts.queries import SearchMatch, SearchResult
+
+        return SearchResult(
+            (
+                SearchMatch(Market.SA, "1", 0.9, True, ()),
+                SearchMatch(Market.SA, "2", 0.4, False, ()),
+            )
+        )
+
+
+async def test_a_search_result_says_whether_the_name_matched_or_only_looked_alike() -> None:
+    nothing = cast(Any, None)
+    source = ContractDrugFacts(
+        FakeSearch(),
+        FakeCatalog(card("1", "Bilaxten", "BILASTINE"), card("2", "Bilazap", "BILASTINE")),
+        nothing,
+        nothing,
+        nothing,
+    )
+
+    rows = await source.search_drugs("Bilaxten", 8)
+
+    assert [(r["register_number"], r["name_match"]) for r in rows] == [
+        ("1", "exact"),
+        ("2", "similar_name_only"),
+    ]

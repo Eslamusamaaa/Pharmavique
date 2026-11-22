@@ -109,6 +109,8 @@ class ContractDrugFacts:
                 "ingredients": list(c.ingredient_names),
                 "dosage_form": c.dosage_form_ar or c.dosage_form_en,
                 "marketing_company": c.marketing_company,
+                # the search is forgiving: a look-alike name is not the medicine that was asked for
+                "name_match": "exact" if m.exact else "similar_name_only",
             }
             for m in result.matches
             if (c := by_number.get(m.register_number)) is not None

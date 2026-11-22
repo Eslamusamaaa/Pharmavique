@@ -404,3 +404,30 @@ async def test_a_web_query_that_is_too_long_is_refused_without_searching() -> No
     await LangGraphAgentRunner(model, FakeFacts(), web=web).run("سؤال", Level.PATIENT, None)
 
     assert web.queries == []
+
+
+async def test_an_answer_that_takes_too_long_is_a_busy_signal_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    from pharmavique.assistant.infrastructure import langgraph_agent
+
+    class SlowModel(ScriptedModel):
+        async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
+            await asyncio.sleep(1)
+            return AIMessage("late")
+
+    monkeypatch.setattr(langgraph_agent, "RUN_TIMEOUT", 0.05)
+
+    with pytest.raises(AssistantBusy):
+        await LangGraphAgentRunner(SlowModel(), FakeFacts()).run("سؤال", Level.PATIENT, None)
+
+
+def test_the_prompt_tells_the_model_a_look_alike_name_is_not_the_medicine() -> None:
+    from pharmavique.assistant.infrastructure.prompts import system_prompt
+
+    prompt = system_prompt(Level.PATIENT, None)
+
+    assert "name_match" in prompt
+    assert "similar_name_only" in prompt

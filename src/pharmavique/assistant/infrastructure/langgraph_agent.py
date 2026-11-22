@@ -396,29 +396,33 @@ class LangGraphAgentRunner:
         ]
         messages: list[AnyMessage] = [*earlier, HumanMessage(question)]
         text = ""
-        async with asyncio.timeout(RUN_TIMEOUT):
-            try:
-                result = await app.ainvoke(MessagesState(messages=messages), config)
-                messages = result["messages"]
-                text = _final_text(messages)
-                if not text.strip():
-                    # Reasoning models sometimes end a turn with no visible text: ask once.
-                    result = await app.ainvoke(
-                        MessagesState(messages=[*messages, HumanMessage(NUDGE)]), config
-                    )
+        try:
+            async with asyncio.timeout(RUN_TIMEOUT):
+                try:
+                    result = await app.ainvoke(MessagesState(messages=messages), config)
                     messages = result["messages"]
                     text = _final_text(messages)
-                if text.strip() and not box.calls:
-                    # Answered without consulting the registry: one verification turn.
-                    result = await app.ainvoke(
-                        MessagesState(messages=[*messages, HumanMessage(VERIFY)]), config
-                    )
-                    messages = result["messages"]
-                    text = _final_text(messages)
-            except GraphRecursionError:
-                text = ""  # the model kept calling tools: no answer rather than a loop
-            except openai.RateLimitError as error:
-                raise AssistantBusy("the model provider's rate limit was reached") from error
+                    if not text.strip():
+                        # Reasoning models sometimes end a turn with no visible text: ask once.
+                        result = await app.ainvoke(
+                            MessagesState(messages=[*messages, HumanMessage(NUDGE)]), config
+                        )
+                        messages = result["messages"]
+                        text = _final_text(messages)
+                    if text.strip() and not box.calls:
+                        # Answered without consulting the registry: one verification turn.
+                        result = await app.ainvoke(
+                            MessagesState(messages=[*messages, HumanMessage(VERIFY)]), config
+                        )
+                        messages = result["messages"]
+                        text = _final_text(messages)
+                except GraphRecursionError:
+                    text = ""  # the model kept calling tools: no answer rather than a loop
+                except openai.RateLimitError as error:
+                    raise AssistantBusy("the model provider's rate limit was reached") from error
+        except TimeoutError as error:
+            # usually the provider's per-minute token limit made every retry wait
+            raise AssistantBusy("the answer took too long") from error
         inputs, outputs = _tokens(messages)
         # Keep only records the answer cites and that really exist, renumbered 1..n in that order.
         cited = sorted(
