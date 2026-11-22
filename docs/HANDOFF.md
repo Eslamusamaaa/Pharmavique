@@ -148,8 +148,16 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
 - The assistant has a `web_search` tool (ADR-017) for a medicine the registry does not know. It is off until
   `PHARMAVIQUE_TAVILY_API_KEY` is set (free plan, 1,000 searches a month), and it has never run against the
   real service: the tests use a mocked transport. Its results are shown as unverified.
-- Photos: the assistant screen has a photo button (box scan reads the name, the name becomes the question).
-  Not tried on a phone.
+- Photos: the assistant screen holds a photo until the question is sent with it (box scan reads the name,
+  the name joins the question). Not tried on a phone.
+- **Cloudflare Workers AI** (free 10,000 Neurons a day, shared; token and account id in `.env`), measured on
+  2026-11-22: the assistant's backup when Groq is rate limited (`Gemma 4 26B`: four real questions answered
+  correctly with citations in 31 to 42 s; `gpt-oss-120b` there returned empty text on three of four, `Llama 4
+  Scout` wrote tool calls as text); embeddings (`@cf/baai/bge-m3`: cosine 1.0 against six stored vectors, so
+  nothing was re-embedded and the stored label stays `baai/bge-m3`); the first vision reader (Llama 4 Scout read
+  a test box in 3.5 s for about 12 Neurons). A tool-call message must carry `content: ""`, not null, or
+  Cloudflare answers 400 (`CloudflareChatOpenAI`). Groq's free plan allows 8,000 tokens a minute (about one
+  assistant answer); three questions at once now all answer, but in 41 to 74 s. Speech to text stays on Groq.
 - Not built: Redis failover, replicas, CDN, shared picture storage, the pictures image on ghcr (the push
   never completed; the pictures exist only on the laptop), push notifications (dropped), the Egypt adapter.
 
