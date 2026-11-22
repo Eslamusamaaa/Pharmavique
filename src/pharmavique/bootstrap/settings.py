@@ -86,8 +86,11 @@ class Settings(BaseSettings):
     # The assistant's language model (needs tool calling).
     llm_provider: Literal["groq", "openrouter"] = "groq"
     llm_model: str = "openai/gpt-oss-120b"
-    # The same model on Cloudflare Workers AI, used when the first one is rate limited or slow.
-    cloudflare_llm_model: str = "@cf/openai/gpt-oss-120b"
+    # The assistant's backup on Cloudflare Workers AI, used when the first model is rate limited or
+    # slow. Measured on four real questions (2026-11-22): Gemma 4 answered all four correctly with
+    # citations (31 to 42 s each); gpt-oss-120b there answered one of four (the rest came back
+    # empty); Llama 4 Scout wrote tool calls as text and answered in English.
+    cloudflare_llm_model: str = "@cf/google/gemma-4-26b-a4b-it"
     # bge-m3 on Cloudflare: the same model as `embedding_model`, with identical vectors.
     cloudflare_embedding_model: str = "@cf/baai/bge-m3"
     # Reads boxes and prescriptions (Llama 4 Scout, with image input through the chat endpoint).
