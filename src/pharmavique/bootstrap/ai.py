@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.assistant.application.ask import AskAssistant
 from pharmavique.assistant.application.ports import AssistantObserver
+from pharmavique.assistant.infrastructure.cloudflare_chat import CloudflareChatOpenAI
 from pharmavique.assistant.infrastructure.fallback_model import FallbackChatModel
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
@@ -82,7 +83,7 @@ def build_chat_model(settings: Settings) -> Any | None:
         key, base_url = settings.openrouter_api_key, OPENROUTER_BASE_URL
     cloudflare_url = settings.cloudflare_base_url
     backup = (
-        ChatOpenAI(
+        CloudflareChatOpenAI(
             model=settings.cloudflare_llm_model,
             base_url=cloudflare_url,
             api_key=settings.cloudflare_api_token,
