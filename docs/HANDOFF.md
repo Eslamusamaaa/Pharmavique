@@ -130,6 +130,10 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
 - Interaction data (DDInter, openFDA) is incomplete and matches by ingredient name: "nothing found" is
   never "safe".
 - Row-level security does nothing for a database superuser: production must connect as an ordinary role.
+- Drugs: the daily update loads what it read even when a run is partial (`data/refresh/ATTENTION.md` says
+  what was not checked). A drug that left the SFDA list is withdrawn only after it is missing from two
+  complete runs in a row, at most 50 at once (`sfda-withdraw-absent`, Q-40: both numbers are guesses). A
+  change that is only in a details page can take up to a month to be seen (`--recheck 300`).
 - Not built: Redis failover, replicas, CDN, shared picture storage, the pictures image on ghcr (the push
   never completed; the pictures exist only on the laptop), push notifications (dropped), the Egypt adapter.
 

@@ -46,8 +46,19 @@ What it does:
 Limits to know:
 
 - A change that is **only** in the details pages is found when that drug comes up in the re-check, so it can take up to a month with the default. Raise `--recheck` for faster detection (more requests per run).
-- A drug that disappears from the list is reported as "removed from the list". The list alone does not say whether it was withdrawn or just unlisted.
-- If a changed drug's details cannot be fetched, the new list fields are kept, the old details are kept, and the failure is recorded in `manifest.json` (status `partial`, baseline not moved).
+- A drug that disappears from the list is reported as "removed from the list". The list alone does not say whether it was withdrawn or just unlisted, so `sfda-load` never withdraws anything. See "Withdrawing drugs that left the list" below.
+- If a changed drug's details cannot be fetched, the new list fields are kept, the old details are kept (with their old `fetched_at`), and the failure is recorded in `manifest.json` (status `partial`, baseline not moved). The daily refresh still loads what was read (the load only adds and updates), and writes `data/refresh/ATTENTION.md` saying how many drugs were not checked; they are the oldest, so the next run tries them again.
+- An empty page inside the list (the site answered "No Results Found" for page 159 on 2026-11-22 while pages 158 and 160 were full) is read as a hole, not as an error. The walker records it in `manifest.json` (`empty_pages`) and asks for it again in the repair passes. Only that exact text counts: a block page or a longer message still raises `ParseError`.
+
+### Withdrawing drugs that left the list
+
+`uv run pharmavique sfda-withdraw-absent --run-id R --baseline B [--dry-run] [--max-withdrawals 50]`, run by the daily refresh after the load. A drug is withdrawn (and the watchlist alert and the radar event follow) only when all of these hold:
+
+- run `R` is `complete` (no gap, no failed page); after a partial run the command withdraws nothing and exits 2;
+- the drug is missing from `R` **and** from `B`, the run `R` was compared with, so it was missing twice in a row (the list is unstable, one pass misses about one drug in sixteen);
+- at most `--max-withdrawals` drugs qualify at once, otherwise none is withdrawn and the command exits 2. The default 50 is a guess; the real rate of removals is unknown (OPEN_QUESTIONS Q-40).
+
+The rule is the pure function `ingestion.application.withdrawals.plan_withdrawals`. A drug missing only once is "pending": the command prints it, and the next complete run withdraws it if it is still missing. A withdrawn drug that comes back on the list is relisted by the next load.
 
 Compare any two runs offline: `uv run pharmavique sfda-diff <old-run> <new-run>`.
 
