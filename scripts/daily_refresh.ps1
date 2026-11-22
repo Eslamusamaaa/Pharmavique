@@ -75,6 +75,21 @@ try {
             $code = Invoke-Step "drugs-update-retry$attempt" $update
         }
         if ($code -eq 0 -and $attempt -gt 0) { $failed -= $attempt }  # earlier attempts were recovered
+        # Say plainly what could not be checked, so a changed drug is never missed without anyone knowing.
+        $note = @("# Needs attention $stamp", "", "drugs-update exit code: $code")
+        $manifestPath = Join-Path $root "data\sfda\$run\manifest.json"
+        if (Test-Path $manifestPath) {
+            $m = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $nFail = if ($m.failures) { @($m.failures.PSObject.Properties).Count } else { 0 }
+            $gap = if ($m.list_completeness) { $m.list_completeness.gap } else { "unknown" }
+            $note += @("run status: $($m.status)", "drug detail pages that could not be fetched: $nFail",
+                "list gap (drugs the pager promised but no pass returned): $gap")
+            if ($nFail -gt 0) { $note += "  those drugs keep their OLD details and old fetched_at; they are retried at the next run" }
+        }
+        if ($code -ne 0) { $note += "NOTHING was loaded today: the database still holds the previous data. Resume with --run-id $run." }
+        else { $note += "Everything was read; nothing is outstanding." }
+        Set-Content -Path (Join-Path $logs "attention.md") -Value $note -Encoding UTF8
+        Set-Content -Path (Join-Path $root "data\refresh\ATTENTION.md") -Value $note -Encoding UTF8
         if ($code -eq 0) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
