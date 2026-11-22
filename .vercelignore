@@ -1,0 +1,20 @@
+# Not uploaded to Vercel: the picture files (hundreds of MB, not in git), the local crawl data, the
+# virtual environment, node_modules and local caches. The site is built on Vercel (vercel.json).
+.venv
+.git
+.env
+.env.*
+.mypy_cache
+.ruff_cache
+.pytest_cache
+node_modules
+mobile/node_modules
+mobile/dist
+mobile/.expo
+data
+tests
+docs
+pharmavique-wireframes
+*.png
+!mobile/public/*.png
+!mobile/assets/**/*.png

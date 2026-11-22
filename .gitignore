@@ -55,3 +55,5 @@ htmlcov/
 Thumbs.db
 /data/knowledge/openfda-interactions/
 /data/media/images/
+
+.vercel

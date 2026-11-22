@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "buildCommand": "cd mobile && npm ci && npm run build:web",
+  "functions": {
+    "app.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{tests/**,docs/**,scripts/**,pharmavique-wireframes/**,data/**,docker/**,mobile/node_modules/**,mobile/src/**,mobile/assets/**,mobile/.expo/**,migrations/**}"
+    }
+  }
+}
