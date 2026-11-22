@@ -15,7 +15,9 @@ import {
   SpeakerHighIcon,
   StopIcon,
   WarningIcon,
+  XIcon,
 } from 'phosphor-react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
@@ -49,7 +51,7 @@ import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
 
 type Turn =
-  | { id: string; role: 'user'; text: string }
+  | { id: string; role: 'user'; text: string; sent?: string; photo?: string }
   | { id: string; role: 'assistant'; answer: AssistantAnswer }
   | { id: string; role: 'pending' }
   | { id: string; role: 'error'; text: string };
@@ -72,9 +74,10 @@ export default function Assistant() {
   const speaker = useSpeaker();
   const busy = turns.some((t) => t.role === 'pending');
   const [reading, setReading] = useState(false);
+  const [photo, setPhoto] = useState<{ uri: string; mimeType: string } | null>(null);
   const readingNow = useRef(false);
 
-  const ask = async (question: string, spoken = false) => {
+  const ask = async (question: string, spoken = false, shown?: string, photoUri?: string) => {
     const q = question.trim();
     if (!q || busy) return;
     const pendingId = nextId();
@@ -82,7 +85,7 @@ export default function Assistant() {
     const history: ConversationTurn[] = turns
       .flatMap((t): ConversationTurn[] =>
         t.role === 'user'
-          ? [{ role: 'user', text: t.text }]
+          ? [{ role: 'user', text: t.sent ?? t.text }]
           : t.role === 'assistant'
             ? [{ role: 'assistant', text: t.answer.answer }]
             : [],
@@ -90,7 +93,7 @@ export default function Assistant() {
       .slice(-6);
     setText('');
     Keyboard.dismiss(); // the answer is what matters now, not the keyboard
-    setTurns((all) => [...all, { id: nextId(), role: 'user', text: q }, { id: pendingId, role: 'pending' }]);
+    setTurns((all) => [...all, { id: nextId(), role: 'user', text: shown ?? q, sent: q, photo: photoUri }, { id: pendingId, role: 'pending' }]);
     try {
       const answer =
         useMine && account && params.register
@@ -104,16 +107,26 @@ export default function Assistant() {
     }
   };
 
-  // Photo of a box: the existing box scan only transcribes what is printed on it; the name it read
-  // becomes the question. No image goes to the assistant's language model (ADR-017).
-  const readPhoto = async (picked: ImagePicker.ImagePickerResult) => {
+  // A photo stays attached until the person adds the question to send with it. The box scan only
+  // transcribes what is printed on the box; the name it read joins the question. No image goes to
+  // the assistant's language model (ADR-017).
+  const attach = (picked: ImagePicker.ImagePickerResult) => {
     const asset = picked.assets?.[0];
-    if (picked.canceled || !asset || readingNow.current) return;
+    if (picked.canceled || !asset) return;
+    setPhoto({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
+  };
+
+  const sendWithPhoto = async () => {
+    const attached = photo;
+    const asked = text.trim();
+    if (!attached || !asked || readingNow.current || busy) return;
     readingNow.current = true;
     setReading(true);
+    Keyboard.dismiss();
     try {
-      const result = await scanImage(asset.uri, asset.mimeType ?? 'image/jpeg', 'box');
+      const result = await scanImage(attached.uri, attached.mimeType, 'box');
       const line = result.lines[0];
+      setPhoto(null);
       if (!line) {
         setTurns((all) => [
           ...all,
@@ -122,18 +135,20 @@ export default function Assistant() {
         return;
       }
       const printed = [line.name, line.strength, line.form].filter(Boolean).join(' ').slice(0, 120);
-      const asked = text.trim() || 'وش هذا الدواء؟ وش مادته الفعالة وبدائله؟';
       readingNow.current = false;
       setReading(false);
       await ask(`${asked}
-مكتوب على العلبة (مقروء من صورة): "${printed}"`);
+مكتوب على العلبة (مقروء من صورة): "${printed}"`, false, asked, attached.uri);
     } catch (e) {
+      // the photo stays attached so the person can send again
       setTurns((all) => [...all, { id: nextId(), role: 'error', text: friendlyError(e) }]);
     } finally {
       readingNow.current = false;
       setReading(false);
     }
   };
+
+  const send = () => (photo ? sendWithPhoto() : ask(text));
 
   const onPhoto = () =>
     Alert.alert('أضف صورة دواء', 'صوّر العلبة أو اختر صورة من المعرض', [
@@ -148,13 +163,13 @@ export default function Assistant() {
             ]);
             return;
           }
-          await readPhoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }));
+          attach(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }));
         },
       },
       {
         text: 'المعرض',
         onPress: async () =>
-          readPhoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 })),
+          attach(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 })),
       },
       { text: 'إلغاء', style: 'cancel' },
     ]);
@@ -222,6 +237,7 @@ export default function Assistant() {
             if (turn.role === 'user')
               return (
                 <View key={turn.id} style={[styles.userBubble, { backgroundColor: c.pr }]}>
+                  {turn.photo ? <Image source={{ uri: turn.photo }} style={styles.bubbleThumb} contentFit="cover" /> : null}
                   <T color={c.prt} weight={500}>
                     {turn.text}
                   </T>
@@ -284,12 +300,30 @@ export default function Assistant() {
           ) : null}
         </ScrollView>
 
+        {photo ? (
+          <View style={[styles.attached, { backgroundColor: c.sf, borderColor: c.ln }]}>
+            <Image source={{ uri: photo.uri }} style={styles.thumb} contentFit="cover" />
+            <T size={13} color={c.ink2} style={{ flex: 1 }}>
+              صورة مرفقة. اكتب سؤالك عنها ثم أرسل.
+            </T>
+            <Pressable onPress={() => setPhoto(null)} accessibilityLabel="أزل الصورة" style={styles.iconBtn}>
+              <XIcon size={20} color={c.ink2} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={[styles.inputBar, { backgroundColor: c.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
             value={text}
             onChangeText={setText}
-            onSubmitEditing={() => ask(text)}
-            placeholder={mic.state === 'listening' ? 'نسمعك… اضغط مرة ثانية إذا خلصت' : 'اكتب أو تكلّم عن اسم أو مادة أو سعر'}
+            onSubmitEditing={send}
+            placeholder={
+              mic.state === 'listening'
+                ? 'نسمعك… اضغط مرة ثانية إذا خلصت'
+                : photo
+                  ? 'اكتب سؤالك عن الصورة'
+                  : 'اكتب أو تكلّم عن اسم أو مادة أو سعر'
+            }
             placeholderTextColor={c.ink2}
             multiline
             style={[styles.input, { backgroundColor: c.sf, color: c.ink, fontFamily: fonts.ar[400] }, cardShadow]}
@@ -315,7 +349,7 @@ export default function Assistant() {
               <MicrophoneIcon size={22} color={c.pr} />
             )}
           </Pressable>
-          <Pressable onPress={() => ask(text)} disabled={busy || !text.trim()} style={[styles.roundBtn, { backgroundColor: c.pr, opacity: busy || !text.trim() ? 0.5 : 1 }]} accessibilityLabel="إرسال">
+          <Pressable onPress={send} disabled={busy || reading || !text.trim()} style={[styles.roundBtn, { backgroundColor: c.pr, opacity: busy || reading || !text.trim() ? 0.5 : 1 }]} accessibilityLabel="إرسال">
             <PaperPlaneTiltIcon size={22} color={c.prt} weight="fill" />
           </Pressable>
         </View>
@@ -448,6 +482,9 @@ const styles = StyleSheet.create({
   header: { height: 52, flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingHorizontal: 8 },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   thread: { padding: 16, gap: 14 },
+  attached: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10, marginHorizontal: 12, marginTop: 6, padding: 8, borderWidth: 1, borderRadius: radius.md },
+  thumb: { width: 52, height: 52, borderRadius: radius.sm },
+  bubbleThumb: { width: 140, height: 140, borderRadius: radius.md, marginBottom: 8 },
   userBubble: { alignSelf: 'flex-end', maxWidth: '85%', borderRadius: radius.lg, borderTopRightRadius: 4, paddingVertical: 10, paddingHorizontal: 14 },
   pending: { alignSelf: 'flex-end', borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 14 },
   card: { borderRadius: radius.lg, padding: 16, gap: 10 },
