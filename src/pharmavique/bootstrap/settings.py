@@ -6,6 +6,8 @@ from typing import Any, Literal
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pharmavique.foundation.db.url import to_asyncpg_url
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -146,6 +148,14 @@ class Settings(BaseSettings):
     def _empty_means_unset(cls, value: Any) -> Any:
         """`PHARMAVIQUE_REDIS_URL=` (set but empty) is the same as not setting it."""
         return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _async_driver_address(cls, value: SecretStr | None) -> SecretStr | None:
+        """An address from Neon or Vercel works as given (see `foundation.db.url`)."""
+        if value is None:
+            return None
+        return SecretStr(to_asyncpg_url(value.get_secret_value()))
 
 
 @lru_cache
