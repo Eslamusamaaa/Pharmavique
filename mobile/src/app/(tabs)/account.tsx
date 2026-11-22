@@ -2,12 +2,13 @@
 // Search and the assistant need no account. My medicines and allergies live in the أدويتي tab.
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicAuthError, deleteAccount, setEmailNotifications, signOut } from '@/api/auth';
 import { Group, LinkRow, SwitchRow } from '@/components/AccountParts';
 import { DisclaimerBar, Pill, PrimaryButton, T } from '@/components/ui';
+import { confirmAction } from '@/lib/confirm';
 import { useAccount } from '@/state/auth';
 import { roleInfo, useRole } from '@/state/role';
 import { useTheme } from '@/theme';
@@ -40,14 +41,9 @@ export default function Account() {
   const current = roleInfo(role ?? 'patient');
 
   const confirmDelete = () =>
-    Alert.alert('حذف الحساب', 'بيتم حذف الحساب وكل ما هو محفوظ فيه. ما فيه رجعة.', [
-      { text: 'إلغاء', style: 'cancel' },
-      {
-        text: 'احذف',
-        style: 'destructive',
-        onPress: () => deleteAccount().catch((e: unknown) => setMessage(arabicAuthError(e))),
-      },
-    ]);
+    confirmAction('حذف الحساب', 'بيتم حذف الحساب وكل ما هو محفوظ فيه. ما فيه رجعة.', 'احذف', () => {
+      deleteAccount().catch((e: unknown) => setMessage(arabicAuthError(e)));
+    });
 
   const tools: { label: string; hint: string; path: '/company' | '/shelf' | '/operator' }[] = [];
   if (account?.role === 'company' || account?.role === 'operator') {

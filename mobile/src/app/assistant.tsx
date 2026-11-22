@@ -150,8 +150,11 @@ export default function Assistant() {
 
   const send = () => (photo ? sendWithPhoto() : ask(text));
 
+  // On the website the browser's own file chooser already offers the camera or the library.
   const onPhoto = () =>
-    Alert.alert('أضف صورة دواء', 'صوّر العلبة أو اختر صورة من المعرض', [
+    Platform.OS === 'web'
+      ? ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 }).then(attach)
+      : Alert.alert('أضف صورة دواء', 'صوّر العلبة أو اختر صورة من المعرض', [
       {
         text: 'الكاميرا',
         onPress: async () => {

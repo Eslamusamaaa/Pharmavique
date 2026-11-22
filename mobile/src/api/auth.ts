@@ -1,9 +1,9 @@
 // Accounts: sign up, sign in, keep the session fresh, sign out, delete the account.
 // The refresh token lives in the device's secure storage (Keychain or Keystore), never in plain
 // storage. The short-lived access token stays in memory and is renewed with the refresh token.
-import * as SecureStore from 'expo-secure-store';
 
 import { API_URL } from '@/api/client';
+import { readToken, writeToken } from '@/lib/token-storage';
 
 export type AccountRole = 'patient' | 'pharmacist' | 'company' | 'operator';
 
@@ -54,22 +54,8 @@ export function subscribe(listener: (a: Account | null) => void): () => void {
   return () => listeners.delete(listener);
 }
 
-async function readRefresh(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(REFRESH_KEY);
-  } catch {
-    return null;
-  }
-}
-
-async function saveRefresh(token: string | null): Promise<void> {
-  try {
-    if (token) await SecureStore.setItemAsync(REFRESH_KEY, token);
-    else await SecureStore.deleteItemAsync(REFRESH_KEY);
-  } catch {
-    // secure storage unavailable: the session then lasts until the app is closed
-  }
-}
+const readRefresh = () => readToken(REFRESH_KEY);
+const saveRefresh = (token: string | null) => writeToken(REFRESH_KEY, token);
 
 async function post(path: string, body: unknown, token?: string): Promise<Response> {
   try {
