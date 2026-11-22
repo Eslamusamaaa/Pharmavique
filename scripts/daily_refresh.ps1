@@ -86,11 +86,15 @@ try {
                 "list gap (drugs the pager promised but no pass returned): $gap")
             if ($nFail -gt 0) { $note += "  those drugs keep their OLD details and old fetched_at; they are retried at the next run" }
         }
-        if ($code -ne 0) { $note += "NOTHING was loaded today: the database still holds the previous data. Resume with --run-id $run." }
-        else { $note += "Everything was read; nothing is outstanding." }
+        # Exit 2 is a partial run: the records it did read are real (a price, a new drug, changed details),
+        # and the load only adds and updates, never deletes, so it is loaded. What was not read is listed
+        # above and is read again by the next run. Any other code means no records were written.
+        if ($code -eq 0) { $note += "Everything was read; nothing is outstanding." }
+        elseif ($code -eq 2) { $note += "PARTIAL: the changes that were read were loaded; the drugs listed above were not checked today." }
+        else { $note += "NOTHING was loaded today: the database still holds the previous data. Resume with --run-id $run." }
         Set-Content -Path (Join-Path $logs "attention.md") -Value $note -Encoding UTF8
         Set-Content -Path (Join-Path $root "data\refresh\ATTENTION.md") -Value $note -Encoding UTF8
-        if ($code -eq 0) {
+        if ($code -eq 0 -or $code -eq 2) {
             Invoke-Step "drugs-load" @("sfda-load", "--run-id", $run, "--from-records") | Out-Null
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them
