@@ -1,15 +1,16 @@
-// E · Account: the signed-in account, or a way to sign in. Search and the assistant need no account.
+// حسابي: who is signed in, the email-alert switch, the tools of my role, sign out and delete.
+// Search and the assistant need no account. My medicines and allergies live in the أدويتي tab.
 import { router } from 'expo-router';
-import { UserCircleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, Switch, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicAuthError, deleteAccount, setEmailNotifications, signOut } from '@/api/auth';
-import { DisclaimerBar, T } from '@/components/ui';
+import { Group, LinkRow, SwitchRow } from '@/components/AccountParts';
+import { DisclaimerBar, Pill, PrimaryButton, T } from '@/components/ui';
 import { useAccount } from '@/state/auth';
 import { roleInfo, useRole } from '@/state/role';
-import { radius, useTheme } from '@/theme';
+import { useTheme } from '@/theme';
 
 const ROLE_LABEL: Record<string, string> = {
   patient: 'مريض',
@@ -17,6 +18,19 @@ const ROLE_LABEL: Record<string, string> = {
   company: 'شركة أو مخزن أدوية',
   operator: 'مشغّل المنصة',
 };
+
+function Avatar({ letter }: { letter: string }) {
+  const { c } = useTheme();
+  return (
+    <View
+      style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: c.pr, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <T size={34} weight={700} color={c.prt} latin>
+        {letter.toUpperCase()}
+      </T>
+    </View>
+  );
+}
 
 export default function Account() {
   const { c } = useTheme();
@@ -35,13 +49,16 @@ export default function Account() {
       },
     ]);
 
-  const outline = {
-    minHeight: 48,
-    paddingHorizontal: 24,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    justifyContent: 'center' as const,
-  };
+  const tools: { label: string; hint: string; path: '/company' | '/shelf' | '/operator' }[] = [];
+  if (account?.role === 'company' || account?.role === 'operator') {
+    tools.push({ label: 'شاشة الشركات', hint: 'خريطة السوق والفجوات والرادار', path: '/company' });
+  }
+  if (account?.role === 'pharmacist' || account?.role === 'operator') {
+    tools.push({ label: 'مسح الرف', hint: 'صوّر رف الصيدلية وأضف أدويته', path: '/shelf' });
+  }
+  if (account?.role === 'operator') {
+    tools.push({ label: 'جودة البيانات', hint: 'حالة التحديث والسجل', path: '/operator' });
+  }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -51,104 +68,60 @@ export default function Account() {
         </T>
       </View>
       <DisclaimerBar />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-        <UserCircleIcon size={64} color={c.pr} />
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 20, alignItems: 'center' }}>
         {account ? (
           <>
-            <T size={18} weight={700} align="center" latin>
-              {account.email}
-            </T>
-            <T size={15} color={c.ink2} align="center">
-              {ROLE_LABEL[account.role] ?? account.role}
-            </T>
-            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 12, alignSelf: 'stretch' }}>
-              <View style={{ flex: 1 }}>
-                <T weight={600}>تنبيهات على الإيميل</T>
-                <T size={12.5} color={c.ink2}>
-                  رسالة واحدة عند تغيّر سعر أو سحب أي دواء محفوظ. التنبيهات تظل ظاهرة في التطبيق في كل الأحوال.
-                </T>
-              </View>
-              <Switch
-                value={account.email_notifications}
-                onValueChange={(on) => setEmailNotifications(on).catch((e: unknown) => setMessage(arabicAuthError(e)))}
-                accessibilityLabel="تنبيهات على الإيميل"
-              />
+            <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+              <Avatar letter={account.email.slice(0, 1)} />
+              <T size={17} weight={700} align="center" latin>
+                {account.email}
+              </T>
+              <Pill label={ROLE_LABEL[account.role] ?? account.role} />
             </View>
-            <Pressable
-              onPress={() => router.push('/my-list')}
-              style={[outline, { borderColor: c.pr, backgroundColor: c.pr, marginTop: 8 }]}
-              accessibilityRole="button"
-            >
-              <T weight={700} color={c.prt}>
-                قائمتي وتنبيهاتي
-              </T>
-            </Pressable>
-            {account.role === 'company' || account.role === 'operator' ? (
-              <Pressable
-                onPress={() => router.push('/company')}
-                style={[outline, { borderColor: c.pr }]}
-                accessibilityRole="button"
-              >
-                <T weight={600} color={c.pr}>
-                  شاشة الشركات
-                </T>
-              </Pressable>
+
+            <Group title="الإشعارات">
+              <SwitchRow
+                label="تنبيهات على الإيميل"
+                hint="رسالة واحدة عند تغيّر سعر أو سحب أحد أدويتك المحفوظة فقط. التنبيهات تظل ظاهرة في التطبيق."
+                value={account.email_notifications}
+                onChange={(on) => setEmailNotifications(on).catch((e: unknown) => setMessage(arabicAuthError(e)))}
+              />
+            </Group>
+
+            {tools.length > 0 ? (
+              <Group title="أدواتي">
+                {tools.map((t, i) => (
+                  <LinkRow
+                    key={t.path}
+                    label={t.label}
+                    hint={t.hint}
+                    onPress={() => router.push(t.path)}
+                    last={i === tools.length - 1}
+                  />
+                ))}
+              </Group>
             ) : null}
-            {account.role === 'pharmacist' || account.role === 'operator' ? (
-              <Pressable
-                onPress={() => router.push('/shelf')}
-                style={[outline, { borderColor: c.pr }]}
-                accessibilityRole="button"
-              >
-                <T weight={600} color={c.pr}>
-                  مسح الرف
-                </T>
-              </Pressable>
-            ) : null}
-            {account.role === 'operator' ? (
-              <Pressable
-                onPress={() => router.push('/operator')}
-                style={[outline, { borderColor: c.pr }]}
-                accessibilityRole="button"
-              >
-                <T weight={600} color={c.pr}>
-                  جودة البيانات
-                </T>
-              </Pressable>
-            ) : null}
-            <Pressable onPress={() => signOut()} style={[outline, { borderColor: c.pr }]} accessibilityRole="button">
-              <T weight={600} color={c.pr}>
-                تسجيل الخروج
-              </T>
-            </Pressable>
-            <Pressable onPress={confirmDelete} style={[outline, { borderColor: c.rd }]} accessibilityRole="button">
-              <T weight={600} color={c.rd}>
-                حذف الحساب
-              </T>
-            </Pressable>
+
+            <Group title="الحساب">
+              <LinkRow label="تسجيل الخروج" onPress={() => signOut()} />
+              <LinkRow label="حذف الحساب" danger last onPress={confirmDelete} />
+            </Group>
           </>
         ) : (
           <>
-            <T size={20} weight={700} align="center">
-              {current.label}
-            </T>
-            <T size={15} color={c.ink2} align="center">
-              {current.hint}
-            </T>
-            <Pressable
-              onPress={() => router.push('/sign-in')}
-              style={[outline, { borderColor: c.pr, backgroundColor: c.pr, marginTop: 8 }]}
-              accessibilityRole="button"
-            >
-              <T weight={700} color={c.prt}>
-                تسجيل الدخول أو إنشاء حساب
+            <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+              <Avatar letter="؟" />
+              <T size={20} weight={700} align="center">
+                {current.label}
               </T>
-            </Pressable>
-            <Pressable onPress={() => router.push('/role')} style={[outline, { borderColor: c.pr }]} accessibilityRole="button">
-              <T weight={600} color={c.pr}>
-                غيّر الدور
+              <T size={15} color={c.ink2} align="center">
+                {current.hint}
               </T>
-            </Pressable>
+            </View>
+            <View style={{ alignSelf: 'stretch', gap: 12 }}>
+              <PrimaryButton label="تسجيل الدخول أو إنشاء حساب" onPress={() => router.push('/sign-in')} />
+              <PrimaryButton label="غيّر الدور" outline onPress={() => router.push('/role')} />
+            </View>
             <T size={13} color={c.ink2} align="center">
               البحث والمساعد يشتغلون بدون حساب. الحساب للأدوية المحفوظة والتنبيهات.
             </T>
@@ -159,7 +132,7 @@ export default function Account() {
             {message}
           </T>
         ) : null}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
