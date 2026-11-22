@@ -90,6 +90,20 @@ The placeholders are tablets 2,591, injections 2,300, capsules 586, liquids 461,
 drops 112, inhalers 99, suppositories 49 and other 16. About 165 drugs were not tried because a
 shop (Aljawaher) was cooling down at the end; `sfda-images --retry` works them again.
 
+## Pictures on Vercel (Neon object storage), 2026-11-23
+
+Vercel has no media folder. The pictures that belong to a drug (the mapping's `real` rows) are in the
+public bucket `pharmavique` of the Neon project, under the same key the API uses
+(`products/SA/<register>/<file>`). `scripts/upload_pictures_to_bucket.py` uploads them (safe to repeat;
+the S3 settings come from the git-ignored `.env.neon-storage`); a picture without a drug is never
+uploaded. When `PHARMAVIQUE_PICTURE_BASE_URL` is set (the bucket's public address,
+`https://<branch>.storage.<region>.aws.neon.tech/pharmavique`), `GET /v1/products/{rn}/picture`
+answers with a redirect to it; without it the API reads the media folder as before.
+
+`sfda-images-restore` downloads again the files that are missing. A picture file that answers 403
+no longer stops the whole host: only five refusals in a row do (one removed file made the first
+restore give up on 515 pictures of one shop).
+
 ## Known limits
 
 - **Coverage is bounded by what shops sell.** 30% of the drugs have a real picture from the
