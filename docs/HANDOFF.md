@@ -9,6 +9,8 @@ owner actions and the verification record.
 
 - The owner writes Egyptian Arabic. **Reply in Egyptian Arabic**, simply, without mixing English words
   into the sentences (they asked for this). Code, docs, commit messages and identifiers stay in English.
+  **Everything the app shows is Saudi, never Egyptian** (screens, API messages, emails, the assistant's
+  persona): "ما عندك حساب؟", "ما فيه", "الحين", "للحين", not "معندكش", "مفيش", "دلوقتي", "لسه".
 - Results, not menus. "Do not stop until it is done; the approach is yours." Ask only for what truly
   needs them (a key, a provider choice, a legal call). Say plainly what is unmeasured or unbuilt.
 - When they ask what a term means (CI, ADR, LASA, Q-23), explain it in simple Arabic with an example.
