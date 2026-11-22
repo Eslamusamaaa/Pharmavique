@@ -1,0 +1,43 @@
+# Checks, by hand, whether the SFDA site answers a GitHub runner and whether our own crawler can read
+# its first pages from there. It writes nothing anywhere: no database, no secrets.
+name: SFDA probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          enable-cache: true
+
+      - name: Where this runner is
+        run: |
+          curl -s https://ipinfo.io/json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('country'), d.get('org'))"
+
+      - name: Plain request to the SFDA list page
+        run: |
+          for url in https://www.sfda.gov.sa/robots.txt https://www.sfda.gov.sa/en/drugs-list; do
+            curl -s -o /dev/null -w "$url -> %{http_code} in %{time_total}s, %{size_download} bytes\n" --max-time 60 "$url" || echo "$url -> failed"
+          done
+
+      - name: Install dependencies and Chromium
+        run: |
+          uv sync --frozen
+          uv run playwright install --with-deps chromium
+
+      - name: Read the first pages with our own crawler (4 minutes at most)
+        run: |
+          set +e
+          timeout 240 uv run pharmavique sfda-update --out /tmp/probe --run-id probe --delay 1.5 --jitter 0.5 2>&1 | tail -40
+          echo "exit code of the crawler (124 means it was stopped by the time limit while working): ${PIPESTATUS[0]}"
+          ls /tmp/probe/probe 2>/dev/null | head
+          cat /tmp/probe/probe/manifest.json 2>/dev/null | head -c 1500 || true
