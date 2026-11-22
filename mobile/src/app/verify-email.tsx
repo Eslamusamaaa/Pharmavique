@@ -2,10 +2,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowRightIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicAuthError, resendCode, verifyEmail } from '@/api/auth';
+import { FormScroll } from '@/components/FormScroll';
 import { DisclaimerBar, T } from '@/components/ui';
 import { radius, useTheme } from '@/theme';
 
@@ -28,6 +29,7 @@ export default function VerifyEmail() {
 
   const submit = async () => {
     if (busy || code.trim().length < 6) return;
+    Keyboard.dismiss();
     setBusy(true);
     setError(null);
     try {
@@ -64,7 +66,7 @@ export default function VerifyEmail() {
         </T>
       </View>
       <DisclaimerBar />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <FormScroll contentStyle={styles.content}>
         <T>
           بعتنا رمز من 6 أرقام على
         </T>
@@ -76,7 +78,11 @@ export default function VerifyEmail() {
         </T>
         <TextInput
           value={code}
-          onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+          onChangeText={(v) => {
+            const digits = v.replace(/\D/g, '').slice(0, 6);
+            setCode(digits);
+            if (digits.length === 6) Keyboard.dismiss(); // all digits typed: show the confirm button
+          }}
           placeholder="------"
           placeholderTextColor={c.ink2}
           keyboardType="number-pad"
@@ -115,7 +121,7 @@ export default function VerifyEmail() {
             {wait > 0 ? `إعادة إرسال الرمز بعد ${wait} ثانية` : 'إعادة إرسال الرمز'}
           </T>
         </Pressable>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }

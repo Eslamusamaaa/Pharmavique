@@ -2,11 +2,12 @@
 // medicines, alerts and the pharmacist and company views.
 import { router } from 'expo-router';
 import { ArrowRightIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicAuthError, AuthError, resendCode, signIn, signUp } from '@/api/auth';
+import { FormScroll } from '@/components/FormScroll';
 import { DisclaimerBar, T } from '@/components/ui';
 import { ROLES, type Role } from '@/state/role';
 import { radius, useTheme } from '@/theme';
@@ -20,8 +21,11 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const passwordField = useRef<ComponentRef<typeof TextInput>>(null);
+
   const submit = async () => {
     if (busy) return;
+    Keyboard.dismiss();
     setBusy(true);
     setError(null);
     try {
@@ -64,7 +68,7 @@ export default function SignIn() {
         </T>
       </View>
       <DisclaimerBar />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <FormScroll contentStyle={styles.content}>
         <TextInput
           value={email}
           onChangeText={setEmail}
@@ -75,14 +79,20 @@ export default function SignIn() {
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordField.current?.focus()}
           style={field}
         />
         <TextInput
+          ref={passwordField}
           value={password}
           onChangeText={setPassword}
           placeholder="كلمة المرور (10 حروف على الأقل)"
           placeholderTextColor={c.ink2}
           secureTextEntry
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           autoCapitalize="none"
           textContentType={mode === 'in' ? 'password' : 'newPassword'}
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
@@ -137,6 +147,7 @@ export default function SignIn() {
 
         <Pressable
           onPress={() => {
+            Keyboard.dismiss();
             setMode(mode === 'in' ? 'up' : 'in');
             setError(null);
           }}
@@ -146,7 +157,7 @@ export default function SignIn() {
             {mode === 'in' ? 'معندكش حساب؟ أنشئ حساب' : 'عندك حساب؟ سجّل الدخول'}
           </T>
         </Pressable>
-      </ScrollView>
+      </FormScroll>
     </SafeAreaView>
   );
 }
