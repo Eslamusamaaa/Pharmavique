@@ -89,13 +89,31 @@ def is_emergency(question: str) -> bool:
 
 
 # ---- hard limits on the answer (checked after the model) -----------------------------------------
+_DASH = "[-\u2010\u2011\u2012\u2013\u2014\u2212]"
+_PER_UNIT = (
+    r"(أقراص|اقراص|قرص|حبات|حبة|كبسولات|كبسولة|ملغ|ملجم|مجم|مل|غرام|جرام|جم|"
+    r"tablets?|capsules?|mg|g|ml)"
+)
 _DOSE_RULES = (
     r"(خذ|خدي|خد|تناول|اشرب|استخدم)\s+(\d+|قرص|قرصين|حبة|حبتين|ملعقة|ملعقتين|كبسولة|نقطة)",
     r"(\d+|مرة|مرتين|ثلاث|تلات|أربع)\s*(مرات|مرة)\s*(في\s+)?(اليوم|يوميا|يوميًا|يومياً)",
-    r"كل\s+\d+\s*(ساعات|ساعة)",
+    rf"كل\s*\d+(?:\s*{_DASH}\s*\d+)?\s*(ساعات|ساعة)",
     r"\btake\s+(\d+|one|two)\b",
     r"\b(\d+|once|twice|three)\s*(times\s+)?(a|per)\s+day\b",
-    r"\bevery\s+\d+\s+hours?\b",
+    rf"\bevery\s+\d+(?:\s*{_DASH}\s*\d+)?\s+hours?\b",
+    # an amount per day, per hours or per kilo: "8 أقراص في اليوم", "10 ملغ لكل كيلو"
+    rf"\d+\s*{_PER_UNIT}\s*(في|كل|لكل|per|a|every)\s*(اليوم|يوم|ساعة|ساعات|كيلو|day|hours?|kg)",
+    # a dose limit or usual dose followed by a number
+    r"(الحد\s+الأقصى|الجرعة\s+(القصوى|المعتادة|الموصى\s+بها|المناسبة|اليومية)|لا\s+تتجاوز|"
+    r"لا\s+يجوز\s+تجاوز|maximum\s+dose|usual\s+(adult\s+)?dose|do\s+not\s+exceed|"
+    r"not\s+to\s+exceed).{0,40}\d",
+)
+# Saying which medicine a person should take for their symptom is a recommendation, not a fact.
+_RECOMMEND_RULES = (
+    r"(يمكنك|يمكنكِ|تقدر|تقدري|ممكن|يُفضَّل|يفضل|أنصحك|انصحك|أنصح|أوصي|يُنصح|ينصح)\s+"
+    r"(ب|بأن\s+)?(أخذ|اخذ|تناول|تاخد|تاخذ|تتناول|تأخذ|تستخدم|استخدام|استعمال)"
+    r"(?!\s+(ال)?(تطبيق|موقع|بحث))",
+    r"\byou\s+(can|could|may|should)\s+(take|use)\b(?!\s+(the\s+)?(app|search))",
 )
 _STOP_SWITCH_RULES = (
     r"(توقف|توقّف|أوقف|اوقف|بطّل|بطل)\s+(عن\s+)?(تناول|أخذ|اخد|استخدام|الدواء|الدوا|دواء)",
@@ -113,6 +131,7 @@ _CONSULT = re.compile(
 )
 _DOSE = re.compile("|".join(f"(?:{r})" for r in _DOSE_RULES), re.IGNORECASE)
 _STOP_SWITCH = re.compile("|".join(f"(?:{r})" for r in _STOP_SWITCH_RULES), re.IGNORECASE)
+_RECOMMEND = re.compile("|".join(f"(?:{r})" for r in _RECOMMEND_RULES), re.IGNORECASE)
 _SENTENCES = re.compile(r"(?<=[.!?؟؛\n])\s*")
 
 
@@ -120,7 +139,7 @@ MIN_KEPT_CHARS = 40  # below this, what is left after removing sentences is not 
 
 
 def _breaks(sentence: str) -> bool:
-    if _DOSE.search(sentence):
+    if _DOSE.search(sentence) or _RECOMMEND.search(sentence):
         return True
     return bool(_STOP_SWITCH.search(sentence)) and not _CONSULT.search(sentence)
 
@@ -141,7 +160,7 @@ def without_rule_breaking_sentences(text: str) -> str | None:
 def breaks_rules(text: str) -> bool:
     """True when the text gives a personal dose instruction, or tells someone to stop or switch a
     medicine without sending them to a doctor or pharmacist in the same sentence."""
-    if _DOSE.search(text):
+    if _DOSE.search(text) or _RECOMMEND.search(text):
         return True
     return any(
         _STOP_SWITCH.search(sentence) and not _CONSULT.search(sentence)

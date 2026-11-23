@@ -118,6 +118,18 @@ async def test_an_emergency_gets_the_emergency_reply_without_a_model_call() -> N
         "Take 500 mg twice a day",
         "You should stop taking it",
         "switch to ibuprofen",
+        # phrasings the assistant really used (2026-11-23) that slipped through
+        "عادةً الجرعة للبالغين تكون قرص أو قرصين كل 4\u20116 ساعات، ولا يجوز تجاوز 8 أقراص في اليوم.",
+        "يمكنك أخذ قرصين كل 6 ساعات",
+        "الحد الأقصى 8 أقراص في اليوم",
+        "لا تتجاوز 4 غرام في اليوم",
+        "الجرعة المعتادة للأطفال 10 ملغ لكل كيلو",
+        "The usual adult dose is 1-2 tablets every 4-6 hours",
+        "Do not exceed 8 tablets a day",
+        "للتخفيف من الصداع يمكنك أخذ مسكن يحتوي على باراسيتامول مثل بانادول",
+        "ممكن تاخد بانادول للصداع",
+        "You can take paracetamol for a headache",
+        "أنصحك بتناول دواء الباراسيتامول",
     ],
 )
 def test_dosing_stop_and_switch_instructions_break_the_rules(text: str) -> None:
@@ -134,6 +146,10 @@ def test_dosing_stop_and_switch_instructions_break_the_rules(text: str) -> None:
         "مفيش موانع عامة، بس لو عندك مرض مزمن اسأل الصيدلي.",
         "يوجد منتجات بنفس المادة الفعالة؛ الصيدلي يقرر إن كانت مناسبة لك.",
         "The registered strength is 500 mg.",
+        "السعر المسجل 5.8 ريال.",
+        "الباراسيتامول مادة فعالة تُستخدم في أدوية كثيرة، والصيدلي يحدد الأنسب لك.",
+        "ممكن تستخدم التطبيق للبحث عن دواء.",
+        "يوجد 24 قرصًا في العبوة حسب سجل الهيئة.",
     ],
 )
 def test_facts_about_the_product_are_allowed(text: str) -> None:
