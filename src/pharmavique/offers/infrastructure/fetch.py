@@ -49,15 +49,21 @@ class PoliteFetcher:
     async def for_retailer(
         cls, config: RetailerConfig, client: httpx.AsyncClient, **options: object
     ) -> "PoliteFetcher":
-        """Reads the site's robots.txt first; a missing one (404) allows everything, any other
+        return await cls.for_base(config.base_url, config.min_interval, client, **options)
+
+    @classmethod
+    async def for_base(
+        cls, base_url: str, min_interval: float, client: httpx.AsyncClient, **options: object
+    ) -> "PoliteFetcher":
+        """Reads the host's robots.txt first; a missing one (404) allows everything, any other
         failure stops here rather than guess."""
-        response = await client.get(config.base_url + "/robots.txt")
+        response = await client.get(base_url + "/robots.txt")
         if response.status_code == 404:
-            policy, interval = None, config.min_interval
+            policy, interval = None, min_interval
         elif response.status_code == 200:
             policy = RobotsPolicy.from_text(response.text, USER_AGENT)
             delays = [float(d) for d in _CRAWL_DELAY.findall(response.text)]
-            interval = max([config.min_interval, *delays])
+            interval = max([min_interval, *delays])
         else:
             raise SourceBlocked(f"robots.txt answered {response.status_code}")
         return cls(client, policy, interval, **options)  # type: ignore[arg-type]
@@ -88,6 +94,7 @@ class PoliteFetcher:
                         response.content,
                         response.headers.get("etag"),
                         response.headers.get("last-modified"),
+                        response.headers.get("content-type"),
                     )
                 last_error = FetchFailed(f"HTTP {response.status_code}")
             if attempt < self._retries:

@@ -22,6 +22,7 @@ class FetchResult:
     content: bytes
     etag: str | None = None
     last_modified: str | None = None
+    content_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

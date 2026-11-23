@@ -698,6 +698,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(interactions_cli.load(args))
     if args.command == "offers-crawl":
         return asyncio.run(offers_cli.crawl(args))
+    if args.command == "offers-images":
+        return asyncio.run(offers_cli.images(args))
     if args.command == "offers-report":
         return asyncio.run(offers_cli.report(args))
     if args.command == "knowledge-labels":
