@@ -26,12 +26,12 @@ owner's laptop and writes to the **local** database, so the Neon database is not
 1. `sfda-update` against the last complete run (or the committed baseline `full-20261116`), then
    `sfda-load`, `sfda-withdraw-absent`, `search-reindex`, `outbox-relay`, `notify-emails`,
    `analytics-rebuild` and `cache-invalidate`.
-2. The fast lists (`sfda-lists`), loaded only when a list has at least 90% of the baseline's rows; the new
+2. The fast lists (`sfda-lists`), loaded only when a list has at least 85% of the baseline's rows; the new
    rows of the knowledge lists get their documents read and their chunks added and embedded.
 
 **Safeguards.** Two runs never overlap (`concurrency`). Before every run the four registry schemas are
 copied with `pg_dump` and kept two days as an artifact (`database-before-refresh`); they hold public
-registry data only, never accounts. The code refuses a list under 90% of the baseline, never withdraws more
+registry data only, never accounts. The code refuses a list under 85% of the baseline, never withdraws more
 than 50 drugs at once, and never withdraws after a partial run. A step that fails does not stop the next
 one, but the job ends red and GitHub e-mails the owner; `ATTENTION.md` and the job summary say what was not
 checked. The state of the last runs (`data/sfda`, `data/lists`) is kept with `actions/cache`.

@@ -117,14 +117,14 @@ if has_step lists; then
   run="lists-$stamp"
   step lists-crawl 0,2 sfda-lists --lists "$FAST_LISTS" --run-id "$run"
   if [ "$LAST_CODE" -eq 0 ] || [ "$LAST_CODE" -eq 2 ]; then
-    # load only the lists whose new crawl has at least 90% of the baseline's rows, so a half-read
+    # load only the lists whose new crawl has at least 85% of the baseline's rows, so a half-read
     # list can never shrink what the database holds
     loadable=()
     IFS=',' read -ra wanted <<< "$FAST_LISTS"
     for name in "${wanted[@]}"; do
       base_rows="$(rows "data/lists/$name/lists-1/records.jsonl")"
       new_rows="$(rows "data/lists/$name/$run/records.jsonl")"
-      if [ "$new_rows" -gt 0 ] && [ "$new_rows" -ge $(( base_rows * 9 / 10 )) ]; then
+      if [ "$new_rows" -gt 0 ] && [ "$new_rows" -ge $(( base_rows * 85 / 100 )) ]; then
         loadable+=("$name")
       else
         echo "| lists-load $name | skipped: $new_rows rows, baseline $base_rows | |" >> "$summary"

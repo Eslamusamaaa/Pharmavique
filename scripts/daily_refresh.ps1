@@ -123,13 +123,13 @@ try {
         $run = "lists-$stamp"
         $code = Invoke-Step "lists-crawl" @("sfda-lists", "--lists", $fast, "--run-id", $run) @(0, 2)
         if ($code -eq 0 -or $code -eq 2) {
-            # load only the lists whose new crawl has at least 90% of the baseline's rows, so a
+            # load only the lists whose new crawl has at least 85% of the baseline's rows, so a
             # half-read list can never shrink what the database holds
             $loadable = @()
             foreach ($name in $fast.Split(",")) {
                 $baseRows = Get-RowCount (Join-Path $root "data\lists\$name\lists-1\records.jsonl")
                 $newRows = Get-RowCount (Join-Path $root "data\lists\$name\$run\records.jsonl")
-                if ($newRows -gt 0 -and $newRows -ge [math]::Floor(0.9 * $baseRows)) { $loadable += $name }
+                if ($newRows -gt 0 -and $newRows -ge [math]::Floor(0.85 * $baseRows)) { $loadable += $name }
                 else { $summary.Add("| lists-load $name | skipped: $newRows rows, baseline $baseRows | |") }
             }
             if ($loadable.Count -gt 0) {
