@@ -118,7 +118,8 @@ def _status(items: list[ShortageItemOut]) -> str:
         return "listed_in_shortage"
     if current:
         return "possible_shortage"
-    if items:
+    # A "resolved" record that names only the ingredient says nothing about this product.
+    if any(i.confidence == "matched" for i in items):
         return "resolved"
     return "not_listed"
 

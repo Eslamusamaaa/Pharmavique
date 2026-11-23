@@ -176,6 +176,19 @@ async def test_the_same_list_row_is_shown_once(client: httpx.AsyncClient) -> Non
     assert len(body["items"]) == 1
 
 
+async def test_a_resolved_record_linked_by_the_ingredient_only_is_not_a_resolved_shortage(
+    client: httpx.AsyncClient,
+) -> None:
+    LISTED["6"] = [row("drug-shortage-resolved", "تم الحل", "possible")]
+    PRODUCTS["6"] = details("6", "500")
+    try:
+        body = (await client.get("/v1/products/6/shortage")).json()
+    finally:
+        del LISTED["6"], PRODUCTS["6"]
+
+    assert body["status"] == "not_listed"
+
+
 async def test_a_resolved_shortage_has_no_substitutes(client: httpx.AsyncClient) -> None:
     body = (await client.get("/v1/products/4/shortage")).json()
 
