@@ -111,13 +111,27 @@ class ListDetailCrawler:
         self._base_url = base_url
         self._log = logging.getLogger("sfda.list.details")
 
-    async def run(self, records: list[dict[str, Any]], out_path: Path) -> dict[str, int]:
-        """Fetch the detail of every record with a link; returns counts. Safe to repeat."""
+    async def run(
+        self,
+        records: list[dict[str, Any]],
+        out_path: Path,
+        *,
+        reuse_from: Path | None = None,
+    ) -> dict[str, int]:
+        """Fetch the detail of every record with a link; returns counts. Safe to repeat.
+
+        `reuse_from` is an earlier run's details file: a row whose key is still in `records` keeps
+        the page read then (a key carries a hash of the row, so a changed row is read again).
+        """
         done = _stored_keys(out_path)
+        reused = _carry_over(reuse_from, out_path, {r["key"] for r in records}, done)
+        done |= reused
         # A link straight to a document (PDF, Word, picture) is not a detail page: opening it
         # starts a download. The files step downloads and reads those.
         documents = [r for r in records if is_document_link(r.get("link"))]
-        counts = {"stored_before": len(done), "fetched": 0, "failed": 0}
+        counts = {"stored_before": len(done) - len(reused), "fetched": 0, "failed": 0}
+        if reuse_from is not None:
+            counts["reused"] = len(reused)
         if documents:
             counts["documents"] = len(documents)
         pending = [
@@ -163,3 +177,20 @@ def _stored_keys(path: Path) -> set[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     }
+
+
+def _carry_over(source: Path | None, target: Path, wanted: set[str], done: set[str]) -> set[str]:
+    """Copy the earlier run's detail rows that are still wanted and not yet stored; their keys."""
+    if source is None or not source.exists():
+        return set()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    copied: set[str] = set()
+    with target.open("a", encoding="utf-8") as out:
+        for line in source.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            key = json.loads(line)["key"]
+            if key in wanted and key not in done and key not in copied:
+                out.write(line + "\n")
+                copied.add(key)
+    return copied

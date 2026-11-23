@@ -146,3 +146,34 @@ async def test_links_to_documents_are_left_to_the_files_step(tmp_path: Path) -> 
 
     assert fetcher.calls == ["https://sfda.test/en/details_data?id=C"]
     assert counts == {"stored_before": 0, "fetched": 1, "failed": 0, "documents": 2}
+
+
+async def test_details_of_an_earlier_run_are_reused_and_only_new_rows_are_fetched(
+    tmp_path: Path,
+) -> None:
+    earlier = tmp_path / "earlier.jsonl"
+    await crawler(FakeFetcher()).run(records(), earlier)
+
+    fetcher = FakeFetcher()
+    new_records: list[dict[str, object]] = [
+        *records(),
+        {"key": "D#4", "link": "/en/details_data?id=D"},
+    ]
+    out = tmp_path / "details.jsonl"
+    counts = await crawler(fetcher).run(new_records, out, reuse_from=earlier)
+
+    assert counts == {"stored_before": 0, "reused": 2, "fetched": 1, "failed": 0}
+    assert fetcher.calls == ["https://sfda.test/en/details_data?id=D"]
+    stored = [json.loads(line)["key"] for line in out.read_text(encoding="utf-8").splitlines()]
+    assert stored == ["A#1", "C#3", "D#4"]
+
+
+async def test_a_row_that_left_the_list_is_not_carried_over(tmp_path: Path) -> None:
+    earlier = tmp_path / "earlier.jsonl"
+    await crawler(FakeFetcher()).run(records(), earlier)
+
+    out = tmp_path / "details.jsonl"
+    await crawler(FakeFetcher()).run(records()[:1], out, reuse_from=earlier)
+
+    stored = [json.loads(line)["key"] for line in out.read_text(encoding="utf-8").splitlines()]
+    assert stored == ["A#1"]
