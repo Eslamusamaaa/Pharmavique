@@ -30,3 +30,4 @@ jobs:
           name: schema-fingerprint
           path: fingerprint.txt
           retention-days: 2
+      - run: uv run python scripts/db_damage_report.py
