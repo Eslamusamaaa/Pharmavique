@@ -653,7 +653,12 @@ def build_mapping(products: Path, media: Path) -> dict[str, int]:
     all_rows: list[dict[str, Any]] = []
     with (media / "mapping.jsonl").open("w", encoding="utf-8") as handle:
         for ref in refs:
-            candidates = by_drug.get(ref.register_number, [])
+            # only a picture whose file is here can be served: a missing one is a broken image
+            candidates = [
+                image
+                for image in by_drug.get(ref.register_number, [])
+                if (media / "images" / image["storage_key"]).is_file()
+            ]
             best = min(candidates, key=rank) if candidates else None
             check = "no_picture" if best is None else checks.get(best["storage_key"], "unchecked")
             group = form_group(forms.get(ref.register_number))

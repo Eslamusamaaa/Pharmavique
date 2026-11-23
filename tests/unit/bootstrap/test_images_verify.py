@@ -54,6 +54,10 @@ def setup_media(tmp_path: Path) -> tuple[Path, Path]:
     media.mkdir()
     rows = [image_row("1", "aa"), image_row("2", "bb"), image_row("2", "cc", "needs_review")]
     (media / "images.jsonl").write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    for row in rows:  # the picture files are there, as after a real run
+        file = media / "images" / str(row["storage_key"])
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(b"\xff\xd8\xff")
     return products, media
 
 
@@ -150,6 +154,24 @@ def test_the_mapping_gives_every_drug_its_best_picture_and_lists_the_rest_as_mis
     assert card.read_text("utf-8").startswith("<svg")
     assert (media / "placeholders" / "injection.svg").read_text("utf-8").startswith("<svg")
     assert mapping["3"]["source_page"] is None
+
+
+def test_a_picture_whose_file_is_missing_is_not_mapped_as_real(tmp_path: Path) -> None:
+    products, media = setup_media(tmp_path)
+    (media / "images" / "products" / "SA" / "1" / "aa.jpg").unlink()  # the file is gone
+
+    summary = build_mapping(products, media)
+
+    mapping = {
+        row["register_number"]: row
+        for row in (
+            json.loads(line) for line in (media / "mapping.jsonl").read_text("utf-8").splitlines()
+        )
+    }
+    # a real picture that cannot be served would be a broken image in the app: a card instead
+    assert mapping["1"]["picture_kind"] == "generated"
+    assert mapping["2"]["picture_kind"] == "real"
+    assert summary["with_picture"] == 1
 
 
 def test_the_mapping_is_also_written_as_a_csv_that_excel_opens_with_arabic_intact(
