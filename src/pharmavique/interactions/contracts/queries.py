@@ -48,8 +48,9 @@ class Contraindication:
 
 @dataclass(frozen=True, slots=True)
 class ContraindicationReport:
-    items: tuple[Contraindication, ...]
+    items: tuple[Contraindication, ...]  # only rows whose condition the label text itself names
     complete: bool  # always False: a missing record is never a clearance
+    hidden_unverified: int = 0  # source rows left out: their text does not name the condition
 
 
 class ContraindicationChecks(Protocol):

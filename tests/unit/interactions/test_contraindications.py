@@ -59,3 +59,37 @@ async def test_nothing_recorded_is_not_a_clearance() -> None:
 
     assert report.items == ()
     assert report.complete is False
+
+
+async def test_a_disease_the_label_text_does_not_contain_is_not_shown() -> None:
+    wrong = ContraindicationRecord(
+        "bicarbonate ion",
+        "peptic ulcer",
+        "MONDO:2",
+        "Potassium supplements and hyperkalemia.",
+        "medic",
+    )
+    right = record("metformin", "renal failure")
+
+    report = await ListContraindications(FakeStore(wrong, right)).run(
+        [
+            ProductIngredients("1", "A", ("BICARBONATE ION",)),
+            ProductIngredients("2", "B", ("METFORMIN",)),
+        ]
+    )
+
+    assert [(i.register_number, i.disease) for i in report.items] == [("2", "renal failure")]
+    assert report.hidden_unverified == 1
+
+
+async def test_the_disease_is_found_in_the_text_whatever_the_case_or_spacing() -> None:
+    spaced = ContraindicationRecord(
+        "x", "renal failure", "", "Not for patients with Renal   Failure.", "medic"
+    )
+
+    report = await ListContraindications(FakeStore(spaced)).run(
+        [ProductIngredients("1", "A", ("X",))]
+    )
+
+    assert len(report.items) == 1
+    assert report.hidden_unverified == 0

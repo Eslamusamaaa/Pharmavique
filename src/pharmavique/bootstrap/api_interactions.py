@@ -131,7 +131,8 @@ class ContraindicationOut(BaseModel):
 
 class ContraindicationsOut(BaseModel):
     register_number: str
-    items: list[ContraindicationOut]
+    items: list[ContraindicationOut]  # only conditions the label text itself names
+    hidden_unverified: int  # source rows not shown because their text does not name the condition
     complete: bool  # always false: a missing record is never a clearance
     note: str
 
@@ -174,6 +175,7 @@ async def contraindications(
             )
             for item in report.items
         ],
+        hidden_unverified=report.hidden_unverified,
         complete=report.complete,
         note=NOTE_AR,
     )
