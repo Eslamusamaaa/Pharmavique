@@ -82,7 +82,33 @@ def _missing(table: str, name: str) -> str:
     )
 
 
+def _renumber_price_history() -> None:
+    """Two price rows may share an id (a restore without the key lets that happen). They can be
+    two real prices, so the later copies get new ids instead of being deleted."""
+    op.execute(
+        f"""
+        DO $$ DECLARE top bigint; BEGIN
+          IF to_regclass('catalog.price_history') IS NOT NULL
+             AND {_missing("price_history", "price_history_pkey")} THEN
+            SELECT coalesce(max(id), 0) INTO top FROM catalog.price_history;
+            WITH extra AS (
+              SELECT c, row_number() OVER (ORDER BY c) AS r FROM (
+                SELECT ctid AS c, row_number() OVER (PARTITION BY id ORDER BY ctid) AS n
+                FROM catalog.price_history) numbered WHERE n > 1)
+            UPDATE catalog.price_history t SET id = top + extra.r
+              FROM extra WHERE t.ctid = extra.c;
+            IF pg_get_serial_sequence('catalog.price_history', 'id') IS NOT NULL THEN
+              PERFORM setval(pg_get_serial_sequence('catalog.price_history', 'id'),
+                             (SELECT max(id) FROM catalog.price_history));
+            END IF;
+          END IF;
+        END $$
+        """
+    )
+
+
 def upgrade() -> None:
+    _renumber_price_history()
     for table, name, columns in PRIMARY_KEYS:
         same = " AND ".join(f"a.{c.strip()} = b.{c.strip()}" for c in columns.split(","))
         op.execute(

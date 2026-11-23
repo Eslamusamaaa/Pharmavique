@@ -100,6 +100,18 @@ ROW = (
     " provenance_trust) VALUES ('drug-shortage', 'K#1', 'K', '[]', '[]', '{}', 0, 's', 'r', 'run',"
     " 'official')"
 )
+PRODUCT = (
+    "INSERT INTO catalog.products (market, register_number, version, listing_status,"
+    " status_changed_at, last_seen_at, provenance_source, provenance_source_ref,"
+    " provenance_fetched_at, provenance_snapshot_id, provenance_trust, data) VALUES"
+    " ('SA', '1', 1, 'listed', now(), now(), 's', 'r', now(), 'run', 'official', '{}')"
+)
+PRICE = (
+    "INSERT INTO catalog.price_history (id, market, register_number, amount, currency_basis,"
+    " effective_from, provenance_source, provenance_source_ref, provenance_fetched_at,"
+    " provenance_snapshot_id, provenance_trust) VALUES (7, 'SA', '1', {amount}, 'x', now(), 's',"
+    " 'r', now(), 'run', 'official')"
+)
 LINK = (
     "INSERT INTO catalog.source_list_links (list_name, row_key, market, register_number,"
     " confidence, reason) VALUES ('drug-shortage', '{key}', 'SA', '1', 'possible', 'x')"
@@ -121,6 +133,9 @@ async def test_a_database_restored_without_its_constraints_is_repaired(
             for statement in DAMAGE.strip().split(";\n"):
                 if statement.strip():
                     await connection.execute(text(statement))
+            await connection.execute(text(PRODUCT))
+            await connection.execute(text(PRICE.format(amount=5)))
+            await connection.execute(text(PRICE.format(amount=6)))  # a different price, same id
             await connection.execute(text(ROW))
             await connection.execute(text(ROW))  # the same row twice
             await connection.execute(text(LINK.format(key="K#1")))
@@ -136,6 +151,9 @@ async def test_a_database_restored_without_its_constraints_is_repaired(
             names = {row[0] for row in kinds}
             rows = await connection.execute(text("SELECT count(*) FROM catalog.source_list_rows"))
             links = await connection.execute(text("SELECT count(*) FROM catalog.source_list_links"))
+            prices = await connection.execute(
+                text("SELECT count(*), count(DISTINCT id) FROM catalog.price_history")
+            )
             indexes = await connection.execute(
                 text(
                     "SELECT indexname FROM pg_indexes WHERE schemaname = 'catalog'"
@@ -161,6 +179,7 @@ async def test_a_database_restored_without_its_constraints_is_repaired(
             "ix_outbox_unpublished",
         } <= index_names
         assert rows.scalar_one() == 1
-        assert links.scalar_one() == 0  # the one link left pointed at a product that is not there
+        assert links.scalar_one() == 1  # the link to a row that is not there is gone
+        assert tuple(prices.one()) == (2, 2)  # both prices kept, with different ids
     finally:
         await engine.dispose()
