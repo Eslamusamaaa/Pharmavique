@@ -37,6 +37,28 @@ def test_the_first_candidate_is_the_name_as_written_but_normalized(
         ("SODIUM CHLORIDE", "sodium chloride"),  # a bare anion is no drug name
         ("POTASSIUM CHLORIDE", "potassium chloride"),
         ("CALCIUM CHLORIDE", "calcium chloride"),
+        ("PERINDOPRIL ARGININE", "perindopril"),
+        ("PERINDOPRIL ERBUMINE", "perindopril"),
+        ("DICLOFENAC DIETHYLAMINE", "diclofenac"),
+        ("EDOXABAN TOSILATE", "edoxaban"),
+        ("LISDEXAMFETAMINE DIMESILATE", "lisdexamfetamine"),
+        ("LISDEXAMFETAMINE DIMESYLATE", "lisdexamfetamine"),
+        ("GADOTERATE MEGLUMINE", "gadoterate"),
+        ("ARGININE", "arginine"),  # an amino acid on its own is not a salt
+        ("SALBUTAMOL", "albuterol"),
+        ("GLUCOSE", "dextrose"),
+        ("ACETYLSALICYLIC ACID", "aspirin"),
+        ("MESALAZINE", "mesalamine"),
+        ("ISOPRENALINE", "isoproterenol"),
+        ("HYDROXYCARBAMIDE", "hydroxyurea"),
+        ("LEUPRORELIN", "leuprolide"),
+        ("PHYTOMENADIONE", "phytonadione"),
+        ("NORETHISTERONE", "norethindrone"),
+        ("CLOMIFENE", "clomiphene"),
+        ("CROMOGLICATE", "cromolyn"),
+        ("ALENDRONIC ACID", "alendronate"),
+        ("CALCIUM FOLINATE", "leucovorin"),
+        ("PHENOXYMETHYLPENICILLIN", "penicillin v"),
     ],
 )
 def test_salts_esters_and_inn_spellings_resolve_to_the_name_sources_use(

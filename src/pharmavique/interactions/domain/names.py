@@ -18,6 +18,8 @@ _SALT_WORDS = frozenset(
         "hemihydrate", "trihydrate", "pentahydrate", "anhydrous", "hydrated", "valerate",
         "propionate", "dipropionate", "tosylate", "lactate", "gluconate", "oxalate", "medoxomil",
         "cilexetil", "axetil", "furoate", "etexilate", "proxetil", "pivoxil", "hexetil",
+        "arginine", "erbumine", "diethylamine", "tromethamine", "meglumine", "tosilate",
+        "dimesilate", "dimesylate",
     }
 )  # fmt: skip
 # What is left after stripping must be a drug name, not a bare anion ("sodium chloride").
@@ -53,6 +55,22 @@ _ALIASES = {
     "indometacin": "indomethacin",
     "ethinyl estradiol": "ethinylestradiol",
     "sulphasalazine": "sulfasalazine",
+    "salbutamol": "albuterol",
+    "glucose": "dextrose",
+    "acetylsalicylic acid": "aspirin",
+    "mesalazine": "mesalamine",
+    "isoprenaline": "isoproterenol",
+    "hydroxycarbamide": "hydroxyurea",
+    "leuprorelin": "leuprolide",
+    "phytomenadione": "phytonadione",
+    "norethisterone": "norethindrone",
+    "clomifene": "clomiphene",
+    "cromoglicate": "cromolyn",
+    "alendronic acid": "alendronate",
+    "folinate": "leucovorin",
+    "folinic acid": "leucovorin",
+    "phenoxymethylpenicillin": "penicillin v",
+    "gadoteric acid": "gadoterate",
 }  # fmt: skip
 
 
