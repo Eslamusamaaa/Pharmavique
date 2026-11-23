@@ -39,6 +39,7 @@ class CrawlBudget:
 class CrawlReport:
     status: RunStatus
     counters: dict[str, int] = field(default_factory=dict)
+    message: str | None = None  # why a run was blocked, when it was
 
 
 def _text(content: bytes) -> str:
@@ -73,6 +74,7 @@ class InitialLoad:
         counts: Counter[str] = Counter(discovered=len(entries), known=len(entries) - len(todo))
         started = self._clock()
         blocked = False
+        message: str | None = None
         done = 0
         for url in todo:
             if budget.limit is not None and done >= budget.limit:
@@ -81,8 +83,9 @@ class InitialLoad:
                 break
             try:
                 await self._one(url, counts)
-            except SourceBlocked:
+            except SourceBlocked as exc:
                 blocked = True
+                message = str(exc)
                 break
             except FetchFailed:
                 counts["failed"] += 1
@@ -100,7 +103,7 @@ class InitialLoad:
         )
         counters = dict(counts)
         await self._store.finish_run(run_id, status, counters, self._now())
-        return CrawlReport(status, counters)
+        return CrawlReport(status, counters, message)
 
     async def _one(self, url: str, counts: Counter[str]) -> None:
         counts["requests"] += 1

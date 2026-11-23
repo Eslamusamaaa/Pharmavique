@@ -68,12 +68,14 @@ class DownloadImages:
         pending = await self._store.pending_images(limit + 1)
         counts: Counter[str] = Counter()
         blocked = False
+        message: str | None = None
         done = 0
         for image in pending[:limit]:
             try:
                 await self._one(image, counts)
-            except SourceBlocked:
+            except SourceBlocked as exc:
                 blocked = True
+                message = str(exc)
                 break
             done += 1
         counts["remaining"] = len(pending) - done
@@ -83,7 +85,7 @@ class DownloadImages:
             status = RunStatus.PARTIAL
         else:
             status = RunStatus.COMPLETE
-        return CrawlReport(status, dict(counts))
+        return CrawlReport(status, dict(counts), message)
 
     async def _one(self, image: PendingImage, counts: Counter[str]) -> None:
         fetcher = await self._fetcher_for(urlparse(image.url).netloc)

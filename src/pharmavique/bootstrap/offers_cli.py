@@ -116,6 +116,8 @@ async def crawl(args: argparse.Namespace) -> int:
         await engine.dispose()
     shown = dict(sorted(report.counters.items()))
     print(f"{config.name}: {report.status.value} {shown}")
+    if report.message:
+        print(f"{config.name}: stopped because {report.message}")
     return {
         RunStatus.COMPLETE: EXIT_OK,
         RunStatus.PARTIAL: EXIT_PARTIAL,
@@ -169,6 +171,7 @@ async def images(args: argparse.Namespace) -> int:
                             totals[key] = totals.get(key, 0) + value
                     if done.status is RunStatus.BLOCKED:
                         status = RunStatus.BLOCKED
+                        print(f"stopped because {done.message}", file=sys.stderr)
                         break
                     if done.counters.get("remaining", 0) == 0:
                         break

@@ -171,6 +171,7 @@ async def test_a_block_ends_the_run_at_once_and_is_never_retried() -> None:
     report = await use.run(CrawlBudget())
 
     assert report.status is RunStatus.BLOCKED
+    assert report.message == "HTTP 429"
     assert fetcher.asked == urls[:2]
     assert [p.source_id for p, _ in store.saved] == ["1"]
 
