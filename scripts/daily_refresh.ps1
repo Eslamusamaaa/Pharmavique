@@ -133,6 +133,17 @@ try {
                 else { $summary.Add("| lists-load $name | skipped: $newRows rows, baseline $baseRows | |") }
             }
             if ($loadable.Count -gt 0) {
+                # The shortage lists name the affected trade names only on a detail page. Without them
+                # every product with the ingredient would look short, so the pages are read before the
+                # load; rows that did not change keep the pages of the earlier run.
+                $shortage = @($loadable | Where-Object { $_ -in @("drug-shortage", "drug-shortage-resolved") })
+                if ($shortage.Count -gt 0) {
+                    $earlier = Get-ChildItem (Join-Path $root "data\lists\drug-shortage") -Directory -Filter "lists-*" |
+                        Where-Object { $_.Name -ne $run -and (Test-Path (Join-Path $_.FullName "details.jsonl")) } |
+                        Sort-Object Name -Descending | Select-Object -First 1
+                    $reuse = if ($earlier) { $earlier.Name } else { "lists-1" }
+                    Invoke-Step "shortage-details" @("sfda-list-details", "--list-run-id", $run, "--lists", ($shortage -join ","), "--reuse-from-run", $reuse) | Out-Null
+                }
                 Invoke-Step "lists-load" @("sfda-lists-load", "--lists", ($loadable -join ","), "--run-id", $run) | Out-Null
                 Invoke-Step "cache-invalidate-lists" @("cache-invalidate") | Out-Null
 

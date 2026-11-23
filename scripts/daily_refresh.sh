@@ -132,6 +132,24 @@ if has_step lists; then
     done
     if [ "${#loadable[@]}" -gt 0 ]; then
       csv="$(IFS=,; echo "${loadable[*]}")"
+      # The shortage lists name the affected trade names only on a detail page. Without them every
+      # product with the ingredient would look short, so the pages are read before the load; the
+      # rows that did not change keep the pages of the earlier run, only new rows are fetched.
+      shortage=()
+      for name in drug-shortage drug-shortage-resolved; do
+        case ",$csv," in *",$name,"*) shortage+=("$name") ;; esac
+      done
+      if [ "${#shortage[@]}" -gt 0 ]; then
+        earlier=""
+        for dir in $(ls -d data/lists/drug-shortage/lists-* 2>/dev/null | sort -r); do
+          if [ "$(basename "$dir")" != "$run" ] && [ -f "$dir/details.jsonl" ]; then
+            earlier="$(basename "$dir")"
+            break
+          fi
+        done
+        scsv="$(IFS=,; echo "${shortage[*]}")"
+        step shortage-details 0 sfda-list-details --list-run-id "$run" --lists "$scsv" --reuse-from-run "${earlier:-lists-1}"
+      fi
       step lists-load 0 sfda-lists-load --lists "$csv" --run-id "$run"
       step cache-invalidate-lists 0,4 cache-invalidate
       # The assistant's cited passages: only rows that have no chunks yet get their documents read,

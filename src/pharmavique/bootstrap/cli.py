@@ -173,6 +173,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_fetch_options(details, default_out="data/lists")
     details.add_argument("--lists", default="drug-approvals,drug-shortage")
     details.add_argument("--list-run-id", default="lists-1", help="the list run to read links from")
+    details.add_argument(
+        "--reuse-from-run",
+        help="an earlier list run whose detail pages are kept for rows that did not change",
+    )
 
     files = commands.add_parser(
         "sfda-list-files",
@@ -551,7 +555,12 @@ async def _sfda_list_details(args: argparse.Namespace) -> int:
                 print(f"{name}: no stored records in {run_dir}", file=sys.stderr)
                 continue
             try:
-                counts = await crawler.run(records, run_dir / "details.jsonl")
+                reuse = (
+                    Path(args.out) / name / args.reuse_from_run / "details.jsonl"
+                    if args.reuse_from_run
+                    else None
+                )
+                counts = await crawler.run(records, run_dir / "details.jsonl", reuse_from=reuse)
             except SourceBlocked as exc:
                 log.error("details of %s stopped: %s", name, exc)
                 return EXIT_STOPPED
