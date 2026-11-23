@@ -30,6 +30,7 @@ from pharmavique.assistant.application.ports import (
     AgentRun,
     AssistantBusy,
     DrugFacts,
+    SfdaSiteLookup,
     ToolCall,
     WebSearch,
 )
@@ -130,6 +131,13 @@ def _web_citation(record: dict[str, Any]) -> Citation:
     return Citation(f"web:{url}", str(record.get("title") or url), url or None, "web", None)
 
 
+def _site_citation(record: dict[str, Any]) -> Citation:
+    url = str(record.get("url") or "")
+    return Citation(
+        f"sfda_site:{url}", str(record.get("title") or url), url or None, "sfda_site", None
+    )
+
+
 _REGISTER = re.compile(r"^[A-Za-z0-9-]{3,30}$")
 MAX_TOOL_CALLS = 8  # per question: enough for search, details, equivalents and documents
 MAX_QUERY = 200
@@ -137,6 +145,8 @@ MAX_INTERACTION_PRODUCTS = 6
 MAX_DOCUMENT_TEXT = 1200  # characters of one passage given to the model
 MAX_WEB_SEARCHES = 2  # per question (ADR-017)
 MAX_WEB_QUERY = 120
+MAX_SITE_CHECKS = 2  # per question: the site is asked politely
+MAX_SITE_NAME = 60
 MAX_WEB_RESULTS = 5
 UNTRUSTED_WEB = (
     "Results from the open web: not verified by SFDA, possibly wrong, old or about another "
@@ -157,12 +167,18 @@ class ToolBox:
     """
 
     def __init__(
-        self, facts: DrugFacts, citations: _Citations, web: WebSearch | None = None
+        self,
+        facts: DrugFacts,
+        citations: _Citations,
+        web: WebSearch | None = None,
+        site: SfdaSiteLookup | None = None,
     ) -> None:
         self._facts = facts
         self._citations = citations
         self._web = web
+        self._site = site
         self._web_searches = 0
+        self._site_checks = 0
         self.used: list[str] = []
         self.calls: list[ToolCall] = []
         self.evidence: list[str] = []
@@ -174,6 +190,7 @@ class ToolBox:
             "interaction": _interaction_citation,
             "contraindication": _contraindication_citation,
             "web": _web_citation,
+            "sfda_site": _site_citation,
         }
         maker = makers[kind]
         return [{"cite": self._citations.number(maker(r)), **r} for r in records]
@@ -289,7 +306,34 @@ class ToolBox:
             tools.append(
                 StructuredTool.from_function(coroutine=self._web_tool(), name="web_search")
             )
+        if self._site is not None:
+            tools.append(
+                StructuredTool.from_function(coroutine=self._site_tool(), name="sfda_site_check")
+            )
         return tools
+
+    def _site_tool(self) -> Any:
+        site = self._site
+        assert site is not None  # noqa: S101 (only built when the site check is configured)
+
+        async def sfda_site_check(trade_name: str) -> str:
+            """Search SFDA's official drug list on sfda.gov.sa, live, by trade name. Use it when
+            search_drugs found no exact match, BEFORE telling anyone a drug is not in the SFDA
+            drug list. Give the brand name as printed on the box (one brand, Latin letters), never
+            anything about the person."""
+
+            async def work() -> list[dict[str, Any]]:
+                text = " ".join(str(trade_name).split())
+                if not 1 <= len(text) <= MAX_SITE_NAME:
+                    raise ValueError(f"the name must be 1 to {MAX_SITE_NAME} characters")
+                if self._site_checks >= MAX_SITE_CHECKS:
+                    raise ValueError("site check budget used up: answer from what you have")
+                self._site_checks += 1
+                return self._cite(await site.lookup(text, MAX_WEB_RESULTS), "sfda_site")
+
+            return await self._call("sfda_site_check", work)
+
+        return sfda_site_check
 
     def _web_tool(self) -> Any:
         web = self._web
@@ -357,10 +401,17 @@ def _final_text(messages: Sequence[BaseMessage]) -> str:
 class LangGraphAgentRunner:
     """Implements `AgentRunner`. `model` is a LangChain chat model that supports `bind_tools`."""
 
-    def __init__(self, model: Any, facts: DrugFacts, web: WebSearch | None = None) -> None:
+    def __init__(
+        self,
+        model: Any,
+        facts: DrugFacts,
+        web: WebSearch | None = None,
+        site: SfdaSiteLookup | None = None,
+    ) -> None:
         self._model = model
         self._facts = facts
         self._web = web
+        self._site = site
 
     async def run(
         self,
@@ -372,11 +423,17 @@ class LangGraphAgentRunner:
         history: Sequence[Turn] = (),
     ) -> AgentRun:
         citations = _Citations()
-        box = ToolBox(self._facts, citations, self._web)
+        box = ToolBox(self._facts, citations, self._web, self._site)
         tools = box.tools()
         bound = self._model.bind_tools(tools)
         prompt = SystemMessage(
-            system_prompt(level, register_number, spoken=spoken, web=self._web is not None)
+            system_prompt(
+                level,
+                register_number,
+                spoken=spoken,
+                web=self._web is not None,
+                site=self._site is not None,
+            )
         )
 
         async def call_model(state: MessagesState) -> dict[str, list[BaseMessage]]:

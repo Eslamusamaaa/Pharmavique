@@ -82,6 +82,14 @@ class WebSearch(Protocol):
     async def search(self, query: str, limit: int) -> list[dict[str, Any]]: ...
 
 
+class SfdaSiteLookup(Protocol):
+    """SFDA's official drug list on sfda.gov.sa, searched live by trade name. Each record carries a
+    `title` and a `url` to cite. A name with no match gives one record with `found: 0`; a site that
+    fails raises, it is never a "not found"."""
+
+    async def lookup(self, trade_name: str, limit: int) -> list[dict[str, Any]]: ...
+
+
 class InjectionDetector(Protocol):
     """A learned classifier for manipulation attempts; it adds to the rules, never replaces them."""
 

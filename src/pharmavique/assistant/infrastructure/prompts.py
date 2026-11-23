@@ -90,8 +90,23 @@ WEB = """
    web. If the web has nothing clear, say so."""
 
 
+SITE = """
+10. sfda_site_check (SFDA's own drug list on sfda.gov.sa, searched live): when search_drugs finds
+   no "exact" match for a brand the user named, call it with the brand name as written on the box
+   BEFORE saying the drug is not in the SFDA list. If it also finds nothing, say that the brand is
+   not in SFDA's drug list, checked in our registry copy and on SFDA's site, and cite that record
+   [n]. Do not say it is "not registered with SFDA": supplements and other health products are
+   registered elsewhere, and the drug list does not cover them. If the site check fails, say you
+   could not check the SFDA site now, never that the drug is absent."""
+
+
 def system_prompt(
-    level: Level, register_number: str | None, *, spoken: bool = False, web: bool = False
+    level: Level,
+    register_number: str | None,
+    *,
+    spoken: bool = False,
+    web: bool = False,
+    site: bool = False,
 ) -> str:
     context = (
         f"The user is looking at the product with register number {register_number}."
@@ -100,7 +115,8 @@ def system_prompt(
     )
     level_text = _LEVELS[level] + (SPOKEN if spoken else "")
     prompt = SYSTEM_PROMPT.format(level=level_text, context=context)
-    if not web:
+    extra = (WEB if web else "") + (SITE if site else "")
+    if not extra:
         return prompt
     marker = "\n\nThis is a conversation:"
-    return prompt.replace(marker, WEB + marker, 1)
+    return prompt.replace(marker, extra + marker, 1)

@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     elevenlabs_api_key: SecretStr | None = None
     # Web search for medicines the registry does not know (ADR-017); without a key the tool is off.
     tavily_api_key: SecretStr | None = None
+    # Ask SFDA's own drug list (sfda.gov.sa) before saying a drug is not in it. No key needed.
+    sfda_site_check: bool = True
     # The exported website (`mobile/dist`, from `expo export -p web`), served by the API at `/`.
     web_dir: str | None = None
     # Cloudflare Workers AI (free 10,000 Neurons a day, shared by every model): the assistant's

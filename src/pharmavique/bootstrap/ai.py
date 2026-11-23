@@ -14,6 +14,7 @@ from pharmavique.assistant.infrastructure.cloudflare_chat import CloudflareChatO
 from pharmavique.assistant.infrastructure.fallback_model import FallbackChatModel
 from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
+from pharmavique.assistant.infrastructure.sfda_site import SfdaSiteSearch
 from pharmavique.assistant.infrastructure.web_search import TavilyWebSearch
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
@@ -197,6 +198,9 @@ def build_assistant(
         if settings.tavily_api_key is not None
         else None
     )
+    site = SfdaSiteSearch() if settings.sfda_site_check else None
     return AskAssistant(
-        LangGraphAgentRunner(model, facts, web=web), detector=detector, observer=observer
+        LangGraphAgentRunner(model, facts, web=web, site=site),
+        detector=detector,
+        observer=observer,
     )

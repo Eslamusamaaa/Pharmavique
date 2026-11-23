@@ -44,7 +44,9 @@ class Citation:
     )
     title: str
     url: str | None
-    kind: str  # "catalog", "document", "interaction", "contraindication" or "web" (unverified)
+    # "catalog", "document", "interaction", "contraindication", "sfda_site" (SFDA's drug list read
+    # live from sfda.gov.sa) or "web" (unverified)
+    kind: str
     published: str | None
 
 

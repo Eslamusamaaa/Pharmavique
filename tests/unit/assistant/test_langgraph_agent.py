@@ -431,3 +431,50 @@ def test_the_prompt_tells_the_model_a_look_alike_name_is_not_the_medicine() -> N
 
     assert "name_match" in prompt
     assert "similar_name_only" in prompt
+
+
+class FakeSite:
+    def __init__(self) -> None:
+        self.names: list[str] = []
+
+    async def lookup(self, trade_name: str, limit: int) -> list[dict[str, Any]]:
+        self.names.append(trade_name)
+        return [
+            {
+                "found": 0,
+                "searched": trade_name,
+                "title": f'بحث "{trade_name}" في قائمة أدوية الهيئة (SFDA)',
+                "url": "https://sfda.test/en/drugs-list?TradeName=" + trade_name,
+            }
+        ]
+
+
+async def test_the_sfda_site_check_is_offered_only_when_configured() -> None:
+    plain = ScriptedModel(AIMessage("x"), AIMessage("x"))
+    await LangGraphAgentRunner(plain, FakeFacts()).run("سؤال", Level.PATIENT, None)
+    with_site = ScriptedModel(AIMessage("x"), AIMessage("x"))
+    await LangGraphAgentRunner(with_site, FakeFacts(), site=FakeSite()).run(
+        "سؤال", Level.PATIENT, None
+    )
+
+    assert "sfda_site_check" not in plain.tools
+    assert "sfda_site_check" in with_site.tools
+    assert "sfda_site_check" in str(with_site.seen[0][0].content)
+
+
+async def test_a_no_result_from_the_sfda_site_is_a_citable_official_record() -> None:
+    site = FakeSite()
+    model = ScriptedModel(
+        call("sfda_site_check", {"trade_name": "Redoxon"}, "s"),
+        AIMessage("ما لقيته في قائمة أدوية الهيئة [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts(), site=site).run(
+        "وش هذا الدواء؟", Level.PATIENT, None
+    )
+
+    assert site.names == ["Redoxon"]
+    assert [(c.kind, c.url) for c in run.citations] == [
+        ("sfda_site", "https://sfda.test/en/drugs-list?TradeName=Redoxon")
+    ]
+    assert "sfda_site_check" in run.tools_used
