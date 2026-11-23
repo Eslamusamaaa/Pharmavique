@@ -58,7 +58,8 @@ if has_step drugs; then
     baseline_id="$BASELINE"
     update+=(--baseline "$baseline_id")
   fi
-  step drugs-update 0 "${update[@]}"
+  # 2: a partial crawl, the changes that were read are loaded and the gap is in ATTENTION.md
+  step drugs-update 0,2 "${update[@]}"
   code=$LAST_CODE
   # Exit 3 after a lost connection is not a block by the site: wait and resume the same run. A block
   # (401, 403, 429) or a robots.txt refusal is never retried.
