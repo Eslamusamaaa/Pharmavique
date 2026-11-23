@@ -168,3 +168,54 @@ async def test_the_openapi_describes_the_new_endpoints(client: httpx.AsyncClient
 
     assert "/v1/search" in paths
     assert "/v1/products/{register_number}" in paths
+
+
+def hit(number: str, name: str, score: float, exact: bool = False):
+    from pharmavique.bootstrap.api_drugs import SearchHitOut
+
+    return SearchHitOut(
+        market="SA",
+        register_number=number,
+        trade_name_en=name,
+        trade_name_ar=None,
+        ingredients=[],
+        dosage_form_en=None,
+        dosage_form_ar=None,
+        marketing_company=None,
+        listing_status="listed",
+        legal_status=None,
+        score=score,
+        exact=exact,
+        reasons=[],
+    )
+
+
+def test_the_strength_a_person_typed_breaks_a_tie_between_equal_names() -> None:
+    from pharmavique.bootstrap.api_drugs import prefer_written_strength
+
+    syrup = hit("1", "DEFADOL 160MG-5ML SYRUP", 0.85)
+    tablet = hit("2", "PARACETAMOL 500MG TAB", 0.85)
+
+    ordered = prefer_written_strength("paracetamol 500", [syrup, tablet])
+
+    assert [h.register_number for h in ordered] == ["2", "1"]
+
+
+def test_a_clearly_better_name_still_beats_the_strength_nudge() -> None:
+    from pharmavique.bootstrap.api_drugs import prefer_written_strength
+
+    best = hit("1", "PANADOL EXTRA TAB", 0.95)
+    other = hit("2", "OMOL 500MG TABLET", 0.60)
+
+    ordered = prefer_written_strength("panadol extra 500", [best, other])
+
+    assert [h.register_number for h in ordered] == ["1", "2"]
+
+
+def test_a_query_without_numbers_keeps_the_search_order_and_exact_stays_first() -> None:
+    from pharmavique.bootstrap.api_drugs import prefer_written_strength
+
+    a, b = hit("1", "A", 0.8), hit("2", "B", 0.8)
+    assert prefer_written_strength("panadol", [a, b]) == [a, b]
+    exact = hit("3", "C", 0.1, exact=True)
+    assert prefer_written_strength("3 500", [b, exact])[0].register_number == "3"

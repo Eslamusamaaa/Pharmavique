@@ -161,3 +161,45 @@ async def test_a_misspelled_brand_finds_a_product_whose_registry_name_has_extra_
     result = await handler.search(query("glucofage"))
 
     assert result.matches[0].register_number == "2-1"
+
+
+LONG_QUERY_CATALOG = (
+    product("2-1", "PANADOL EXTRA TAB", "بانادول اكسترا", ("PARACETAMOL", "CAFFEINE")),
+    product("2-2", "PANDA EXTRA CAPLETS", None, ("PARACETAMOL",)),
+    product("2-3", "PANADREX MAX", None, ("DEXTROMETHORPHAN",)),
+    product("2-4", "PANADOL 500 MG FILM COATED TABLET", None, ("PARACETAMOL",)),
+)
+
+
+async def test_a_name_followed_by_ingredients_and_strengths_still_finds_the_product() -> None:
+    handler = SearchProductsHandler(await index_of(*LONG_QUERY_CATALOG))
+
+    result = await handler.search(query("PANADOL EXTRA Paracetamol 500 mg + Caffeine 65 mg"))
+
+    assert result.matches[0].register_number == "2-1"
+
+
+async def test_a_name_with_a_form_word_finds_the_product() -> None:
+    handler = SearchProductsHandler(await index_of(*LONG_QUERY_CATALOG))
+
+    result = await handler.search(query("panadol extra film-coated tablets 24"))
+
+    assert result.matches[0].register_number == "2-1"
+
+
+async def test_the_shorter_readings_of_a_long_query_are_named_in_the_reasons() -> None:
+    handler = SearchProductsHandler(await index_of(*LONG_QUERY_CATALOG))
+
+    result = await handler.search(query("PANADOL EXTRA Paracetamol 500 mg + Caffeine 65 mg"))
+
+    signals = {r.signal for r in result.matches[0].reasons}
+    assert signals <= {"fuzzy_core", "fuzzy_lead"}
+
+
+async def test_a_plain_query_gets_only_the_plain_signal() -> None:
+    handler = SearchProductsHandler(await index_of(*LONG_QUERY_CATALOG))
+
+    result = await handler.search(query("panadol extra"))
+
+    assert result.matches[0].register_number == "2-1"
+    assert {r.signal for r in result.matches[0].reasons} == {"fuzzy"}

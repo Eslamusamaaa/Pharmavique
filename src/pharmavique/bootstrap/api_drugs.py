@@ -20,6 +20,7 @@ from pharmavique.catalog.contracts.queries import (
 )
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.text import normalize_text
 from pharmavique.substitution.contracts.queries import (
     EquivalenceQueries,
     IngredientFacts,
@@ -122,6 +123,29 @@ async def search(
     )
 
 
+STRENGTH_BONUS = 0.03  # per number the person wrote that the product's name also carries
+MAX_STRENGTH_BONUS = 0.09
+
+
+def prefer_written_strength(q: str, hits: list["SearchHitOut"]) -> list["SearchHitOut"]:
+    """Among results that fit the name about equally, put first the ones whose name carries the
+    numbers the person typed ("paracetamol 500" before a 160 mg syrup). A small nudge: a clearly
+    better name match still wins, and an exact match (register number) always stays first."""
+    wanted = {t for t in normalize_text(q).split() if t.isdigit()}
+    if not wanted:
+        return hits
+
+    def key(hit: "SearchHitOut") -> tuple[int, float]:
+        if hit.exact:
+            return (0, 0.0)
+        names = f"{hit.trade_name_en or ''} {hit.trade_name_ar or ''}"
+        carried = wanted & set(normalize_text(names).split())
+        bonus = min(STRENGTH_BONUS * len(carried), MAX_STRENGTH_BONUS)
+        return (1, -(hit.score + bonus))
+
+    return sorted(hits, key=key)  # stable: equal keys keep the search order
+
+
 async def _search(
     q: str,
     search_backend: ProductSearch,
@@ -143,6 +167,7 @@ async def _search(
         for m in result.matches
         if m.register_number in by_number
     ]
+    hits = prefer_written_strength(q, hits)
     return SearchOut(query=q, count=len(hits), results=hits)
 
 
