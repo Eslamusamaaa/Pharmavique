@@ -308,10 +308,16 @@ export default function DrugScreen() {
               <T weight={700} style={{ flex: 1 }}>
                 {shortage.status === 'listed_in_shortage'
                   ? 'الهيئة مدرجة هذا الدواء في قائمة النواقص'
-                  : 'الهيئة سجّلت أن نقص هذا الدواء انحل'}
+                  : shortage.status === 'possible_shortage'
+                    ? 'المادة الفعالة موجودة في قائمة النواقص، لكن الهيئة ما حدّدت إن هذا الدواء بالذات ناقص'
+                    : 'الهيئة سجّلت أن نقص هذا الدواء انحل'}
               </T>
             </Row>
-            {shortage.items.some((i) => i.confidence === 'possible') ? (
+            {shortage.status === 'possible_shortage' ? (
+              <T size={13} color={c.ink2}>
+                القائمة تذكر المادة الفعالة بدون أسماء تجارية، فممكن هذا الدواء متأثر وممكن لا. اسأل الصيدلي.
+              </T>
+            ) : shortage.items.some((i) => i.confidence === 'possible') ? (
               <T size={13} color={c.ink2}>
                 ربط الدواء بسجل النقص محتمل ويحتاج مراجعة الصيدلي.
               </T>

@@ -167,7 +167,7 @@ export function getCompare(a: string, b: string, signal?: AbortSignal): Promise<
 /** A drug's place on SFDA's shortage list, with the products that share its ingredients. */
 export type Shortage = {
   register_number: string;
-  status: 'listed_in_shortage' | 'resolved' | 'not_listed';
+  status: 'listed_in_shortage' | 'possible_shortage' | 'resolved' | 'not_listed';
   items: {
     list_name: string;
     availability: string | null;
