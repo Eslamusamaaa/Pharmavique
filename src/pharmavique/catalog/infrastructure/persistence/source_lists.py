@@ -89,6 +89,11 @@ class SqlAlchemySourceListStore:
             for link in found
         ]
         async with self._session_factory() as session, session.begin():
+            # The links go by name, not through the foreign key's cascade: a database restored
+            # without its constraints (Neon was) would keep every old link and show them again.
+            await session.execute(
+                delete(SourceListLinkRow).where(SourceListLinkRow.list_name == list_name)
+            )
             await session.execute(
                 delete(SourceListRowRow).where(SourceListRowRow.list_name == list_name)
             )
