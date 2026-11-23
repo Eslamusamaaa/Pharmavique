@@ -184,7 +184,6 @@ export default function DrugScreen() {
   }
 
   const d = state.drug;
-  const fetched = arabicDate(d.provenance.fetched_at);
   const official = d.provenance.trust === 'official';
   const facts: { k: string; v: string | null; en?: string | null }[] = [
     { k: 'الشكل الدوائي', v: d.dosage_form_ar, en: d.dosage_form_en },
@@ -245,11 +244,6 @@ export default function DrugScreen() {
               <Pill tone="wn" label="غير موثّق" icon={<WarningIcon size={16} color={c.wn} weight="fill" />} />
             )}
             <Row gap={4}>
-              {fetched ? (
-                <T size={12.5} color={c.ink2}>
-                  جُلبت في {fetched} ·
-                </T>
-              ) : null}
               {d.provenance.source_ref ? (
                 <Pressable onPress={() => Linking.openURL(d.provenance.source_ref as string)}>
                   <T size={12.5} weight={600} color={c.pr}>
@@ -414,16 +408,6 @@ export default function DrugScreen() {
                 label={`السعر تغيّر من ${d.price_change.old_price.amount} إلى ${d.price_change.new_price.amount} في ${arabicDate(d.price_change.changed_at) ?? ''}`}
               />
             ) : null}
-            <T size={12.5} color={c.ink2}>
-              السعر المسجّل في الهيئة، وتاريخ الأسعار يبدأ من 16 نوفمبر 2026
-            </T>
-            {d.price.currency_basis !== 'source_stated' ? (
-              <View style={{ backgroundColor: c.bg, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10 }}>
-                <T size={12.5} color={c.ink2}>
-                  العملة غير مذكورة في المصدر الرسمي وتم اعتمادها كريال سعودي
-                </T>
-              </View>
-            ) : null}
           </Card>
         ) : null}
 
@@ -494,9 +478,6 @@ export default function DrugScreen() {
                 <Pill key={disease} tone="wn" label={disease} />
               ))}
             </Row>
-            <T size={12.5} color={c.ink2}>
-              المصدر: MeDIC (نشرات الدواء الحكومية، مصدر خارجي). {contra.note}
-            </T>
           </View>
         ) : null}
 
