@@ -82,3 +82,18 @@ afterwards is far smaller (sitemap dates, changed pages, tiered price watch), as
    that site's run and is never retried.
 
 None of the five refused an automated request; `robots.txt` allowed every product page that was read.
+
+## Found while loading the five catalogs (2026-11-23)
+
+- **Sizes** (product addresses in the sitemaps): Nahdi 68,818, Innova 29,488, Adam 14,721, United about
+  14,600 (a good part of them category pages, recognised and skipped), Dr. Move 3,480. Together about
+  130,000 listings.
+- **Category of a listing** (medicine, cosmetic, device): only Nahdi shows the category path in the
+  product page. Adam, Innova and Dr. Move build it in the browser; United's category pages hold the
+  products but `robots.txt` forbids their next pages (`?p=2`), and an Adam category page weighs 11 MB.
+  Those four stay `unclassified`; whether a listing is a medicine is then decided by the match with the
+  registry, never by guessing from its name.
+- **Pictures**: Dr. Move, Nahdi and Adam serve them (a Nahdi picture averages 250 KB, Adam's 50 KB, Dr.
+  Move's 60 KB). **Innova's picture host answers `Disallow: /` to every robot**, so its pictures are
+  not downloaded: only their addresses are kept. United's picture host was not reached yet (the loader
+  has not got to its products).
