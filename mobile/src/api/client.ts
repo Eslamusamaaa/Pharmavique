@@ -223,7 +223,7 @@ export type AssistantCitation = {
   source_id: string;
   title: string;
   url: string | null;
-  kind: 'catalog' | 'document' | 'web' | string;
+  kind: 'catalog' | 'document' | 'sfda_site' | 'web' | string;
   published: string | null;
 };
 
