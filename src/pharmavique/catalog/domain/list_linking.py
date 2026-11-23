@@ -191,8 +191,9 @@ class ProductLinkIndex:
                 continue
             if item.brand and item.brand in brands:
                 links.append(RowLink(item.register_number, "matched", "generic and trade name"))
-            else:
+            elif not brands:
                 links.append(RowLink(item.register_number, "possible", "generic name only"))
+            # else: the row names its trade names and this product is not one of them
         return tuple(links)
 
     def _by_title(self, title: str) -> tuple[RowLink, ...]:

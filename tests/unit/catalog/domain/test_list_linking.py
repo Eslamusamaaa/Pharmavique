@@ -113,10 +113,8 @@ def test_a_shortage_row_with_trade_names_matches_only_the_named_brands() -> None
         {"Generic Name": "ADALIMUMAB"},
         (("Trade name", "Hyrimoz"), ("Trade name", "Abrilada")),
     )
-    assert {link.register_number: link.confidence for link in found} == {
-        "20": "matched",
-        "21": "possible",
-    }
+    # HUMIRA has the ingredient but is not one of the trade names SFDA lists: not linked at all
+    assert {link.register_number: link.confidence for link in found} == {"20": "matched"}
 
 
 def test_a_shortage_row_without_trade_names_stays_possible() -> None:
