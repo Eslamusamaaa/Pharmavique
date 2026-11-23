@@ -203,6 +203,10 @@ export function friendlyError(e: unknown): string {
   const status = e instanceof ApiError ? e.status : null;
   if (status === null) {
     const detail = e instanceof ApiError && e.detail ? `\n${e.detail}` : '';
+    // the hosted app: no hints about a local network
+    if (!/^https?:\/\/(localhost|127\.|10\.|192\.168\.)/.test(API_URL)) {
+      return 'ما قدرت أوصل للسيرفر. تأكد من الإنترنت وجرّب مرة ثانية.';
+    }
     return `ما قدرت أوصل للسيرفر. تأكد أن الـ API شغال وأن الجوال على نفس الشبكة.\n(${API_URL})${detail}`;
   }
   if (status === 404) return 'هذا الدواء غير موجود في السجل.';
@@ -270,7 +274,12 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
     throw new ApiError('network', null, reason(error));
   }
   if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
-  return (await response.json()) as T;
+  const data = (await response.json()) as T;
+  // A slow answer is streamed (blank bytes keep the phone's connection alive), so a failure that
+  // comes late arrives as a 200 whose body is { error: { status, detail } }.
+  const late = (data as { error?: { status?: unknown } } | null)?.error;
+  if (late && typeof late.status === 'number') throw new ApiError(`http ${late.status}`, late.status);
+  return data;
 }
 
 /** A file picked or recorded on the device, as multipart form data (native and web). */
