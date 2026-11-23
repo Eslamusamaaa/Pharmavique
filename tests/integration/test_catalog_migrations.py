@@ -76,3 +76,91 @@ async def test_the_migration_can_be_undone_and_redone(
         await engine.dispose()
 
     await asyncio.to_thread(command.upgrade, config, "heads")
+
+
+DAMAGE = """
+ALTER TABLE catalog.source_list_links DROP CONSTRAINT fk_source_list_links_row;
+ALTER TABLE catalog.source_list_links DROP CONSTRAINT fk_source_list_links_product;
+ALTER TABLE catalog.price_history DROP CONSTRAINT fk_price_history_product;
+ALTER TABLE catalog.product_pictures DROP CONSTRAINT fk_product_pictures_product;
+ALTER TABLE catalog.source_list_links DROP CONSTRAINT source_list_links_pkey;
+ALTER TABLE catalog.source_list_rows DROP CONSTRAINT source_list_rows_pkey;
+ALTER TABLE catalog.product_pictures DROP CONSTRAINT product_pictures_pkey;
+ALTER TABLE catalog.price_history DROP CONSTRAINT price_history_pkey;
+ALTER TABLE catalog.outbox DROP CONSTRAINT outbox_pkey;
+ALTER TABLE catalog.products DROP CONSTRAINT products_pkey;
+DROP INDEX catalog.ix_source_list_links_product;
+DROP INDEX catalog.ix_price_history_product_time;
+DROP INDEX catalog.ix_outbox_unpublished;
+"""
+
+ROW = (
+    "INSERT INTO catalog.source_list_rows (list_name, row_key, entity_key, cells, detail, facets,"
+    " list_page, provenance_source, provenance_source_ref, provenance_snapshot_id,"
+    " provenance_trust) VALUES ('drug-shortage', 'K#1', 'K', '[]', '[]', '{}', 0, 's', 'r', 'run',"
+    " 'official')"
+)
+LINK = (
+    "INSERT INTO catalog.source_list_links (list_name, row_key, market, register_number,"
+    " confidence, reason) VALUES ('drug-shortage', '{key}', 'SA', '1', 'possible', 'x')"
+)
+
+
+async def test_a_database_restored_without_its_constraints_is_repaired(
+    fresh_database: Callable[[str], Awaitable[URL]],
+    make_alembic_config: Callable[[URL], Config],
+) -> None:
+    # Neon's catalog schema came out of an interrupted restore without keys and indexes: rows
+    # twice, links to rows and products that are not there. The migration puts it right.
+    url = await fresh_database("pharmavique_it_repair")
+    config = make_alembic_config(url)
+    await asyncio.to_thread(command.upgrade, config, "catalog_0005")
+    engine = create_async_engine(url.render_as_string(hide_password=False))
+    try:
+        async with engine.begin() as connection:
+            for statement in DAMAGE.strip().split(";\n"):
+                if statement.strip():
+                    await connection.execute(text(statement))
+            await connection.execute(text(ROW))
+            await connection.execute(text(ROW))  # the same row twice
+            await connection.execute(text(LINK.format(key="K#1")))
+            await connection.execute(text(LINK.format(key="gone")))  # a row that is not there
+        await asyncio.to_thread(command.upgrade, config, "catalog@head")
+        async with engine.connect() as connection:
+            kinds = await connection.execute(
+                text(
+                    "SELECT conname FROM pg_constraint WHERE conrelid::regclass::text"
+                    " LIKE 'catalog.%' AND contype IN ('p', 'f')"
+                )
+            )
+            names = {row[0] for row in kinds}
+            rows = await connection.execute(text("SELECT count(*) FROM catalog.source_list_rows"))
+            links = await connection.execute(text("SELECT count(*) FROM catalog.source_list_links"))
+            indexes = await connection.execute(
+                text(
+                    "SELECT indexname FROM pg_indexes WHERE schemaname = 'catalog'"
+                    " AND indexname LIKE 'ix_%'"
+                )
+            )
+            index_names = {row[0] for row in indexes}
+        assert {
+            "products_pkey",
+            "price_history_pkey",
+            "outbox_pkey",
+            "source_list_rows_pkey",
+            "source_list_links_pkey",
+            "product_pictures_pkey",
+            "fk_source_list_links_row",
+            "fk_source_list_links_product",
+            "fk_price_history_product",
+            "fk_product_pictures_product",
+        } <= names
+        assert {
+            "ix_source_list_links_product",
+            "ix_price_history_product_time",
+            "ix_outbox_unpublished",
+        } <= index_names
+        assert rows.scalar_one() == 1
+        assert links.scalar_one() == 0  # the one link left pointed at a product that is not there
+    finally:
+        await engine.dispose()
