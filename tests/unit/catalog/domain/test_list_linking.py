@@ -210,3 +210,116 @@ def test_a_letter_naming_a_brand_and_only_some_of_its_substances_is_possible() -
 
 def test_a_letter_that_names_nothing_known_links_to_nothing() -> None:
     assert dhpc_link("Apixaban, Edoxaban, Dabigatran and Rivaroxaban") == {}
+
+
+STRENGTH_INDEX = ProductLinkIndex(
+    [
+        product("30", "ESOMA 20 MG CAPSULES", ("ESOMEPRAZOLE",)),
+        product("31", "ESOMA 40 MG CAPSULES", ("ESOMEPRAZOLE",)),
+        product("32", "FLUVAX", ("INFLUENZA VIRUS A", "INFLUENZA VIRUS B")),
+    ]
+)
+
+
+def strength_link(trade_name: str, generic: str = "ESOMEPRAZOLE") -> dict[str, tuple[str, str]]:
+    found = STRENGTH_INDEX.link(
+        "drug-shortage", {"Generic Name": generic}, (("Trade name", trade_name),)
+    )
+    return {item.register_number: (item.confidence, item.reason) for item in found}
+
+
+def test_a_shortage_that_names_one_strength_matches_only_that_strength() -> None:
+    result = strength_link("ESOMA 20 MG DELAYED RELEASE CAPSULES")
+
+    assert result["30"][0] == "matched"
+    # the same brand in another strength is possible, never matched
+    assert result["31"] == ("possible", "same trade name, a different strength or form")
+
+
+def test_a_shortage_that_names_no_strength_is_only_possible_when_the_brand_has_several() -> None:
+    result = strength_link("ESOMA")
+
+    assert {k: v[0] for k, v in result.items()} == {"30": "possible", "31": "possible"}
+
+
+def test_a_shortage_that_names_no_strength_matches_a_brand_with_one_product() -> None:
+    index = ProductLinkIndex([product("50", "VEGA", ("SILDENAFIL",))])
+
+    found = index.link("drug-shortage", {"Generic Name": "SILDENAFIL"}, (("Trade name", "VEGA"),))
+
+    assert {item.register_number: item.confidence for item in found} == {"50": "matched"}
+
+
+FORM_INDEX = ProductLinkIndex(
+    [
+        LinkableProduct.build(
+            "60", "VIAGRA 50MG F.C TAB", ("SILDENAFIL",),
+            strengths=["50"], dosage_form="Film-coated tablet",
+        ),
+        LinkableProduct.build(
+            "61", "SINGULAIR", ("MONTELUKAST SODIUM",),
+            strengths=["10"], dosage_form="Film-coated tablet",
+        ),
+        LinkableProduct.build(
+            "62", "CECLOR 500MG CAPSULE", ("CEFACLOR",),
+            strengths=["500"], dosage_form="Capsule, hard",
+        ),
+        LinkableProduct.build(
+            "63", "PRODUCT WITHOUT NUMBERS", ("CEFACLOR",),
+            strengths=["375"], dosage_form="Capsule, hard",
+        ),
+    ]
+)  # fmt: skip
+
+
+def form_link(generic: str, *trade_names: str) -> dict[str, tuple[str, str]]:
+    found = FORM_INDEX.link(
+        "drug-shortage", {"Generic Name": generic}, tuple(("Trade name", n) for n in trade_names)
+    )
+    return {item.register_number: (item.confidence, item.reason) for item in found}
+
+
+def test_a_listed_orodispersible_tablet_is_not_a_film_coated_tablet_of_the_same_brand() -> None:
+    result = form_link("SILDENAFIL", "VIAGRA 50 mg Orodispersible Tablet")
+
+    assert result["60"][0] == "possible"
+
+
+def test_the_same_brand_strength_and_form_is_a_match() -> None:
+    assert form_link("SILDENAFIL", "VIAGRA 50 mg film-coated tablet")["60"][0] == "matched"
+
+
+def test_a_brand_with_an_extra_word_that_names_another_product_is_not_the_brand() -> None:
+    result = form_link("MONTELUKAST SODIUM", "SINGULAIR PAEDIATRIC 4 MG CHEWABLE TAB")
+
+    assert result == {}
+
+
+def test_the_registry_strength_is_used_when_the_trade_name_has_no_number() -> None:
+    assert form_link("MONTELUKAST SODIUM", "SINGULAIR 10 MG FILM COATED TABLET")["61"][0] == (
+        "matched"
+    )
+    assert form_link("MONTELUKAST SODIUM", "SINGULAIR 4 MG FILM COATED TABLET")["61"][0] == (
+        "possible"
+    )
+
+
+def test_a_listed_strength_that_is_not_the_registered_strength_is_never_a_match() -> None:
+    result = form_link("CEFACLOR", "CECLOR 250MG CAPSULE")
+
+    assert result["62"] == ("possible", "same trade name, a different strength or form")
+
+
+def test_a_shortage_of_a_brand_says_nothing_about_a_longer_brand_name() -> None:
+    index = ProductLinkIndex(
+        [
+            product("40", "PANADOL 500 MG TABLET", ("PARACETAMOL",)),
+            product("41", "PANADOL ADVANCE 500 MG", ("PARACETAMOL",)),
+        ]
+    )
+
+    found = index.link(
+        "drug-shortage", {"Generic Name": "PARACETAMOL"}, (("Trade name", "PANADOL 500 MG TABLET"),)
+    )
+
+    assert {item.register_number: item.confidence for item in found} == {"40": "matched"}

@@ -48,6 +48,12 @@ class SqlAlchemySourceListStore:
                     str((data.get("trade_name") or {}).get("en") or ""),
                     [str(i["name"]) for i in data.get("ingredients") or [] if i.get("name")],
                     _company_names(data),
+                    strengths=[
+                        str(i["strength"])
+                        for i in data.get("ingredients") or []
+                        if i.get("strength")
+                    ],
+                    dosage_form=str((data.get("dosage_form") or {}).get("en") or ""),
                 )
                 for number, data in result.all()
             ]

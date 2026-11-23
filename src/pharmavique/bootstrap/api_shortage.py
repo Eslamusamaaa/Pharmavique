@@ -31,10 +31,6 @@ NOTE_LISTED = (
     "SFDA lists this drug on its shortage list. The products below have the same active "
     "ingredients; whether one can replace it is for your pharmacist or doctor to decide."
 )
-NOTE_POSSIBLE = (
-    "SFDA's shortage list names an active ingredient of this drug but does not say which trade "
-    "names are short, so this product may or may not be affected. Ask your pharmacist."
-)
 NOTE_RESOLVED = (
     "SFDA lists a shortage of this drug as resolved. Check the SFDA site for today's status."
 )
@@ -62,8 +58,8 @@ class SubstituteOut(SameIngredientOut):
 
 class ShortageOut(BaseModel):
     register_number: str
-    # "listed_in_shortage" (the list names this product), "possible_shortage" (only the ingredient
-    # matches, so it may or may not be short), "resolved" or "not_listed"
+    # "listed_in_shortage" (the list names this product by generic and trade name), "resolved" or
+    # "not_listed". An ingredient-only link is never shown: it would mark every brand as short.
     status: str
     items: list[ShortageItemOut]
     substitutes: list[SubstituteOut]
@@ -116,9 +112,6 @@ def _status(items: list[ShortageItemOut]) -> str:
     current = [i for i in items if _is_current(i)]
     if any(i.confidence == "matched" for i in current):
         return "listed_in_shortage"
-    if current:
-        return "possible_shortage"
-    # A "resolved" record that names only the ingredient says nothing about this product.
     if any(i.confidence == "matched" for i in items):
         return "resolved"
     return "not_listed"
@@ -138,10 +131,14 @@ async def shortage(
 ) -> ShortageOut:
     if await details_backend.get_details(market, register_number) is None:
         raise HTTPException(status_code=404, detail="no such drug in the catalog")
+    # Only a row that names this product (generic name AND trade name) counts. A row that names
+    # just the ingredient says nothing about which brands are short, and showing it would mark
+    # every product with that ingredient as short.
     items = _unique(
         [
             _item(i)
             for i in await list_items.list_items(market, register_number, (CURRENT, RESOLVED))
+            if i.confidence == "matched"
         ]
     )
     status = _status(items)
@@ -164,7 +161,6 @@ async def shortage(
             )
     note = {
         "listed_in_shortage": NOTE_LISTED,
-        "possible_shortage": NOTE_POSSIBLE,
         "resolved": NOTE_RESOLVED,
         "not_listed": NOTE_NONE,
     }[status]

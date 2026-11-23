@@ -289,7 +289,7 @@ export default function DrugScreen() {
 
         {history && history.compared_with.length > 0 ? <HistoryCard check={history} /> : null}
 
-        {/* SFDA's shortage list: what it says and how sure the link is. Never "switch". */}
+        {/* SFDA's shortage list: shown only when the list names this product. Never "switch". */}
         {shortage && shortage.status !== 'not_listed' ? (
           <View
             style={[
@@ -302,20 +302,9 @@ export default function DrugScreen() {
               <T weight={700} style={{ flex: 1 }}>
                 {shortage.status === 'listed_in_shortage'
                   ? 'الهيئة مدرجة هذا الدواء في قائمة النواقص'
-                  : shortage.status === 'possible_shortage'
-                    ? 'المادة الفعالة موجودة في قائمة النواقص، لكن الهيئة ما حدّدت إن هذا الدواء بالذات ناقص'
-                    : 'الهيئة سجّلت أن نقص هذا الدواء انحل'}
+                  : 'الهيئة سجّلت أن نقص هذا الدواء انحل'}
               </T>
             </Row>
-            {shortage.status === 'possible_shortage' ? (
-              <T size={13} color={c.ink2}>
-                القائمة تذكر المادة الفعالة بدون أسماء تجارية، فممكن هذا الدواء متأثر وممكن لا. اسأل الصيدلي.
-              </T>
-            ) : shortage.items.some((i) => i.confidence === 'possible') ? (
-              <T size={13} color={c.ink2}>
-                ربط الدواء بسجل النقص محتمل ويحتاج مراجعة الصيدلي.
-              </T>
-            ) : null}
             {shortage.status === 'listed_in_shortage' ? (
               <T size={13} color={c.ink2}>
                 المنتجات اللي بنفس المادة الفعالة تحت. الصيدلي أو الطبيب هو من يقرر إذا كان ينفع تحل محله.

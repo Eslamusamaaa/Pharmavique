@@ -156,17 +156,18 @@ async def test_a_substitute_that_is_also_on_the_shortage_list_is_flagged(
     assert flags == {"2": False, "3": False, "4": False}
 
 
-async def test_a_possible_link_is_never_reported_as_listed(client: httpx.AsyncClient) -> None:
+async def test_a_drug_linked_only_by_its_ingredient_is_not_shown_as_short(
+    client: httpx.AsyncClient,
+) -> None:
     body = (await client.get("/v1/products/3/shortage")).json()
 
-    assert body["status"] == "possible_shortage"
-    assert body["items"][0]["confidence"] == "possible"
-    assert "may or may not" in body["note"]
+    assert body["status"] == "not_listed"
+    assert body["items"] == []
     assert body["substitutes"] == []
 
 
 async def test_the_same_list_row_is_shown_once(client: httpx.AsyncClient) -> None:
-    LISTED["5"] = [row("drug-shortage", "غير متوفر", "possible")] * 3
+    LISTED["5"] = [row("drug-shortage", "غير متوفر", "matched")] * 3
     PRODUCTS["5"] = details("5", "500")
     try:
         body = (await client.get("/v1/products/5/shortage")).json()

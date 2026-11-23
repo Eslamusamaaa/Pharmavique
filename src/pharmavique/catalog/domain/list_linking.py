@@ -17,6 +17,7 @@ from pharmavique.shared_kernel.text import normalize_text
 Confidence = Literal["matched", "possible"]
 
 _SPLIT = re.compile(r"[,;+/]")
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 _REGISTER_TOKEN = re.compile(r"(?<![0-9-])[0-9]{10}(?![0-9-])")  # registered drugs have 10 digits
 _MIN_TITLE_NAME = 6  # shorter ingredient names are too easy to find inside other words
 # First words that name a salt or a class, not one substance: never enough to link on their own.
@@ -30,6 +31,103 @@ class RowLink:
     register_number: str
     confidence: Confidence
     reason: str
+
+
+def _numbers(trade_name: str) -> frozenset[str]:
+    """The numbers written in a trade name ("ESOMA 20 MG" gives {"20"}): its strength and pack."""
+    return frozenset(n.replace(",", ".") for n in _NUMBER.findall(normalize_text(trade_name)))
+
+
+# Words after a brand that describe the form, not another product ("esoma delayed release").
+# Any other extra word ("plus", "paediatric", "forte") names a different product.
+_DESCRIPTIVE = frozenset(
+    {
+        "delayed", "release", "modified", "prolonged", "extended", "chewable", "orodispersible",
+        "dispersible", "effervescent", "sublingual", "enteric", "gastro", "resistant", "coated",
+        "film", "oral",
+    }
+)  # fmt: skip
+# The main form of a product, first match wins. Parenteral forms (injection, infusion) are one.
+_FORMS = (
+    ("tablet", ("tablet", "tablets", "tab", "tabs", "caplet", "caplets")),
+    ("capsule", ("capsule", "capsules", "cap", "caps", "softgel")),
+    ("injection", ("injection", "inj", "injectable", "vial", "ampoule", "amp", "syringe",
+                   "infusion", "pen", "cartridge")),
+    ("inhaler", ("inhaler", "inhalation", "nebulizer")),
+    ("patch", ("patch", "patches")),
+    ("suppository", ("suppository", "suppositories", "supp")),
+    ("sachet", ("sachet", "sachets")),
+    ("syrup", ("syrup",)),
+    ("suspension", ("suspension", "susp")),
+    ("cream", ("cream",)),
+    ("ointment", ("ointment",)),
+    ("gel", ("gel",)),
+    ("lotion", ("lotion",)),
+    ("drops", ("drops", "drop")),
+    ("spray", ("spray",)),
+    ("powder", ("powder", "lyophilisate", "lyophilized")),
+    ("solution", ("solution", "sol", "soln", "liquid")),
+)  # fmt: skip
+# What changes how a form is taken or released: two products differing here are not the same.
+_QUALIFIERS = {
+    "orodispersible": "orodispersible", "dispersible": "dispersible", "chewable": "chewable",
+    "effervescent": "effervescent", "sublingual": "sublingual",
+    "modified": "modified", "prolonged": "modified", "extended": "modified",
+    "delayed": "modified", "sustained": "modified", "enteric": "modified",
+    "gastro": "modified", "resistant": "modified", "retard": "modified",
+}  # fmt: skip
+
+
+def _form_of(text: str) -> tuple[str | None, frozenset[str]]:
+    """(main form, qualifiers) a name or dosage form writes; (None, empty) when it names none."""
+    tokens = set(normalize_text(text).split())
+    main = next((name for name, words in _FORMS if tokens & set(words)), None)
+    return main, frozenset(q for word, q in _QUALIFIERS.items() if word in tokens)
+
+
+@dataclass(frozen=True, slots=True)
+class ListedName:
+    """One trade name as a shortage row lists it, with what it says about strength and form."""
+
+    numbers: frozenset[str]
+    form: str | None
+    qualifiers: frozenset[str]
+
+
+def _listed_name(value: str) -> ListedName:
+    form, qualifiers = _form_of(value)
+    return ListedName(_numbers(value), form, qualifiers)
+
+
+def _verdict(listed: ListedName, item: "LinkableProduct") -> str:
+    """One of "confirmed", "unconfirmed" (nothing against it, not enough to say) or "conflict"."""
+    if listed.form and item.form:
+        if listed.form != item.form:
+            return "conflict"
+        # A release profile ("modified") is compared only against a registered dosage form: a
+        # product with no dosage form on record cannot be said to be immediate release.
+        wanted = listed.qualifiers if item.has_dosage_form else listed.qualifiers - {"modified"}
+        ours = item.qualifiers if item.has_dosage_form else item.qualifiers - {"modified"}
+        if wanted != ours:
+            return "conflict"
+    mine = item.strengths or item.name_numbers
+    if listed.numbers and mine:
+        return "confirmed" if mine <= listed.numbers else "conflict"
+    return "unconfirmed"
+
+
+def _brand_related(listed: str, ours: str) -> bool:
+    """The same brand, or the listed name is ours plus words that only describe the form
+    ("esoma delayed release" for "esoma").
+
+    Never the other way round, and never a word that names another product: a shortage of
+    "Panadol" says nothing about "Panadol Advance", and "Singulair Paediatric" is not
+    "Singulair"."""
+    if listed == ours:
+        return True
+    if not listed.startswith(ours + " "):
+        return False
+    return set(listed[len(ours) :].split()) <= _DESCRIPTIVE
 
 
 def _same_substance(left: str, right: str) -> bool:
@@ -76,6 +174,11 @@ class LinkableProduct:
     ingredients: tuple[str, ...]
     companies: frozenset[str]
     company_cores: frozenset[str] = frozenset()
+    name_numbers: frozenset[str] = frozenset()  # numbers in the full trade name (strength, pack)
+    strengths: frozenset[str] = frozenset()  # the registry's strength of each ingredient
+    form: str | None = None  # main dosage form from the registry (and the name)
+    qualifiers: frozenset[str] = frozenset()
+    has_dosage_form: bool = False  # the registry states a dosage form
 
     @classmethod
     def build(
@@ -84,13 +187,21 @@ class LinkableProduct:
         trade_name: str,
         ingredients: Iterable[str],
         companies: Iterable[str] = (),
+        strengths: Iterable[str] = (),
+        dosage_form: str = "",
     ) -> "LinkableProduct":
+        form, qualifiers = _form_of(f"{dosage_form} {trade_name}")
         return cls(
             register_number=register_number,
             brand=normalize_text(core_name(trade_name)),
             ingredients=tuple(n for n in (normalize_text(i) for i in ingredients) if n),
             companies=frozenset(key for key in (_company_key(c) for c in companies) if key),
             company_cores=frozenset(core for core in (_company_core(c) for c in companies) if core),
+            name_numbers=_numbers(trade_name),
+            strengths=_numbers(" ".join(strengths)),
+            form=form,
+            qualifiers=qualifiers,
+            has_dosage_form=bool(dosage_form.strip()),
         )
 
     def has_substances(self, wanted: tuple[str, ...]) -> bool:
@@ -122,6 +233,7 @@ class ProductLinkIndex:
             self._by_register[item.register_number].append(item)
             if item.brand:
                 self._by_brand[item.brand].append(item)
+
             for name in set(item.ingredients):
                 self._by_first_word[name.split()[0]].append(item)
             for company in item.companies:
@@ -150,11 +262,10 @@ class ProductLinkIndex:
         if list_name == "dhpc":
             return self._by_letter(cells.get("Product", ""))
         if list_name in ("drug-shortage", "drug-shortage-resolved"):
-            brands = {
-                normalize_text(core_name(value))
-                for label, value in detail
-                if label.lower() == "trade name" and value
-            }
+            brands: dict[str, list[ListedName]] = defaultdict(list)
+            for label, value in detail:
+                if label.lower() == "trade name" and value:
+                    brands[normalize_text(core_name(value))].append(_listed_name(value))
             return self._by_generic_name(cells.get("Generic Name", ""), brands)
         if list_name == "safety-alert":
             return self._by_title(cells.get("Title", ""))
@@ -176,8 +287,9 @@ class ProductLinkIndex:
         return tuple(links)
 
     def _by_generic_name(
-        self, generic: str, brands: set[str] | frozenset[str] = frozenset()
+        self, generic: str, brands: Mapping[str, Sequence[ListedName]] | None = None
     ) -> tuple[RowLink, ...]:
+        brands = brands or {}
         wanted = _substances(generic)
         if not wanted:
             return ()
@@ -189,8 +301,44 @@ class ProductLinkIndex:
         for item in seen.values():
             if not item.has_substances(wanted):
                 continue
-            if item.brand and item.brand in brands:
-                links.append(RowLink(item.register_number, "matched", "generic and trade name"))
+            listed = [
+                name
+                for brand, names in brands.items()
+                if item.brand and _brand_related(brand, item.brand)
+                for name in names
+            ]
+            if listed:
+                verdicts = {_verdict(name, item) for name in listed}
+                if "confirmed" in verdicts:
+                    links.append(RowLink(item.register_number, "matched", "generic and trade name"))
+                elif "unconfirmed" in verdicts:
+                    # The row names the brand but no strength or form to compare. Only a brand
+                    # with one registered product of these substances is certain to be it.
+                    same = [
+                        other
+                        for other in self._by_brand.get(item.brand, [])
+                        if other.has_substances(wanted)
+                    ]
+                    if len(same) == 1:
+                        links.append(
+                            RowLink(item.register_number, "matched", "generic and trade name")
+                        )
+                    else:
+                        links.append(
+                            RowLink(
+                                item.register_number,
+                                "possible",
+                                "same trade name, strength or form not stated",
+                            )
+                        )
+                else:
+                    links.append(
+                        RowLink(
+                            item.register_number,
+                            "possible",
+                            "same trade name, a different strength or form",
+                        )
+                    )
             elif not brands:
                 links.append(RowLink(item.register_number, "possible", "generic name only"))
             # else: the row names its trade names and this product is not one of them
