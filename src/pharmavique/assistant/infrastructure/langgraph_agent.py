@@ -126,6 +126,23 @@ def _contraindication_citation(record: dict[str, Any]) -> Citation:
     )
 
 
+def _shortage_citation(record: dict[str, Any]) -> Citation:
+    kind = str(record.get("kind") or "")
+    key = f"{record.get('register_number', '')}:{kind}:{record.get('list', '')}"
+    title = (
+        "قائمة النواقص في هيئة الغذاء والدواء (SFDA)"
+        if kind in ("shortage", "shortage_resolved")
+        else "حالة النقص حسب قائمة الهيئة"
+    )
+    return Citation(
+        f"shortage:{key}",
+        title,
+        record.get("source_ref") or "https://www.sfda.gov.sa/en/drug-shortage",
+        "shortage",
+        None,
+    )
+
+
 def _web_citation(record: dict[str, Any]) -> Citation:
     url = str(record.get("url") or "")
     return Citation(f"web:{url}", str(record.get("title") or url), url or None, "web", None)
@@ -189,6 +206,7 @@ class ToolBox:
             "document": _document_citation,
             "interaction": _interaction_citation,
             "contraindication": _contraindication_citation,
+            "shortage": _shortage_citation,
             "web": _web_citation,
             "sfda_site": _site_citation,
         }
@@ -291,6 +309,17 @@ class ToolBox:
 
             return await self._call("contraindications", work)
 
+        async def shortage(register_number: str) -> str:
+            """Whether SFDA's shortage list records this product (by brand, strength and form) as
+            short or as resolved, with the list row it comes from. The only source for shortage
+            questions; it is SFDA's list, not a stock claim for any pharmacy."""
+
+            async def work() -> list[dict[str, Any]]:
+                rows = await self._facts.shortage(_register(register_number))
+                return self._cite(rows, "shortage")
+
+            return await self._call("shortage", work)
+
         functions = (
             search_drugs,
             drug_details,
@@ -298,6 +327,7 @@ class ToolBox:
             search_documents,
             check_interactions,
             contraindications,
+            shortage,
         )
         tools: list[BaseTool] = [
             StructuredTool.from_function(coroutine=f, name=f.__name__) for f in functions

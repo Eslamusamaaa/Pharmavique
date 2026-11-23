@@ -10,6 +10,7 @@ from typing import Any
 
 from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
+    CatalogListItems,
     CatalogQueries,
     ProductCard,
     ProductDetails,
@@ -114,6 +115,7 @@ class ContractDrugFacts:
         market: Market = Market.SA,
         interactions: InteractionChecks | None = None,
         contraindication_checks: ContraindicationChecks | None = None,
+        list_items: CatalogListItems | None = None,
     ) -> None:
         self._search = search
         self._catalog = catalog
@@ -123,6 +125,7 @@ class ContractDrugFacts:
         self._market = market
         self._interactions = interactions
         self._contraindications = contraindication_checks
+        self._list_items = list_items
 
     async def search_drugs(self, query: str, limit: int) -> list[dict[str, Any]]:
         result = await self._search.search(SearchQuery(query, self._market, limit, False))
@@ -231,6 +234,52 @@ class ContractDrugFacts:
                 "note": (
                     "A missing record is never a safety verdict: the source is incomplete and "
                     "ingredients listed here could not be judged at all."
+                ),
+            }
+        )
+        return rows
+
+    async def shortage(self, register_number: str) -> list[dict[str, Any]]:
+        if self._list_items is None:
+            raise ValueError("the shortage lists are not available")
+        number = register_number.strip()
+        if not await self._catalog.get_cards(self._market, [number]):
+            raise ValueError("no product with this register number")
+        found = await self._list_items.list_items(
+            self._market, number, ("drug-shortage", "drug-shortage-resolved")
+        )
+        rows: list[dict[str, Any]] = []
+        seen: set[tuple[str, tuple[str, ...]]] = set()
+        for item in found:
+            if item.confidence != "matched":
+                continue  # a row that names only the ingredient says nothing about this product
+            names = tuple(sorted({v for k, v in item.detail if k.lower() == "trade name" and v}))
+            if (item.list_name, names) in seen:
+                continue
+            seen.add((item.list_name, names))
+            resolved = item.list_name == "drug-shortage-resolved"
+            rows.append(
+                {
+                    "kind": "shortage_resolved" if resolved else "shortage",
+                    "register_number": number,
+                    "list": item.list_name,
+                    "availability": dict(item.facets).get("availability"),
+                    "trade_names_on_the_list": list(names),
+                    "source": "SFDA drug shortage list",
+                    "source_ref": item.source_ref,
+                    "fetched_at": item.fetched_at.isoformat() if item.fetched_at else None,
+                }
+            )
+        current = any(r["kind"] == "shortage" and r["availability"] != "resolved" for r in rows)
+        status = "listed_in_shortage" if current else "resolved" if rows else "not_listed"
+        rows.append(
+            {
+                "kind": "coverage",
+                "register_number": number,
+                "status": status,
+                "note": (
+                    "This is SFDA's shortage list as we last read it. It says nothing about "
+                    "stock at any pharmacy; no record means no record, not availability."
                 ),
             }
         )

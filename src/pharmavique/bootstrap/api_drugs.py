@@ -125,6 +125,7 @@ async def search(
 
 STRENGTH_BONUS = 0.03  # per number the person wrote that the product's name also carries
 MAX_STRENGTH_BONUS = 0.09
+WIDE_LIMIT = 40  # how many results are read before a typed number reorders them
 
 
 def prefer_written_strength(q: str, hits: list["SearchHitOut"]) -> list["SearchHitOut"]:
@@ -154,7 +155,9 @@ async def _search(
     limit: int,
     include_withdrawn: bool,
 ) -> SearchOut:
-    result = await search_backend.search(SearchQuery(q, market, limit, include_withdrawn))
+    # a number in the query is a nudge among equal names: look further down the list for it
+    wide = max(limit, WIDE_LIMIT) if any(t.isdigit() for t in normalize_text(q).split()) else limit
+    result = await search_backend.search(SearchQuery(q, market, wide, include_withdrawn))
     cards = await catalog.get_cards(market, [m.register_number for m in result.matches])
     by_number = {card.register_number: card for card in cards}
     hits = [
@@ -167,7 +170,7 @@ async def _search(
         for m in result.matches
         if m.register_number in by_number
     ]
-    hits = prefer_written_strength(q, hits)
+    hits = prefer_written_strength(q, hits)[:limit]
     return SearchOut(query=q, count=len(hits), results=hits)
 
 

@@ -20,6 +20,7 @@ from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
+from pharmavique.catalog.infrastructure.persistence.list_items import SqlAlchemyListItemReader
 from pharmavique.interactions.application.check import CheckInteractions
 from pharmavique.interactions.application.contraindications import ListContraindications
 from pharmavique.interactions.infrastructure.postgres import (
@@ -187,6 +188,7 @@ def build_assistant(
         contraindication_checks=ListContraindications(
             PostgresContraindicationStore(session_factory)
         ),
+        list_items=SqlAlchemyListItemReader(session_factory),
     )
     detector = None
     if settings.groq_api_key is not None and settings.prompt_guard_model:

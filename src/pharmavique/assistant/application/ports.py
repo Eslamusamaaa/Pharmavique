@@ -69,6 +69,12 @@ class DrugFacts(Protocol):
         label text each), then one `coverage` record: a missing record is never a clearance."""
         ...
 
+    async def shortage(self, register_number: str) -> list[dict[str, Any]]:
+        """What SFDA's shortage lists record for this product (rows that name its brand, strength
+        and form), then one `coverage` record with the status: `listed_in_shortage`, `resolved` or
+        `not_listed`. It is SFDA's list, never a stock claim for a pharmacy."""
+        ...
+
     async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
         """Recorded interactions and duplicated ingredients among these products, each with its
         source, then one `coverage` record naming the ingredients the source cannot judge."""

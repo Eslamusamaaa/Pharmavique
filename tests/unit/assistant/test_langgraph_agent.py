@@ -47,6 +47,23 @@ class FakeFacts:
             {"kind": "coverage", "register_number": register_number, "note": "not a clearance"},
         ]
 
+    async def shortage(self, register_number: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "kind": "shortage",
+                "register_number": register_number,
+                "list": "drug-shortage",
+                "availability": "unavailable",
+                "source": "SFDA drug shortage list",
+                "source_ref": "https://www.sfda.gov.sa/en/drug-shortage",
+            },
+            {
+                "kind": "coverage",
+                "register_number": register_number,
+                "status": "listed_in_shortage",
+            },
+        ]
+
     async def check_interactions(self, register_numbers: Sequence[str]) -> list[dict[str, Any]]:
         return [
             {
@@ -107,6 +124,7 @@ async def test_the_runner_calls_tools_and_keeps_only_the_cited_records() -> None
         "search_documents",
         "check_interactions",
         "contraindications",
+        "shortage",
     ]
     tool_results = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
     assert '"cite": 1' in tool_results[0].content
@@ -333,6 +351,19 @@ async def test_contraindications_are_cited_with_the_source_and_the_prompt_has_th
     ]
     assert run.citations[0].url == "https://medic.renci.org/"
     assert "contraindications" in model.seen[0][0].content
+
+
+async def test_a_shortage_answer_is_cited_to_the_sfda_list_and_the_prompt_has_the_rule() -> None:
+    model = ScriptedModel(
+        call("shortage", {"register_number": "1-1"}, "a"),
+        AIMessage("قائمة النواقص عند الهيئة فيها هذا الدواء [1]."),
+    )
+
+    run = await LangGraphAgentRunner(model, FakeFacts()).run("هل هو ناقص؟", Level.PATIENT, "1-1")
+
+    assert [c.kind for c in run.citations] == ["shortage"]
+    assert run.citations[0].url == "https://www.sfda.gov.sa/en/drug-shortage"
+    assert "Never answer a shortage question without calling it" in model.seen[0][0].content
 
 
 class FakeWeb:

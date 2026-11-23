@@ -119,7 +119,7 @@ async def test_an_emergency_gets_the_emergency_reply_without_a_model_call() -> N
         "You should stop taking it",
         "switch to ibuprofen",
         # phrasings the assistant really used (2026-11-23) that slipped through
-        "عادةً الجرعة للبالغين تكون قرص أو قرصين كل 4\u20116 ساعات، ولا يجوز تجاوز 8 أقراص في اليوم.",
+        "عادةً الجرعة للبالغين تكون قرص أو قرصين كل 4\u20116 ساعات، ولا يجوز تجاوز 8 أقراص في اليوم.",  # noqa: E501
         "يمكنك أخذ قرصين كل 6 ساعات",
         "الحد الأقصى 8 أقراص في اليوم",
         "لا تتجاوز 4 غرام في اليوم",
