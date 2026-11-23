@@ -32,6 +32,7 @@ from pharmavique.bootstrap import (
     labels_cli,
     lists_cli,
     notify_cli,
+    offers_cli,
     pictures_cli,
     places_cli,
     relay_cli,
@@ -213,6 +214,7 @@ def build_parser() -> argparse.ArgumentParser:
     notify_cli.add_arguments(commands)
     worker_cli.add_arguments(commands)
     labels_cli.add_arguments(commands)
+    offers_cli.add_arguments(commands)
     withdraw_cli.add_arguments(commands)
     knowledge_cli.add_arguments(commands)
     pictures_cli.add_arguments(commands)
@@ -694,6 +696,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(interactions_cli.load_medic(args))
     if args.command == "interactions-load":
         return asyncio.run(interactions_cli.load(args))
+    if args.command == "offers-crawl":
+        return asyncio.run(offers_cli.crawl(args))
+    if args.command == "offers-report":
+        return asyncio.run(offers_cli.report(args))
     if args.command == "knowledge-labels":
         return asyncio.run(labels_cli.labels(args))
     if args.command == "knowledge-build":
