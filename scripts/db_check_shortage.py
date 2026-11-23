@@ -4,16 +4,16 @@ PHARMAVIQUE_DATABASE_URL=... uv run python scripts/db_check_shortage.py 02072454
 """
 
 import asyncio
-import os
 import sys
 
 from sqlalchemy import text
 
+from pharmavique.bootstrap.settings import get_settings
 from pharmavique.foundation.db.engine import create_engine
 
 
 async def main(registers: list[str]) -> None:
-    engine = create_engine(os.environ["PHARMAVIQUE_DATABASE_URL"])
+    engine = create_engine(get_settings().database_url.get_secret_value())  # type: ignore[union-attr]
     async with engine.connect() as conn:
         print("delete rule of the links foreign keys:")
         rules = await conn.execute(
