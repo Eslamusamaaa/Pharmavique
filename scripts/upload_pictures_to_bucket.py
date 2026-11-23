@@ -1,6 +1,6 @@
 """Upload the product pictures that belong to a drug to the public bucket (Neon object storage).
 
-    uv run --with boto3 python scripts/upload_pictures_to_bucket.py [--limit N] [--bucket pharmavique]
+    uv run --with boto3 python scripts/upload_pictures_to_bucket.py [--limit N] [--bucket NAME]
 
 Reads the S3 settings (AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION)
 from the environment or from `.env.neon-storage` (git-ignored). Only pictures that the mapping
@@ -61,10 +61,18 @@ def main() -> int:
         if key is None or not path.is_file():
             missing += 1
             continue
-        content_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif"}.get(path.suffix.lstrip(".").lower(), "application/octet-stream")
+        content_type = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "gif": "image/gif",
+        }.get(path.suffix.lstrip(".").lower(), "application/octet-stream")
         wanted[key] = (path, content_type)
     items = list(wanted.items())[: args.limit or None]
-    print(f"{len(items)} pictures to check ({missing} mapped pictures have no file here)", flush=True)
+    print(
+        f"{len(items)} pictures to check ({missing} mapped pictures have no file here)", flush=True
+    )
 
     def upload(item: tuple[str, tuple[Path, str]]) -> str:
         key, (path, content_type) = item
@@ -75,8 +83,13 @@ def main() -> int:
         except ClientError:
             pass
         s3.upload_file(
-            str(path), args.bucket, key,
-            ExtraArgs={"ContentType": content_type, "CacheControl": "public, max-age=31536000, immutable"},
+            str(path),
+            args.bucket,
+            key,
+            ExtraArgs={
+                "ContentType": content_type,
+                "CacheControl": "public, max-age=31536000, immutable",
+            },
         )
         return "uploaded"
 
