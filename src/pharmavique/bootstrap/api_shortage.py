@@ -31,6 +31,10 @@ NOTE_LISTED = (
     "SFDA lists this drug on its shortage list. The products below have the same active "
     "ingredients; whether one can replace it is for your pharmacist or doctor to decide."
 )
+NOTE_POSSIBLE = (
+    "SFDA's shortage list names an active ingredient of this drug but does not say which trade "
+    "names are short, so this product may or may not be affected. Ask your pharmacist."
+)
 NOTE_RESOLVED = (
     "SFDA lists a shortage of this drug as resolved. Check the SFDA site for today's status."
 )
@@ -58,7 +62,9 @@ class SubstituteOut(SameIngredientOut):
 
 class ShortageOut(BaseModel):
     register_number: str
-    status: str  # "listed_in_shortage", "resolved" or "not_listed"
+    # "listed_in_shortage" (the list names this product), "possible_shortage" (only the ingredient
+    # matches, so it may or may not be short), "resolved" or "not_listed"
+    status: str
     items: list[ShortageItemOut]
     substitutes: list[SubstituteOut]
     note: str
@@ -90,9 +96,28 @@ def _item(item: ListItem) -> ShortageItemOut:
     )
 
 
+def _is_current(item: ShortageItemOut) -> bool:
+    return item.list_name == CURRENT and item.availability != "resolved"
+
+
+def _unique(items: list[ShortageItemOut]) -> list[ShortageItemOut]:
+    """The list can repeat one row (one per trade name it covers); show it once."""
+    seen: set[str] = set()
+    kept: list[ShortageItemOut] = []
+    for item in items:
+        key = item.model_dump_json()
+        if key not in seen:
+            seen.add(key)
+            kept.append(item)
+    return kept
+
+
 def _status(items: list[ShortageItemOut]) -> str:
-    if any(i.list_name == CURRENT and i.availability != "resolved" for i in items):
+    current = [i for i in items if _is_current(i)]
+    if any(i.confidence == "matched" for i in current):
         return "listed_in_shortage"
+    if current:
+        return "possible_shortage"
     if items:
         return "resolved"
     return "not_listed"
@@ -112,9 +137,12 @@ async def shortage(
 ) -> ShortageOut:
     if await details_backend.get_details(market, register_number) is None:
         raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    items = [
-        _item(i) for i in await list_items.list_items(market, register_number, (CURRENT, RESOLVED))
-    ]
+    items = _unique(
+        [
+            _item(i)
+            for i in await list_items.list_items(market, register_number, (CURRENT, RESOLVED))
+        ]
+    )
     status = _status(items)
     substitutes: list[SubstituteOut] = []
     if status == "listed_in_shortage":
@@ -127,12 +155,15 @@ async def shortage(
                 SubstituteOut(
                     **other.model_dump(),
                     also_on_shortage_list=any(
-                        dict(t.facets).get("availability") != "resolved" for t in theirs
+                        dict(t.facets).get("availability") != "resolved"
+                        and t.confidence == "matched"
+                        for t in theirs
                     ),
                 )
             )
     note = {
         "listed_in_shortage": NOTE_LISTED,
+        "possible_shortage": NOTE_POSSIBLE,
         "resolved": NOTE_RESOLVED,
         "not_listed": NOTE_NONE,
     }[status]

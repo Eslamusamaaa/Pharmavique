@@ -152,14 +152,28 @@ async def test_a_substitute_that_is_also_on_the_shortage_list_is_flagged(
     body = (await client.get("/v1/products/1/shortage")).json()
 
     flags = {s["register_number"]: s["also_on_shortage_list"] for s in body["substitutes"]}
-    assert flags == {"2": False, "3": True, "4": False}  # 4 is only on the resolved list
+    # 3 is linked by the generic name only (possible), 4 is only on the resolved list
+    assert flags == {"2": False, "3": False, "4": False}
 
 
-async def test_a_possible_link_is_reported_as_possible(client: httpx.AsyncClient) -> None:
+async def test_a_possible_link_is_never_reported_as_listed(client: httpx.AsyncClient) -> None:
     body = (await client.get("/v1/products/3/shortage")).json()
 
-    assert body["status"] == "listed_in_shortage"
+    assert body["status"] == "possible_shortage"
     assert body["items"][0]["confidence"] == "possible"
+    assert "may or may not" in body["note"]
+    assert body["substitutes"] == []
+
+
+async def test_the_same_list_row_is_shown_once(client: httpx.AsyncClient) -> None:
+    LISTED["5"] = [row("drug-shortage", "غير متوفر", "possible")] * 3
+    PRODUCTS["5"] = details("5", "500")
+    try:
+        body = (await client.get("/v1/products/5/shortage")).json()
+    finally:
+        del LISTED["5"], PRODUCTS["5"]
+
+    assert len(body["items"]) == 1
 
 
 async def test_a_resolved_shortage_has_no_substitutes(client: httpx.AsyncClient) -> None:
