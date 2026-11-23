@@ -4,8 +4,9 @@ base_url = "https://drmovepharmacy.com"
 platform = "jsonld"
 market = "SA"
 language = "ar"
-# a Cloudflare refusal ended the first run after about 200 pages at 2 s: slower now
-min_interval = 5.0
+# HTTP 429 ended the first run after about 200 pages at 2 s and the second after about 990 pages
+# at 5 s (Cloudflare rate limit): one page every 15 s now, resumed after a pause
+min_interval = 15.0
 # sitemap-1 holds categories and pages, sitemap-2 the products, blog-1 the blog
 sitemaps = ["https://drmovepharmacy.com/sitemap-2.xml"]
 url_include = '/p\d+$'
