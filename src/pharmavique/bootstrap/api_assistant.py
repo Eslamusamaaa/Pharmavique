@@ -1,8 +1,12 @@
 """The assistant endpoint (B16): questions answered only from our sources, with citations."""
 
+import asyncio
+import json
+from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from pharmavique.assistant.application.ask import MAX_QUESTION, AskAssistant
@@ -15,6 +19,14 @@ from pharmavique.bootstrap.api_history import HistoryCheckOut, history_for_reque
 from pharmavique.shared_kernel.principal import Principal
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"])
+
+# A phone browser drops a request that stays silent for about a minute ("Load failed"), and a
+# language model on a free plan can take that long. An answer that is not ready after
+# HEARTBEAT_AFTER seconds is sent as a stream that starts with blank bytes, one every
+# HEARTBEAT_EVERY seconds, and ends with the JSON. A failure after the stream began cannot change
+# the HTTP status, so it is sent as {"error": {"status": ..., "detail": ...}}.
+HEARTBEAT_AFTER = 8.0
+HEARTBEAT_EVERY = 8.0
 
 
 class TurnIn(BaseModel):
@@ -74,31 +86,58 @@ async def ask(
     request: Request,
     assistant: Annotated[AskAssistant, Depends(get_assistant)],
     principal: Annotated[Principal | None, Depends(optional_principal)],
-) -> AnswerOut:
-    history = (
-        await history_for_request(request, principal, body.register_number)
-        if body.use_history
-        else None
-    )
-    try:
-        answer = await assistant.ask(
-            body.question,
-            body.level,
-            body.register_number,
-            spoken=body.spoken,
-            history=[Turn(t.role, t.text) for t in body.history],
+) -> AnswerOut | StreamingResponse:
+    async def answer() -> AnswerOut:
+        history = (
+            await history_for_request(request, principal, body.register_number)
+            if body.use_history
+            else None
         )
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-    except AssistantBusy as error:
-        raise HTTPException(
-            status_code=429,
-            detail="the assistant is busy for a moment, try again in a few seconds",
-            headers={"Retry-After": "10"},
-        ) from error
-    out = answer_out(answer)
-    out.history_check = history
-    return out
+        try:
+            result = await assistant.ask(
+                body.question,
+                body.level,
+                body.register_number,
+                spoken=body.spoken,
+                history=[Turn(t.role, t.text) for t in body.history],
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        except AssistantBusy as error:
+            raise HTTPException(
+                status_code=429,
+                detail="the assistant is busy for a moment, try again in a few seconds",
+                headers={"Retry-After": "10"},
+            ) from error
+        out = answer_out(result)
+        out.history_check = history
+        return out
+
+    task = asyncio.ensure_future(answer())
+    done, _ = await asyncio.wait({task}, timeout=HEARTBEAT_AFTER)
+    if done:
+        return task.result()  # an HTTPException keeps its own status
+
+    async def stream() -> AsyncIterator[bytes]:
+        try:
+            while True:
+                finished, _ = await asyncio.wait({task}, timeout=HEARTBEAT_EVERY)
+                if finished:
+                    break
+                yield b" "
+            try:
+                yield task.result().model_dump_json().encode()
+            except HTTPException as error:
+                detail = {"error": {"status": error.status_code, "detail": error.detail}}
+                yield json.dumps(detail).encode()
+            except Exception:  # the answer is lost; say so instead of closing the connection
+                yield json.dumps({"error": {"status": 500, "detail": "assistant failed"}}).encode()
+        finally:
+            task.cancel()  # the person left: stop paying for the answer
+
+    return StreamingResponse(
+        stream(), media_type="application/json", headers={"Cache-Control": "no-store"}
+    )
 
 
 def answer_out(answer: Answer) -> AnswerOut:
