@@ -284,6 +284,29 @@ async function fileField(uri: string, name: string, type: string): Promise<Blob 
   return new File(uri) as unknown as { uri: string; name: string; type: string };
 }
 
+/** Vercel refuses a request body above about 4.5 MB, and a phone photo can be bigger: on the web a
+ * large picture is shrunk (longest side 1800 px, JPEG) before it is sent. Text on a box stays readable. */
+const MAX_UPLOAD_BYTES = 1_500_000;
+const MAX_SIDE = 1800;
+
+async function shrinkedImage(blob: Blob): Promise<Blob> {
+  if (!blob.type.startsWith('image/') || blob.size <= MAX_UPLOAD_BYTES) return blob;
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return blob;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const smaller = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
+    return smaller && smaller.size < blob.size ? smaller : blob;
+  } catch {
+    return blob; // an odd format the browser cannot draw: send it as it is
+  }
+}
+
 export async function postFile<T>(
   path: string,
   field: string,
@@ -293,7 +316,12 @@ export async function postFile<T>(
   extraHeaders: Record<string, string> = {},
 ): Promise<T> {
   const form = new FormData();
-  const file = await fileField(uri, name, type);
+  let file = await fileField(uri, name, type);
+  if (file instanceof Blob && type.startsWith('image/')) {
+    const smaller = await shrinkedImage(file);
+    if (smaller !== file) name = name.replace(/\.\w+$/, '.jpg');
+    file = smaller;
+  }
   if (file instanceof Blob) form.append(field, file, name);
   else form.append(field, file as unknown as Blob);
   let response: Response;
