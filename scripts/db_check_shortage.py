@@ -25,6 +25,23 @@ async def main(registers: list[str]) -> None:
         )
         for row in rules:
             print("  ", tuple(row))
+        print("constraints on the list tables:")
+        found_constraints = await conn.execute(
+            text(
+                "select conrelid::regclass, conname, contype from pg_constraint"
+                " where conrelid in ('catalog.source_list_rows'::regclass,"
+                " 'catalog.source_list_links'::regclass) order by 1, 2"
+            )
+        )
+        for row in found_constraints:
+            print("  ", tuple(row))
+        duplicates = await conn.execute(
+            text(
+                "select count(*) from (select 1 from catalog.source_list_links"
+                " group by list_name, row_key, market, register_number having count(*) > 1) d"
+            )
+        )
+        print("link keys that appear more than once:", duplicates.scalar())
         counts = await conn.execute(
             text(
                 "select list_name, confidence, count(*) from catalog.source_list_links"
