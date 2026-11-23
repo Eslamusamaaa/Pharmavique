@@ -30,6 +30,7 @@ from pharmavique.assistant.domain.answers import (
     breaks_rules,
     is_emergency,
     without_rule_breaking_sentences,
+    without_unsupported_use_claims,
 )
 from pharmavique.assistant.domain.conversation import Turn, prepare_history
 from pharmavique.assistant.domain.guardrails import (
@@ -146,6 +147,12 @@ class AskAssistant:
                 )
             text = cleaned
             base = replace(base, text=cleaned)
+        if not any(c.kind in ("document", "web") for c in run.citations):
+            # nothing retrieved says what a medicine is for: a "used for" sentence is memory
+            unsupported = without_unsupported_use_claims(text)
+            if unsupported is not None and unsupported != text:
+                text = unsupported
+                base = replace(base, text=unsupported)
         # Numbers from earlier answers in this conversation count as known, so a follow-up
         # that repeats them is not withheld.
         missing = ungrounded_facts(

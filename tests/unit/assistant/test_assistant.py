@@ -22,6 +22,8 @@ from pharmavique.assistant.domain.answers import (
     Level,
     breaks_rules,
     is_emergency,
+    states_a_use,
+    without_unsupported_use_claims,
 )
 from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.domain.guardrails import INJECTION_REPLY, UNGROUNDED_REPLY
@@ -385,3 +387,56 @@ async def test_an_answer_with_a_registry_record_and_a_web_page_stays_grounded() 
 
     assert answer.grounded is True
     assert answer.outcome == "answered"
+
+
+USE_CLAIMS = [
+    "يُستعمل لتخفيف الألم والحمّى.",
+    "بانادول هو دواء يحتوي على باراسيتامول لتخفيف الألم والحمى [1].",
+    "يُستخدم عادةً لعلاج العدوى البكتيرية.",
+    "هو مضاد حيوي يُستعمل لعلاج الالتهابات.",
+    "It is commonly used to treat bacterial infections.",
+    "This medicine is indicated for hypertension.",
+]
+
+
+@pytest.mark.parametrize("sentence", USE_CLAIMS)
+def test_a_sentence_saying_what_a_medicine_is_used_for_is_a_use_claim(sentence: str) -> None:
+    assert states_a_use(sentence)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "المادة الفعالة هي باراسيتامول بتركيز 500 ملجم [1].",
+        "السعر المسجل 5.8 ريال سعودي (افتراضي) [1].",
+        "يوجد تداخل كبير بين الوارفارين والأسبرين [1].",
+        "اسأل الصيدلي قبل الاستخدام.",
+    ],
+)
+def test_registry_facts_are_not_use_claims(sentence: str) -> None:
+    assert not states_a_use(sentence)
+
+
+def test_use_claims_are_removed_when_no_source_supports_them_and_the_rest_is_kept() -> None:
+    text = "المادة الفعالة هي باراسيتامول بتركيز 500 ملجم [1]. يُستعمل لتخفيف الألم والحمّى."
+
+    cleaned = without_unsupported_use_claims(text)
+
+    assert cleaned is not None
+    assert "باراسيتامول بتركيز 500" in cleaned
+    assert "تخفيف الألم" not in cleaned
+    assert "لا يحدد" in cleaned  # says that our data does not state what it is used for
+
+
+def test_a_text_that_is_only_a_use_claim_is_replaced_by_the_note() -> None:
+    cleaned = without_unsupported_use_claims("يُستعمل لتخفيف الألم والحمّى.")
+
+    assert cleaned is not None
+    assert "تخفيف الألم" not in cleaned
+    assert "لا يحدد" in cleaned
+
+
+def test_text_without_use_claims_is_unchanged() -> None:
+    text = "السعر المسجل 5.8 ريال سعودي (افتراضي) [1]."
+
+    assert without_unsupported_use_claims(text) == text

@@ -137,6 +137,37 @@ _SENTENCES = re.compile(r"(?<=[.!?؟؛\n])\s*")
 
 MIN_KEPT_CHARS = 40  # below this, what is left after removing sentences is not an answer
 
+# What a medicine is used for is not in the registry record. A sentence that says it is general
+# knowledge dressed in a registry citation, so it is removed unless a document or a web page was
+# retrieved in the same run.
+NO_USE_SOURCE_NOTE = (
+    "(بيانات الهيئة التي لدينا لا يحدد فيها استخدامات الدواء؛ للاستخدامات راجع نشرة الدواء "
+    "أو اسأل الصيدلي.)"
+)
+_USE_CLAIM = re.compile(
+    r"(يُستخدم|يستخدم|يُستعمل|يستعمل|تُستخدم|تستخدم|يعالج|يُعالج|يُوصف\s+ل|يُعطى\s+لعلاج)"
+    r"\s+(عادة|عادةً|غالبا|غالباً)?\s*(ل|في|بـ)"
+    r"|(ل|ل?ل)(تخفيف|تسكين|علاج|خفض|منع|تقليل)\s"
+    r"|\b(is|are)\s+(commonly\s+|usually\s+|generally\s+)?used\s+(to|for)\b"
+    r"|\bindicated\s+for\b|\bused\s+to\s+treat\b",
+    re.IGNORECASE,
+)
+
+
+def states_a_use(sentence: str) -> bool:
+    return _USE_CLAIM.search(sentence) is not None
+
+
+def without_unsupported_use_claims(text: str) -> str | None:
+    """The text without the sentences that say what a medicine is used for, plus a note that our
+    data does not state it. Text with no such sentence is returned unchanged."""
+    sentences = [s for s in _SENTENCES.split(text) if s.strip()]
+    kept = [s for s in sentences if not states_a_use(s)]
+    if len(kept) == len(sentences):
+        return text
+    rest = " ".join(s.strip() for s in kept).strip()
+    return f"{rest}\n\n{NO_USE_SOURCE_NOTE}" if rest else NO_USE_SOURCE_NOTE
+
 
 def _breaks(sentence: str) -> bool:
     if _DOSE.search(sentence) or _RECOMMEND.search(sentence):
