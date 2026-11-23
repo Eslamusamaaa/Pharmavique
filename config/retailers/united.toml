@@ -1,0 +1,11 @@
+id = "united"
+name = "United Pharmacy"
+base_url = "https://unitedpharmacy.sa"
+platform = "jsonld"
+market = "SA"
+language = "en"
+min_interval = 2.0
+sitemaps = ["https://unitedpharmacy.sa/media/sitemap/sitemap.xml"]
+# only English product pages ending in .html; robots.txt forbids any address with a query string
+url_include = '/en/[^?]+\.html$'
+url_exclude = '/brands/|/flash-sale'

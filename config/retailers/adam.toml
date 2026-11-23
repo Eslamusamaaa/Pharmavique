@@ -1,0 +1,9 @@
+id = "adam"
+name = "Adam Pharmacy"
+base_url = "https://adamonline.com"
+platform = "jsonld"
+market = "SA"
+language = "en"
+min_interval = 2.0
+sitemaps = ["https://adamonline.com/sitemap_products_en.xml"]
+url_include = "/en/product/"

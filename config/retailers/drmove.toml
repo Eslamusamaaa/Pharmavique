@@ -1,0 +1,10 @@
+id = "drmove"
+name = "Dr. Move Pharmacy"
+base_url = "https://drmovepharmacy.com"
+platform = "jsonld"
+market = "SA"
+language = "ar"
+min_interval = 2.0
+# sitemap-1 holds categories and pages, sitemap-2 the products, blog-1 the blog
+sitemaps = ["https://drmovepharmacy.com/sitemap-2.xml"]
+url_include = '/p\d+$'

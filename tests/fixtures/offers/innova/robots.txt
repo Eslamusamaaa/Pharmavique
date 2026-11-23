@@ -1,0 +1,79 @@
+User-Agent: *
+Allow: /
+Disallow: /search
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /wishlist
+Disallow: /dashboard
+Disallow: /orders
+Disallow: /upload-prescription
+Disallow: /prescription
+Disallow: /api/
+Disallow: /*?*utm_
+Disallow: /*?*gclid=
+Disallow: /*?*fbclid=
+
+User-Agent: Googlebot
+Allow: /
+
+User-Agent: Googlebot-Image
+Allow: /
+
+User-Agent: Google-Extended
+Allow: /
+
+User-Agent: GPTBot
+Allow: /
+
+User-Agent: CCBot
+Allow: /
+
+User-Agent: PerplexityBot
+Allow: /
+
+User-Agent: ClaudeBot
+Allow: /
+
+User-Agent: Claude
+Allow: /
+
+User-Agent: AhrefsSiteAudit
+Allow: /
+
+User-Agent: SEOkicks
+Disallow: /
+
+User-Agent: BLExBot
+Disallow: /
+
+User-Agent: MJ12bot
+Disallow: /
+
+User-Agent: AhrefsBot
+Crawl-delay: 5
+
+User-Agent: SemrushBot
+Crawl-delay: 5
+
+User-Agent: DotBot
+Crawl-delay: 5
+
+User-Agent: PetalBot
+Crawl-delay: 5
+
+User-Agent: YandexBot
+Crawl-delay: 5
+
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-products.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-categories.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-brands.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-special.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-content.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-ar-images.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-products.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-categories.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-brands.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-special.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-content.xml
+Sitemap: https://innovapharmacy.com/sitemap/sitemap-en-images.xml

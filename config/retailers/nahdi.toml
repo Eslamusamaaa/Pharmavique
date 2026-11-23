@@ -1,0 +1,11 @@
+id = "nahdi"
+name = "Nahdi"
+base_url = "https://www.nahdionline.com"
+platform = "jsonld"
+market = "SA"
+language = "en"
+min_interval = 2.0
+# the English Saudi index; the UAE sitemaps of the same domain are left out on purpose
+sitemaps = ["https://www.nahdionline.com/sitemap_index_en.xml"]
+url_include = '/en-sa/.+/pdp/\d+$'
+description_class = ["pdp-about-section"]

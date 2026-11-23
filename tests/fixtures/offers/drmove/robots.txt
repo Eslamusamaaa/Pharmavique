@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /*&lt;iframe
+Disallow: /tags/
+Disallow: /tag-*/
+Disallow: /*?s-product-source=
+
+Sitemap: https://drmovepharmacy.com/sitemap.xml
+Content-Signal: ai-train=no, search=yes, ai-input=yes
+
+# AI agents: this store supports agentic commerce. Read the agent guide first.
+# Agent guide: https://drmovepharmacy.com/agents.md
+# UCP profile: https://drmovepharmacy.com/.well-known/ucp
+# UCP MCP: https://drmovepharmacy.com/_app/ucp/mcp
+# Poppy manifest: https://drmovepharmacy.com/.well-known/poppy.json

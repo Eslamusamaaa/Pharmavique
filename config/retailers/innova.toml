@@ -1,0 +1,10 @@
+id = "innova"
+name = "Innova Pharmacy"
+base_url = "https://innovapharmacy.com"
+platform = "jsonld"
+market = "SA"
+language = "en"
+# robots.txt asks for Crawl-delay 5
+min_interval = 5.0
+sitemaps = ["https://innovapharmacy.com/sitemap/sitemap-en-products.xml"]
+description_class = ["animate-fadeIn", "py-3"]
