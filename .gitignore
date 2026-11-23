@@ -25,6 +25,9 @@ htmlcov/
 # 2026-11-19) so every machine has the same data; keep each file under GitHub's 100 MB limit.
 /uploads/
 /data/lists-trial/
+# The pharmacy catalogs' pictures and run files stay on this machine (tens of GB); the listings
+# themselves are in the local database.
+/data/offers/
 # Run logs and one-off backups of the crawl and picture jobs (the data files themselves are kept).
 /data/**/*.log
 /data/**/*.stdout
