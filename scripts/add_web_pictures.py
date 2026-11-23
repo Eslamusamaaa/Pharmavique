@@ -50,6 +50,14 @@ def main(path: str) -> int:
         (r["register_number"], r["image_url"])
         for r in (json.loads(x) for x in records_file.read_text(encoding="utf-8").splitlines() if x)
     }
+    failed_file = (
+        MEDIA / "web-picks-failed.jsonl"
+    )  # addresses that gave no picture: not asked again
+    gone = (
+        {tuple(json.loads(x)) for x in failed_file.read_text(encoding="utf-8").splitlines() if x}
+        if failed_file.exists()
+        else set()
+    )
     last_hit: dict[str, float] = {}
     fetched: dict[str, tuple[int, bytes]] = {}
     stored = skipped = failed = 0
@@ -58,10 +66,11 @@ def main(path: str) -> int:
             timeout=30, follow_redirects=True, headers={"User-Agent": USER_AGENT}
         ) as client,
         records_file.open("a", encoding="utf-8") as out,
+        failed_file.open("a", encoding="utf-8") as bad,
     ):
         for pick in picks:
             key = (pick["register_number"], pick["image_url"])
-            if key in known:
+            if key in known or key in gone:
                 skipped += 1
                 continue
             if (
@@ -83,6 +92,7 @@ def main(path: str) -> int:
             if status != 200 or kind is None or not 1_000 <= len(data) <= 5_000_000:
                 print("not a usable image", pick["register_number"], status, len(data))
                 failed += 1
+                bad.write(json.dumps(list(key)) + "\n")
                 continue
             content_type, extension = kind
             digest = hashlib.sha256(data).hexdigest()
