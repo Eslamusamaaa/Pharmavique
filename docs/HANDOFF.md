@@ -207,7 +207,24 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   nothing was re-embedded and the stored label stays `baai/bge-m3`); the first vision reader (Llama 4 Scout read
   a test box in 3.5 s for about 12 Neurons). A tool-call message must carry `content: ""`, not null, or
   Cloudflare answers 400 (`CloudflareChatOpenAI`). Groq's free plan allows 8,000 tokens a minute (about one
-  assistant answer); three questions at once now all answer, but in 41 to 74 s. Speech to text stays on Groq.
+  assistant answer); three questions at once now all answer, but in 41 to 74 s.
+- **Free backups for every model** (owner, 2026-11-24: "no request may break", free models only). Any failure of
+  one provider (rate limit, 413, 5xx, 400, timeout, dropped connection) moves the same call to the next; only
+  when all fail does the person get "busy" (never a 500). A model that answered 429 is skipped for 60 s.
+  | What | Chain, in order |
+  |---|---|
+  | Assistant and spoken drug name | Groq `gpt-oss-120b` (25 s), Cloudflare `Gemma 4 26B` (45 s), OpenRouter `nemotron-3-ultra-550b-a55b:free`, `gemma-4-31b-it:free` (`llm_backup_models`) |
+  | Speech to text | Groq Whisper, then Cloudflare `@cf/openai/whisper-large-v3-turbo` (its own `/ai/run` route: the OpenAI-style audio route does not exist there) |
+  | Text to speech | ElevenLabs, then Groq Orpheus Arabic Saudi (each text cut to that provider's length) |
+  | Embeddings | bge-m3 on Cloudflare, then on OpenRouter (same vectors, same stored label) |
+  | Box and prescription reading | Cloudflare Llama 4 Scout, then the three free OpenRouter vision models (unchanged) |
+  Measured 2026-11-24 with real calls: Nemotron 3 Ultra called `search_drugs` with "بنادول" and answered in
+  Arabic in 10.6 s; Nemotron 3.5 Lightning searched "Benadryl" and was left out; the free Gemma 4 models were
+  rate limited upstream at that moment (they stay last). The whole answer may now take up to 150 s
+  (`RUN_TIMEOUT`; Vercel allows 300).
+- **Assistant input** (2026-11-24): what is said into the microphone goes into the text box instead of being sent,
+  so it can be read, edited, and sent with a photo. A photo can also go alone ("وش هذا الدواء؟"). Text, voice,
+  photo + text and photo + voice all work; a question that came from the microphone is answered by voice too.
 - Shortage links (`catalog/domain/list_linking.py`, fixed 2026-11-24): a shortage row counts for a product only
   when it names the product's brand, strength and form; since 2026-11-24 also each strength as many times as the
   product has it ("10 mg/5 mg" is not "5 mg/5 mg") and the same pack when both name one ("14S" is not "28S", a
