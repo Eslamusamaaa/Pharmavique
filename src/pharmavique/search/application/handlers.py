@@ -7,6 +7,7 @@ from pharmavique.search.contracts.queries import (
     SearchQuery,
     SearchResult,
 )
+from pharmavique.search.domain.arabic_names import english_names
 from pharmavique.search.domain.documents import build_document
 from pharmavique.search.domain.fusion import SignalHit, fuse
 from pharmavique.shared_kernel.market import Market
@@ -22,8 +23,9 @@ FUZZY = "fuzzy"
 FUZZY_CORE = "fuzzy_core"  # the words that are not numbers, units or form words
 FUZZY_LEAD = "fuzzy_lead"  # the first two of those words
 FUZZY_FIRST = "fuzzy_first"  # the first of those words
+ARABIC_NAME = "arabic_name"  # the English generic name an Arabic query spells ("انسولين")
 # How much a reading is trusted against the query as typed: the best reading of a product wins.
-FACTORS = {FUZZY: 1.0, FUZZY_CORE: 0.95, FUZZY_LEAD: 0.9, FUZZY_FIRST: 0.5}
+FACTORS = {FUZZY: 1.0, FUZZY_CORE: 0.95, FUZZY_LEAD: 0.9, FUZZY_FIRST: 0.5, ARABIC_NAME: 1.0}
 MIN_VARIANT_LENGTH = 3
 
 
@@ -41,6 +43,18 @@ def variants(normalized: str) -> list[tuple[str, str]]:
         if len(text) >= MIN_VARIANT_LENGTH and text not in seen:
             seen.add(text)
             found.append((signal, text))
+    return found
+
+
+def arabic_readings(normalized: str) -> list[str]:
+    """The English generic names an Arabic query spells, as typed or without its numbers
+    ("ليفوثيروكسين 50" reads as "levothyroxine")."""
+    core = " ".join(word for word in normalized.split() if not any(c.isdigit() for c in word))
+    found: list[str] = []
+    for text in (normalized, core):
+        for name in english_names(text):
+            if name not in found:
+                found.append(name)
     return found
 
 
@@ -108,6 +122,11 @@ class SearchProductsHandler:
                 query.market, text, self._candidates, self._min_score, query.include_withdrawn
             )
             readings.append((signal, more))
+        for text in arabic_readings(normalized):
+            more = await self._index.find_similar(
+                query.market, text, self._candidates, self._min_score, query.include_withdrawn
+            )
+            readings.append((ARABIC_NAME, more))
         fused = fuse(
             [_signal_hits(EXACT, exact), _best_reading(readings)],
             first={EXACT},

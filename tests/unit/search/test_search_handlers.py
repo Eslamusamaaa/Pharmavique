@@ -203,3 +203,20 @@ async def test_a_plain_query_gets_only_the_plain_signal() -> None:
 
     assert result.matches[0].register_number == "2-1"
     assert {r.signal for r in result.matches[0].reasons} == {"fuzzy"}
+
+
+GENERICS = (
+    product("2-100", "HUMULIN R", "هيومولين ار", ("INSULIN HUMAN",)),
+    product("2-200", "EUTHYROX 50", "يوثيروكس 50", ("LEVOTHYROXINE SODIUM",)),
+    product("2-300", "ENSUTINE", "انسوتين", ("ENSULIZOLE",)),
+)
+
+
+async def test_an_arabic_generic_name_that_no_trade_name_contains_finds_its_products() -> None:
+    handler = SearchProductsHandler(await index_of(*GENERICS))
+
+    insulin = await handler.search(query("انسولين"))
+    thyroxine = await handler.search(query("ليفوثيروكسين 50"))
+
+    assert insulin.matches[0].register_number == "2-100"
+    assert thyroxine.matches[0].register_number == "2-200"
