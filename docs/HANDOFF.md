@@ -222,6 +222,16 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   Arabic in 10.6 s; Nemotron 3.5 Lightning searched "Benadryl" and was left out; the free Gemma 4 models were
   rate limited upstream at that moment (they stay last). The whole answer may now take up to 150 s
   (`RUN_TIMEOUT`; Vercel allows 300).
+- **What the assistant refuses** (owner, 2026-11-24): only (A) questions outside medicines, chemicals,
+  pharmacies, cosmetics and supplements, and (B) deciding for the person: an order to take, stop or switch a
+  medicine, "this is the right treatment for you", or any dose. Everything else in the field is answered, with the
+  web search when SFDA data lacks it (a medicine from Egypt, what a medicine is for, cosmetics). For symptoms it
+  may say which active ingredients are generally used and that a product with one may help, in the same sentence
+  telling them to ask the pharmacist or doctor first (`answers.py`: a "you may take" sentence passes only with
+  that advice beside it). The number check now removes only the sentence with a number no tool returned
+  (`without_ungrounded_sentences`); "31. 65 ريال" is read as 31.65 (`tidy_numbers`), and "[10, 11]" or "[15-18]"
+  count as citations (`split_citation_groups`). The real case: the PANTOLOC question was refused because the model
+  wrote "31. 65" and the check read "65 ريال".
 - **Assistant input** (2026-11-24): what is said into the microphone goes into the text box instead of being sent,
   so it can be read, edited, and sent with a photo. A photo can also go alone ("وش هذا الدواء؟"). Text, voice,
   photo + text and photo + voice all work; a question that came from the microphone is answered by voice too.
