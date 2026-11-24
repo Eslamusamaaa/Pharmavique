@@ -5,9 +5,13 @@ real danger.
 
 - Registry facts (names, ingredients, strengths, prices, statuses) come from tools and are cited.
   General medicine information is allowed and is labelled as general, not as an SFDA record.
-- Hard limits, checked in code after the model: no personal dose numbers or schedules, and no
+- Hard limits, checked in code after the model: no personal dose numbers or schedules, no
   telling someone to stop or switch a medicine on their own (saying "ask your doctor before
-  stopping" is fine). Emergencies get an immediate reply to call 997, without asking the model.
+  stopping" is fine), and never "this is the right medicine for you".
+- Owner's decision (2026-11-24): saying that an active ingredient may help symptoms like the
+  person's, and that they may use a product with it, is allowed when the same sentence sends them
+  to the doctor or pharmacist first.
+- Emergencies get an immediate reply to call 997, without asking the model.
 """
 
 import re
@@ -115,6 +119,13 @@ _RECOMMEND_RULES = (
     r"(?!\s+(ال)?(تطبيق|موقع|بحث))",
     r"\byou\s+(can|could|may|should)\s+(take|use)\b(?!\s+(the\s+)?(app|search))",
 )
+# Deciding for the person: this is their treatment, the best or the right medicine for them.
+_FOR_YOU_RULES = (
+    r"(هو|هي|هذا|هذه|ده|دي)\s+(ال)?(علاج|دواء|الدواء)\s*(ال)?(مناسب|الأنسب|أنسب|الصح)\s*(لك|ليك|لحالتك)",
+    r"(أفضل|افضل|أحسن|احسن|أنسب|انسب)\s+(دواء|علاج)\s+(لك|ليك|لحالتك)",
+    r"(هو|هي|هذا|ده)\s+(علاجك|دواك|دواءك)",
+    r"\b(the\s+)?(right|best)\s+(medicine|treatment|drug)\s+for\s+you\b",
+)
 _STOP_SWITCH_RULES = (
     r"(توقف|توقّف|أوقف|اوقف|بطّل|بطل)\s+(عن\s+)?(تناول|أخذ|اخد|استخدام|الدواء|الدوا|دواء)",
     r"(استبدل|استبدله|استبدلها|بدّل|غيّر)\s*(ه|ها|الدواء|الدوا|دواء)?\s*(ب|إلى|الى)",  # noqa: RUF001
@@ -124,14 +135,20 @@ _STOP_SWITCH_RULES = (
 )
 # A sentence that sends the person to a doctor or pharmacist is guidance, not an instruction.
 _CONSULT = re.compile(
-    r"(اسأل|إسأل|استشر|استشارة|كلم|راجع)\s+(ال)?(دكتور|طبيب|الطبيب|صيدلي|الصيدلي|دكتورك|طبيبك)"
-    r"|اتصل\s+بالطبيب|الطوارئ|ask\s+your\s+(doctor|pharmacist)|consult|call\s+your\s+doctor"
+    r"(اسأل|إسأل|تسأل|تسال|استشر|تستشير|استشارة|كلم|تكلم|راجع|تراجع)\s+(ال)?(دكتور|طبيب|الطبيب|صيدلي|الصيدلي|دكتورك|طبيبك)"
+    r"|اتصل\s+بالطبيب|الطوارئ|ask\s+(your|a)\s+(doctor|pharmacist)|consult|call\s+your\s+doctor"
     r"|emergency",
     re.IGNORECASE,
 )
 _DOSE = re.compile("|".join(f"(?:{r})" for r in _DOSE_RULES), re.IGNORECASE)
 _STOP_SWITCH = re.compile("|".join(f"(?:{r})" for r in _STOP_SWITCH_RULES), re.IGNORECASE)
 _RECOMMEND = re.compile("|".join(f"(?:{r})" for r in _RECOMMEND_RULES), re.IGNORECASE)
+_FOR_YOU = re.compile("|".join(f"(?:{r})" for r in _FOR_YOU_RULES), re.IGNORECASE)
+# switching to another product is the doctor's or pharmacist's decision even with "ask" beside it
+_SWITCH_TO = re.compile(
+    r"(استبدل|استبدله|استبدلها|بدّل|بدل)\s*(ه|ها)?\s+\S+\s+(ب|إلى|الى)|\bswitch\s+to\b",  # noqa: RUF001
+    re.IGNORECASE,
+)
 # sentence ends: a line break, ! ? ؟ ؛, or a full stop followed by a space (never inside 26.6)
 _SENTENCES = re.compile(r"(?<=[!?؟؛\n])\s*|(?<=\.)\s+")
 
@@ -171,9 +188,12 @@ def without_unsupported_use_claims(text: str) -> str | None:
 
 
 def _breaks(sentence: str) -> bool:
-    if _DOSE.search(sentence) or _RECOMMEND.search(sentence):
+    if _DOSE.search(sentence) or _FOR_YOU.search(sentence) or _SWITCH_TO.search(sentence):
         return True
-    return bool(_STOP_SWITCH.search(sentence)) and not _CONSULT.search(sentence)
+    consult = bool(_CONSULT.search(sentence))
+    if _RECOMMEND.search(sentence) and not consult:
+        return True  # "you may take X" only with the doctor or pharmacist asked first
+    return bool(_STOP_SWITCH.search(sentence)) and not consult
 
 
 def without_rule_breaking_sentences(text: str) -> str | None:
@@ -192,9 +212,6 @@ def without_rule_breaking_sentences(text: str) -> str | None:
 def breaks_rules(text: str) -> bool:
     """True when the text gives a personal dose instruction, or tells someone to stop or switch a
     medicine without sending them to a doctor or pharmacist in the same sentence."""
-    if _DOSE.search(text) or _RECOMMEND.search(text):
+    if _DOSE.search(text):
         return True
-    return any(
-        _STOP_SWITCH.search(sentence) and not _CONSULT.search(sentence)
-        for sentence in _SENTENCES.split(text)
-    )
+    return any(_breaks(sentence) for sentence in _SENTENCES.split(text))

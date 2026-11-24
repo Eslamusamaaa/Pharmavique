@@ -132,6 +132,11 @@ async def test_an_emergency_gets_the_emergency_reply_without_a_model_call() -> N
         "ممكن تاخد بانادول للصداع",
         "You can take paracetamol for a headache",
         "أنصحك بتناول دواء الباراسيتامول",
+        # deciding for the person (owner, 2026-11-24): never "this is your treatment"
+        "بانادول هو العلاج المناسب لك",
+        "هذا أفضل دواء لحالتك.",
+        "It is the right medicine for you.",
+        "استبدل كونكور ببيسوبرولول تاني، واسأل الصيدلي.",
     ],
 )
 def test_dosing_stop_and_switch_instructions_break_the_rules(text: str) -> None:
@@ -152,6 +157,10 @@ def test_dosing_stop_and_switch_instructions_break_the_rules(text: str) -> None:
         "الباراسيتامول مادة فعالة تُستخدم في أدوية كثيرة، والصيدلي يحدد الأنسب لك.",
         "ممكن تستخدم التطبيق للبحث عن دواء.",
         "يوجد 24 قرصًا في العبوة حسب سجل الهيئة.",
+        # an ingredient that may suit the symptoms, with the doctor or pharmacist asked first
+        # (owner, 2026-11-24)
+        "الباراسيتامول يخفف الصداع عموماً، فممكن تاخد بانادول بعد ما تسأل الصيدلي.",
+        "You can take paracetamol for a headache; ask your pharmacist first.",
     ],
 )
 def test_facts_about_the_product_are_allowed(text: str) -> None:
