@@ -26,8 +26,31 @@ owner's laptop and writes to the **local** database, so the Neon database is not
 1. `sfda-update` against the last complete run (or the committed baseline `full-20261116`), then
    `sfda-load`, `sfda-withdraw-absent`, `search-reindex`, `outbox-relay`, `notify-emails`,
    `analytics-rebuild` and `cache-invalidate`.
-2. The fast lists (`sfda-lists`), loaded only when a list has at least 85% of the baseline's rows; the new
-   rows of the knowledge lists get their documents read and their chunks added and embedded.
+2. The fast lists (`sfda-lists --quick`), loaded only when a list has at least 85% of the baseline's rows;
+   the new rows of the knowledge lists get their documents read and their chunks added and embedded.
+
+**How often each list is read** (owner's decision 2026-11-24):
+
+| When | What |
+|---|---|
+| every day, 01:17 UTC | the drugs and the fast lists: shortage, resolved shortage, safety alerts, labeling updates, circulars, DHPC letters, RMM, approvals |
+| every day, 13:17 UTC (second schedule) | the two shortage lists only |
+| Fridays (with the night run) | the licensed pharmacies (`WEEKLY_LISTS`) |
+| the 1st of each month | the drug companies, 616 pages (`MONTHLY_LISTS`) |
+
+By hand: steps `lists,weekly,monthly` reads the slow lists today.
+
+**The quick check** (`sfda_web/list_quick_check.py`). A full crawl of a list reads every page several times,
+because the site's order is unstable: about an hour a day, while the eight daily lists gained one row
+between 17 and 23 November 2026. With `--quick` the crawler first reads two pages, the first and the last.
+When the total they give equals the last complete run's and every row on both pages is already known, the
+list has not changed: that run's rows are written as today's (`mode: quick_check_unchanged`, `reused_from`
+in the manifest) and the crawl is skipped. A new row, an edited row (a row's key includes a hash of its
+cells) or a removed row changes the total or those pages. New rows appear on the first page (the RMM row of
+2026-11-23 was on page 0). What it cannot see is an edit in the middle with the same total, so a full crawl
+still runs when the last one is a week old (`full_crawl_at` in the manifest), when there is no earlier
+complete run, and whenever a page looks odd. Tried for real on 2026-11-24: DHPC unchanged after 2 requests,
+105 rows reused, 37 seconds.
 
 **Safeguards.** Two runs never overlap (`concurrency`). Before every run the four registry schemas are
 copied with `pg_dump` and kept two days as an artifact (`database-before-refresh`); they hold public

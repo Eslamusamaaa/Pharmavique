@@ -5,6 +5,16 @@
 #
 #   bash scripts/daily_refresh.sh                       # drugs and lists
 #   STEPS=lists FAST_LISTS=drug-shortage bash scripts/daily_refresh.sh   # a short trial
+#   STEPS=lists,weekly,monthly bash scripts/daily_refresh.sh   # also the slow lists, today
+#
+# How often each list is read (owner's decision 2026-11-24):
+#   every day   the drugs and the fast lists below; the shortage lists also a second time at noon
+#               (the workflow's second schedule)
+#   Fridays     the licensed pharmacies (WEEKLY_LISTS)
+#   1st of month the drug companies, 616 pages (MONTHLY_LISTS)
+# Every list is read with --quick: the first and last page are read, and when the total and those
+# rows are what the last complete run had, that run's rows are reused without the full crawl. A
+# full crawl still runs when the last one is a week old, and whenever the check is not sure.
 #
 # Every step is polite (one request at a time per site, robots.txt, stops on a block) and safe to
 # repeat. A failing step is logged and the next step still runs; the exit code is 1 if any step
@@ -18,6 +28,8 @@ STEPS="${STEPS:-drugs,lists}"
 RECHECK="${RECHECK:-300}"
 BASELINE="${BASELINE:-full-20261116}"
 FAST_LISTS="${FAST_LISTS:-drug-shortage,drug-shortage-resolved,safety-alert,safety-labeling,drugs-circulars,dhpc,rmm,drug-approvals}"
+WEEKLY_LISTS="${WEEKLY_LISTS:-pharmacies}"
+MONTHLY_LISTS="${MONTHLY_LISTS:-drug-companies}"
 KNOWLEDGE_LISTS="dhpc safety-alert drugs-circulars rmm safety-labeling"
 stamp="$(date -u +%Y%m%d)"
 logs="data/refresh/$stamp"
@@ -115,7 +127,12 @@ fi
 # ---------------------------------------------------------------------------- the fast lists
 if has_step lists; then
   run="lists-$stamp"
-  step lists-crawl 0,2 sfda-lists --lists "$FAST_LISTS" --run-id "$run"
+  # the slow lists join on their day (or when asked with the steps "weekly" and "monthly")
+  wanted_lists="$FAST_LISTS"
+  if [ "$(date -u +%u)" = "5" ] || has_step weekly; then wanted_lists="$wanted_lists,$WEEKLY_LISTS"; fi
+  if [ "$(date -u +%d)" = "01" ] || has_step monthly; then wanted_lists="$wanted_lists,$MONTHLY_LISTS"; fi
+  FAST_LISTS="$wanted_lists"
+  step lists-crawl 0,2 sfda-lists --quick --lists "$FAST_LISTS" --run-id "$run"
   if [ "$LAST_CODE" -eq 0 ] || [ "$LAST_CODE" -eq 2 ]; then
     # load only the lists whose new crawl has at least 85% of the baseline's rows, so a half-read
     # list can never shrink what the database holds

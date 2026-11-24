@@ -10,10 +10,12 @@ on:
     # at the start of an hour when it is busy (the run of 2026-11-23 started 7.5 hours late and
     # the one of 2026-11-24 had not started 7.5 hours after 01:00).
     - cron: "17 1 * * *"
+    # 13:17 UTC (16:17 in Saudi Arabia): the shortage lists a second time, quick check first
+    - cron: "17 13 * * *"
   workflow_dispatch:
     inputs:
       steps:
-        description: "steps to run: drugs, lists or drugs,lists"
+        description: "steps to run: drugs, lists or drugs,lists (add weekly, monthly for the slow lists)"
         default: "drugs,lists"
       fast_lists:
         description: "lists to crawl (a short trial: drug-shortage)"
@@ -44,8 +46,9 @@ jobs:
       PHARMAVIQUE_SMTP_PORT: ${{ secrets.PHARMAVIQUE_SMTP_PORT || '587' }}
       PHARMAVIQUE_SMTP_USERNAME: ${{ secrets.PHARMAVIQUE_SMTP_USERNAME }}
       PHARMAVIQUE_SMTP_PASSWORD: ${{ secrets.PHARMAVIQUE_SMTP_PASSWORD }}
-      STEPS: ${{ inputs.steps || 'drugs,lists' }}
-      FAST_LISTS: ${{ inputs.fast_lists || 'drug-shortage,drug-shortage-resolved,safety-alert,safety-labeling,drugs-circulars,dhpc,rmm,drug-approvals' }}
+      # the noon schedule reads only the shortage lists; the night one reads everything
+      STEPS: ${{ github.event.schedule == '17 13 * * *' && 'lists' || inputs.steps || 'drugs,lists' }}
+      FAST_LISTS: ${{ github.event.schedule == '17 13 * * *' && 'drug-shortage,drug-shortage-resolved' || inputs.fast_lists || 'drug-shortage,drug-shortage-resolved,safety-alert,safety-labeling,drugs-circulars,dhpc,rmm,drug-approvals' }}
     steps:
       - name: The database address is set
         run: |

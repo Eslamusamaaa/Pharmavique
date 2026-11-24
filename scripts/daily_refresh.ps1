@@ -121,7 +121,8 @@ try {
         # the lists that change quickly: shortages, safety notices, new approvals
         $fast = "drug-shortage,drug-shortage-resolved,safety-alert,safety-labeling,drugs-circulars,dhpc,rmm,drug-approvals"
         $run = "lists-$stamp"
-        $code = Invoke-Step "lists-crawl" @("sfda-lists", "--lists", $fast, "--run-id", $run) @(0, 2)
+        # --quick: reuse the last complete run when the first and last page show no change
+        $code = Invoke-Step "lists-crawl" @("sfda-lists", "--quick", "--lists", $fast, "--run-id", $run) @(0, 2)
         if ($code -eq 0 -or $code -eq 2) {
             # load only the lists whose new crawl has at least 85% of the baseline's rows, so a
             # half-read list can never shrink what the database holds

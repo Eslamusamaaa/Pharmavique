@@ -336,8 +336,13 @@ What it refreshes every day (`scripts/daily_refresh.sh`, `.github/workflows/dail
   is loaded only when its crawl has at least 85% of the baseline rows. The shortage detail pages (trade names)
   are read before loading. New DHPC, alert, circular, RMM and labeling rows get chunks and vectors for the
   assistant (no OCR on GitHub: scanned PDFs get no text).
-- **Not refreshed daily**: the SFDA **pharmacies** list (385 rows, loaded once), drug companies, the interaction
-  and contraindication data (fixed downloads, not SFDA), pictures (`Pictures load` is manual).
+- **Schedule per list and the quick check** (added 2026-11-24, details in `docs/SCRAPING_ON_GITHUB.md`): the
+  fast lists every night, the two shortage lists again at 13:17 UTC, the pharmacies on Fridays, the drug
+  companies on the 1st of the month. Every list run starts with a two-page quick check and reuses the last
+  complete run when nothing changed; a full crawl still runs at least weekly. The first night after this
+  change still does full crawls (earlier runs carry no `full_crawl_at`).
+- **Not refreshed daily**: the interaction and contraindication data (fixed downloads, not SFDA) and the
+  pictures (`Pictures load` is manual).
 - `cache-invalidate` exits 4 on GitHub: production has no shared cache, so this is expected.
 
 Runs seen: the only scheduled run so far (2026-11-23) started at 08:25 UTC instead of 01:00 (7.5 h late) and
