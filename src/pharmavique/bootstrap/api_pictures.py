@@ -50,6 +50,10 @@ def get_pictures(request: Request) -> PictureLookup:
     return pictures
 
 
+# the box or its shop page is another strength or variant of the brand
+_NOT_THIS_PRODUCT = {"strength_conflict", "page_conflict"}
+
+
 @router.get(
     "/products/{register_number}/picture",
     response_class=FileResponse,
@@ -59,8 +63,9 @@ async def product_picture(
     register_number: str, pictures: Annotated[PictureLookup, Depends(get_pictures)]
 ) -> Response:
     stored = await pictures.find("SA", register_number)
-    # A generated card is not the box: the app draws its own placeholder instead.
-    if stored is None or stored.kind != "real":
+    # A generated card is not the box: the app draws its own placeholder instead. Neither is a
+    # box that states other strengths than the registry's: it is another product of the brand.
+    if stored is None or stored.kind != "real" or stored.verification in _NOT_THIS_PRODUCT:
         raise HTTPException(status_code=404, detail="no picture for this product")
     settings = get_settings()
     if settings.picture_base_url:

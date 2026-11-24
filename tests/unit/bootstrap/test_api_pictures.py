@@ -113,3 +113,28 @@ async def test_a_generated_card_or_unknown_product_has_no_picture() -> None:
 
     assert generated.status_code == 404
     assert unknown.status_code == 404
+
+
+async def test_a_box_that_states_another_strength_is_not_shown_as_the_product() -> None:
+    # the brand is on the box, but the strengths printed on it are not the registry's
+    row = StoredPicture(
+        "real", "products/SA/3/a.jpg", "image/jpeg", "needs_review", "strength_conflict"
+    )
+    app = create_app(pictures=FakePictures({"3": row}))
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/products/3/picture")
+
+    assert response.status_code == 404
+
+
+async def test_a_picture_whose_shop_page_is_another_variant_is_not_shown() -> None:
+    row = StoredPicture("real", "products/SA/4/a.jpg", "image/jpeg", "matched", "page_conflict")
+    app = create_app(pictures=FakePictures({"4": row}))
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/products/4/picture")
+
+    assert response.status_code == 404

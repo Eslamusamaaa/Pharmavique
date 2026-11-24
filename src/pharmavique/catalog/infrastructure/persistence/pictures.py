@@ -25,6 +25,10 @@ class StoredPicture:
     file_path: str
     content_type: str
     status: str | None  # "matched", "needs_review" ...
+    # how the text on the box was checked: "confirmed", "likely", "not_confirmed",
+    # "strength_conflict" (the box states strengths and none is the registry's), "no_picture",
+    # "page_conflict" (the shop page names another variant or strength of the brand)
+    verification: str | None = None
 
 
 class SqlAlchemyPictureStore:
@@ -32,11 +36,22 @@ class SqlAlchemyPictureStore:
         self._session_factory = session_factory
 
     async def find(self, market: str, register_number: str) -> StoredPicture | None:
+        from pharmavique.catalog.domain.picture_page import page_names_another_product
+        from pharmavique.catalog.infrastructure.persistence.models import ProductRow
+
         async with self._session_factory() as session:
             row = await session.get(ProductPictureRow, (market, register_number))
+            product = await session.get(ProductRow, (market, register_number))
         if row is None:
             return None
-        return StoredPicture(row.kind, row.file_path, row.content_type, row.status)
+        verification = row.verification
+        if row.kind == "real" and product is not None:
+            data = product.data or {}
+            names = (data.get("trade_name") or {}).values()
+            strengths = [str(i.get("strength") or "") for i in data.get("ingredients") or []]
+            if page_names_another_product(row.source_page, names, strengths):
+                verification = "page_conflict"
+        return StoredPicture(row.kind, row.file_path, row.content_type, row.status, verification)
 
     async def replace_all(self, market: str, rows: Iterable[Mapping[str, Any]]) -> int:
         """Replace the pictures of a market with `rows` (mapping rows). Rows of drugs that are not
