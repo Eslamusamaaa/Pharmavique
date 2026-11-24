@@ -229,7 +229,8 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   words in the names** (soluble, E.C, XR/SR/MR, retard, pen, vial, inhaler...), **no biologic**
   (biosimilars of insulin, adalimumab, trastuzumab and so on are for the pharmacist), and **names whose
   printed strength agrees with the registry** (SFDA records GARDIA PLUS 8/12.5 with candesartan 16 mg).
-  Anything else is "possible, needs pharmacist check". Audit of the whole catalog: 14,434 equivalent pairs
+  A name may print the total of a combination ("AUGMENTIN 1 G" for 875 + 125 mg).
+  Anything else is "possible, needs pharmacist check". Audit of the whole catalog: 14,507 equivalent pairs
   (was 15,652); what still differs between two equivalent names is only brand words (PLUS/HCT/Duo/Trio).
 - Equivalence matches ingredient names exactly: "AMOXICILLIN TRIHYDRATE" + "Potassium Clavulanate" (MEGAMOX,
   Vauxlav) is not grouped with "AMOXICILLIN" + "CLAVULANIC ACID", so those are not offered as equivalents of
