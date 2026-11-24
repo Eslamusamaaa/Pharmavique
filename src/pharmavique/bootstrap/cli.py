@@ -71,6 +71,9 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_details impor
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_files import (
     ListFileCrawler,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_quick_check import (
+    reuse_if_unchanged,
+)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.list_stream import (
     StreamingListCrawler,
 )
@@ -91,6 +94,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import (
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
     PlaywrightPageFetcher,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.records import to_source_records
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
     changes_to_json,
@@ -166,6 +170,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lists.add_argument("--max-pages", type=int, help="only crawl this many pages per list (sample)")
     lists.add_argument("--show", action="store_true", help="print the known lists and stop")
+    lists.add_argument(
+        "--quick",
+        action="store_true",
+        help="read the first and last page first and reuse the last complete run when nothing "
+        "changed (a full crawl still runs at least once a week)",
+    )
 
     details = commands.add_parser(
         "sfda-list-details",
@@ -450,6 +460,27 @@ async def _sfda_lists(args: argparse.Namespace) -> int:
             if manifest is not None and manifest.get("status") == "complete":
                 log.info("%s is already complete in run %s, skipping", spec.name, run_id)
                 continue
+            if args.quick and not spec.is_giant:
+                polite = PoliteFetch(
+                    fetcher, robots, retries=config.retries, retry_wait=config.retry_wait
+                )
+                try:
+                    reused, why = await reuse_if_unchanged(
+                        spec=spec,
+                        store=store,
+                        polite=polite,
+                        base_url=args.base_url,
+                        now=clock.now(),
+                    )
+                except SourceBlocked as exc:
+                    log.error("the site blocked the crawl: %s; stopping the whole queue", exc)
+                    return EXIT_STOPPED
+                except CrawlError as exc:
+                    reused, why = False, f"the quick check failed ({exc})"
+                if reused:
+                    log.info("%s unchanged (%s): the last complete run is reused", spec.name, why)
+                    continue
+                log.info("%s needs a full crawl: %s", spec.name, why)
             log.info("list %s (run %s, output %s)", spec.name, run_id, store.run_dir)
             crawl_class = StreamingListCrawler if spec.is_giant else ListCrawler
             crawler = crawl_class(
@@ -465,7 +496,11 @@ async def _sfda_lists(args: argparse.Namespace) -> int:
                 code = EXIT_PARTIAL
                 continue
             log.info("%s finished with status %s", spec.name, manifest["status"])
-            if manifest["status"] != "complete":
+            if manifest["status"] == "complete":
+                # what the quick check of the next runs compares with, and how old it may get
+                manifest["full_crawl_at"] = manifest.get("started_at") or clock.now().isoformat()
+                store.save_manifest(manifest)
+            else:
                 code = EXIT_PARTIAL
     return code
 
