@@ -77,12 +77,16 @@ def _printed_strengths(trade_name: str | None) -> frozenset[str]:
 
 
 def _registry_strengths(facts: ProductFacts) -> frozenset[str]:
+    """Each registered strength, and their total: names often print the total of a combination
+    ("AUGMENTIN 1 G" is 875 mg + 125 mg, "CO-IRBETEL 312.5" is 300 mg + 12.5 mg)."""
     found: set[str] = set()
     for line in facts.ingredients:
         value = _decimal(line.strength or "")
         unit = (line.unit or "").lower().split("/")[0].strip()
         if value is not None and unit:
             found.add(_amount(str(value), unit))
+    if len(found) > 1:
+        found.add(format(sum((Decimal(v) for v in found), Decimal(0)).normalize(), "f"))
     return frozenset(found)
 
 

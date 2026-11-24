@@ -137,3 +137,11 @@ def test_biosimilar_biologics_and_another_device_need_a_pharmacist_check() -> No
 
     assert glargine[0].verdict == "possible_needs_pharmacist_check"
     assert adalimumab[0].verdict == "possible_needs_pharmacist_check"
+
+
+def test_a_name_that_prints_the_total_of_a_combination_agrees_with_the_registry() -> None:
+    lines = (("AMOXICILLIN", "875"), ("CLAVULANIC ACID", "125"))
+    base = combo("1", "AUGMENTIN 1 G TAB", lines)
+    other = combo("2", "MEGAMOX 1GM TAB", lines)
+
+    assert CompareProductsHandler().compare(base, [other])[0].verdict == "equivalent"
