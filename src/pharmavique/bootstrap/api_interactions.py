@@ -151,6 +151,7 @@ def get_contraindications(request: Request) -> ContraindicationChecks:
 )
 async def contraindications(
     register_number: str,
+    request: Request,
     checks: Annotated[ContraindicationChecks, Depends(get_contraindications)],
     catalog: Annotated[CatalogQueries, Depends(get_catalog)],
 ) -> ContraindicationsOut:
@@ -158,12 +159,22 @@ async def contraindications(
     if not cards:
         raise HTTPException(status_code=404, detail="no product with this register number")
     card = cards[0]
+    # The route tells a cream or an eye drop from a tablet: label contraindications are about the
+    # tablet or injection and are not shown for local use.
+    details_backend = getattr(request.app.state, "details", None)
+    details = (
+        await details_backend.get_details(Market.SA, card.register_number)
+        if details_backend is not None
+        else None
+    )
     report = await checks.run(
         [
             ProductIngredients(
                 card.register_number,
                 card.trade_name_en or card.trade_name_ar or card.register_number,
                 card.ingredient_names,
+                details.route_en if details else None,
+                card.dosage_form_en,
             )
         ]
     )

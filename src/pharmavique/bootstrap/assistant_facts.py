@@ -80,6 +80,8 @@ def _facts(d: ProductDetails) -> ProductFacts:
         d.card.register_number,
         tuple(IngredientFacts(i.name, i.strength, i.unit) for i in d.ingredients),
         d.card.dosage_form_en,
+        d.route_en,
+        d.card.trade_name_en,
     )
 
 
@@ -99,11 +101,22 @@ def _name_match(
     if exact:
         return "exact"
     typed = normalize_text(query).split()
-    names = (card.trade_name_ar, card.trade_name_en)
-    words = [word for name in names if name for word in normalize_text(name).split()]
-    if typed and all(any(_same_word(word, part) for word in words) for part in typed):
-        return "exact"
-    return "similar_name_only"
+    names = [name for name in (card.trade_name_ar, card.trade_name_en) if name]
+    words = [word for name in names for word in normalize_text(name).split()]
+
+    def found(part: str) -> bool:
+        if any(_same_word(word, part) for word in words):
+            return True
+        number = _number(part) if any(c.isdigit() for c in part) else None
+        return number is not None and number in strengths
+
+    if not typed or not all(found(part) for part in typed):
+        return "similar_name_only"
+    for name in names:
+        brand = normalize_text(core_name(name)).split()
+        if all(any(_same_word(word, part) for part in typed) for word in brand):
+            return "exact"
+    return "longer_name"
 
 
 def _same_word(word: str, typed: str) -> bool:

@@ -15,6 +15,8 @@ class ProductIngredients:
     register_number: str
     name: str
     ingredients: tuple[str, ...]  # as the registry writes them
+    route: str | None = None  # "Cutaneous use": label contraindications are not shown for local use
+    dosage_form: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
