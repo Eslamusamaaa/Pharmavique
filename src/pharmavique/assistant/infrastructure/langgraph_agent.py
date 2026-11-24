@@ -507,6 +507,10 @@ class LangGraphAgentRunner:
                     text = ""  # the model kept calling tools: no answer rather than a loop
                 except openai.RateLimitError as error:
                     raise AssistantBusy("the model provider's rate limit was reached") from error
+                except openai.APIError as error:
+                    # a request too large for the free plan (413), or the provider failed (5xx),
+                    # on the first model and on the backup: a busy answer, never a server error
+                    raise AssistantBusy("the model provider refused the request") from error
         except TimeoutError as error:
             # usually the provider's per-minute token limit made every retry wait
             raise AssistantBusy("the answer took too long") from error

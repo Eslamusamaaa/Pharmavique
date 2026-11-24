@@ -306,6 +306,26 @@ async def test_a_provider_rate_limit_becomes_a_busy_error_not_a_crash() -> None:
         await LangGraphAgentRunner(RateLimitedModel(), FakeFacts()).run("سؤال", Level.PATIENT, None)
 
 
+class RefusingModel(ScriptedModel):
+    """Both providers refused (the 413 of 2026-11-23 reached the person as a 500)."""
+
+    def __init__(self, code: int) -> None:
+        super().__init__()
+        self.code = code
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
+        response = httpx2.Response(self.code, request=httpx2.Request("POST", "http://model"))
+        raise openai.APIStatusError("Request too large", response=response, body=None)
+
+
+@pytest.mark.parametrize("code", [413, 500, 503])
+async def test_any_provider_error_becomes_a_busy_error_not_a_crash(code: int) -> None:
+    with pytest.raises(AssistantBusy):
+        await LangGraphAgentRunner(RefusingModel(code), FakeFacts()).run(
+            "سؤال", Level.PATIENT, None
+        )
+
+
 async def test_interaction_findings_are_cited_with_their_source_and_the_prompt_forbids_advice() -> (
     None
 ):
