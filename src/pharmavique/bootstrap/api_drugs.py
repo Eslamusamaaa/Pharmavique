@@ -318,6 +318,8 @@ def _facts(details: ProductDetails) -> ProductFacts:
         product_id=details.card.register_number,
         ingredients=tuple(IngredientFacts(i.name, i.strength, i.unit) for i in details.ingredients),
         dosage_form=details.card.dosage_form_en,
+        route=details.route_en,
+        trade_name=details.card.trade_name_en,
     )
 
 

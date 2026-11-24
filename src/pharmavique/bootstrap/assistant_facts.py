@@ -24,6 +24,7 @@ from pharmavique.interactions.contracts.queries import (
 from pharmavique.knowledge.application.retrieve import RetrievePassages
 from pharmavique.search.contracts.queries import ProductSearch, SearchQuery
 from pharmavique.shared_kernel.market import Market
+from pharmavique.shared_kernel.names import core_name
 from pharmavique.shared_kernel.text import arabic_skeleton, normalize_text
 from pharmavique.substitution.contracts.queries import (
     EquivalenceQueries,
@@ -82,7 +83,16 @@ def _facts(d: ProductDetails) -> ProductFacts:
     )
 
 
-def _name_match(query: str, card: ProductCard, exact: bool) -> str:
+def _number(text: str) -> str | None:
+    try:
+        return format(Decimal(text).normalize(), "f")
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _name_match(
+    query: str, card: ProductCard, exact: bool, strengths: frozenset[str] = frozenset()
+) -> str:
     """ "exact" when the search found the name exactly, or when every word typed starts a word of
     the product's own name (a shortened name: "Panadol 500" for "PANADOL 500 mg ..."). Anything
     else the forgiving search returned is a look-alike name, not the medicine asked for."""
@@ -311,6 +321,8 @@ class ContractDrugFacts:
                     card.register_number,
                     card.trade_name_en or card.trade_name_ar or "",
                     card.ingredient_names,
+                    details.route_en if details else None,
+                    card.dosage_form_en,
                 )
             ]
         )

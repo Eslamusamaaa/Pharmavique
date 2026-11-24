@@ -21,6 +21,8 @@ class ProductFacts:
     product_id: str
     ingredients: tuple[IngredientFacts, ...]
     dosage_form: str | None
+    route: str | None = None  # as the source states it, for example "Intravenous use"
+    trade_name: str | None = None  # its words can say a form the dosage form does not ("SOLUBLE")
 
 
 @dataclass(frozen=True, slots=True)
