@@ -392,6 +392,12 @@ async def _drug_page(
     )
 
 
+# How many products with one ingredient set are compared (the largest set in the registry has a
+# few hundred); the ones kept are the closest verdicts first, then shown cheapest first.
+MAX_SAME_INGREDIENT = 1000
+VERDICT_RANK = {"equivalent": 0, "possible_needs_pharmacist_check": 1, "not_equivalent": 2}
+
+
 async def same_ingredient_results(
     details_backend: CatalogDetails,
     equivalence: EquivalenceQueries,
@@ -407,10 +413,21 @@ async def same_ingredient_results(
     base = await details_backend.get_details(market, register_number)
     if base is None:
         return None
-    others = await details_backend.same_ingredients(market, register_number, limit)
+    # Every product with the ingredient set is compared before any is left out: the cheapest
+    # ones are often other strengths and forms, and cutting first dropped the real equivalents.
+    found = await details_backend.same_ingredients(market, register_number, MAX_SAME_INGREDIENT)
     verdicts = {
-        c.product_id: c for c in equivalence.compare(_facts(base), [_facts(o) for o in others])
+        c.product_id: c for c in equivalence.compare(_facts(base), [_facts(o) for o in found])
     }
+    others = sorted(
+        found,
+        key=lambda o: (
+            VERDICT_RANK.get(verdicts[o.card.register_number].verdict, len(VERDICT_RANK)),
+            o.price is None,
+            o.price.amount if o.price else Decimal(0),
+            o.card.register_number,
+        ),
+    )[:limit]
     ordered = sorted(
         others,
         key=lambda o: (

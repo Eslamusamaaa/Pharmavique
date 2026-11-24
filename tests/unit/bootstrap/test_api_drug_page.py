@@ -161,3 +161,36 @@ async def test_the_drug_page_shows_the_last_price_change_when_there_is_one() -> 
     assert with_change["price_change"]["new_price"]["amount"] == "7.25"
     assert with_change["price_change"]["changed_at"].startswith("2026-11-20")
     assert without["price_change"] is None
+
+
+async def test_the_equivalents_are_kept_when_many_cheaper_products_share_the_ingredients() -> None:
+    # Real case: AUGMENTIN 1 G TAB has 9 equivalent 1 g tablets, but over 30 cheaper suspensions
+    # and injections with the same ingredients came first and the equivalents were cut off.
+    many = {"1": details("1", "500", price="20")}
+    for n in range(10, 50):
+        many[str(n)] = details(str(n), "125", form="Oral suspension", price=f"{n / 10:.2f}")
+    many["90"] = details("90", "500", price="19")
+    many["91"] = details("91", "500", price="25")
+
+    class Many:
+        async def get_details(self, market: Market, register_number: str) -> ProductDetails | None:
+            return many.get(register_number)
+
+        async def same_ingredients(
+            self, market: Market, register_number: str, limit: int
+        ) -> tuple[ProductDetails, ...]:
+            ordered = sorted(
+                (p for n, p in many.items() if n != register_number),
+                key=lambda p: p.price.amount if p.price else Decimal(0),
+            )
+            return tuple(ordered)[:limit]
+
+    app = create_app(details=Many(), equivalence=CompareProductsHandler())
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        body = (await c.get("/v1/products/1/same-ingredient?limit=30")).json()
+
+    equivalent = [r["register_number"] for r in body["results"] if r["verdict"] == "equivalent"]
+    assert equivalent == ["90", "91"]
+    assert len(body["results"]) == 30

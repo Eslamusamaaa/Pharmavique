@@ -256,9 +256,9 @@ class ToolBox:
             return await self._call("drug_details", work)
 
         async def same_ingredient(register_number: str) -> str:
-            """Products with the same active ingredients, cheapest first, each with the verdict
-            computed by Pharmavique's rules (equivalent / possible_needs_pharmacist_check /
-            not_equivalent)."""
+            """Products with the same active ingredients, equivalents first, then cheapest first,
+            each with the verdict computed by Pharmavique's rules (equivalent /
+            possible_needs_pharmacist_check / not_equivalent)."""
 
             async def work() -> list[dict[str, Any]]:
                 rows = await self._facts.same_ingredient(_register(register_number), 15)

@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
 
+from pharmavique.bootstrap.api_drugs import MAX_SAME_INGREDIENT, VERDICT_RANK
 from pharmavique.catalog.contracts.queries import (
     CatalogDetails,
     CatalogListItems,
@@ -156,13 +157,25 @@ class ContractDrugFacts:
         base = await self._details.get_details(self._market, register_number.strip())
         if base is None:
             return []
-        others = await self._details.same_ingredients(
-            self._market, base.card.register_number, limit
+        # Compare every product with the ingredient set, then keep the closest verdicts first:
+        # cutting the cheapest few first dropped the real equivalents (other strengths and forms
+        # are often cheaper).
+        found = await self._details.same_ingredients(
+            self._market, base.card.register_number, MAX_SAME_INGREDIENT
         )
         verdicts = {
             c.product_id: c.verdict
-            for c in self._equivalence.compare(_facts(base), [_facts(o) for o in others])
+            for c in self._equivalence.compare(_facts(base), [_facts(o) for o in found])
         }
+        others = sorted(
+            found,
+            key=lambda o: (
+                VERDICT_RANK.get(verdicts.get(o.card.register_number, ""), len(VERDICT_RANK)),
+                o.price is None,
+                o.price.amount if o.price else Decimal(0),
+                o.card.register_number,
+            ),
+        )[:limit]
         rows = []
         for other in others:
             row = _details(other)
