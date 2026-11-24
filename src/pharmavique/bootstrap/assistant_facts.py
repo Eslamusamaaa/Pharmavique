@@ -5,7 +5,7 @@ substitution, knowledge). Values are plain JSON-ready dicts; every record keeps 
 """
 
 from collections.abc import Sequence
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from pharmavique.bootstrap.api_drugs import MAX_SAME_INGREDIENT, VERDICT_RANK
@@ -96,8 +96,11 @@ def _name_match(
     query: str, card: ProductCard, exact: bool, strengths: frozenset[str] = frozenset()
 ) -> str:
     """ "exact" when the search found the name exactly, or when every word typed starts a word of
-    the product's own name (a shortened name: "Panadol 500" for "PANADOL 500 mg ..."). Anything
-    else the forgiving search returned is a look-alike name, not the medicine asked for."""
+    the product's own name or is its registered strength ("Panadol 500" for "PANADOL 500 mg ...",
+    "كونكور 5" for "كونكور" with 5 mg) and the name has no product word that was not typed.
+    "longer_name" when the typed words are all there but the name has more product words
+    ("كونكور 5" for "كونكور 5 بلوس"): another product of the brand. Anything else the forgiving
+    search returned is a look-alike name, not the medicine asked for."""
     if exact:
         return "exact"
     typed = normalize_text(query).split()
@@ -157,20 +160,39 @@ class ContractDrugFacts:
             self._market, [m.register_number for m in result.matches]
         )
         by_number = {c.register_number: c for c in cards}
-        return [
-            {
-                "register_number": c.register_number,
-                "trade_name_ar": c.trade_name_ar,
-                "trade_name_en": c.trade_name_en,
-                "ingredients": list(c.ingredient_names),
-                "dosage_form": c.dosage_form_ar or c.dosage_form_en,
-                "marketing_company": c.marketing_company,
-                # the search is forgiving: a look-alike name is not the medicine that was asked for
-                "name_match": _name_match(query, c, m.exact),
-            }
-            for m in result.matches
-            if (c := by_number.get(m.register_number)) is not None
-        ]
+        rows = []
+        for m in result.matches:
+            c = by_number.get(m.register_number)
+            if c is None:
+                continue
+            # The registered strengths: the name often has none ("CONCOR" is 5 mg)
+            details = (
+                await self._details.get_details(self._market, c.register_number)
+                if self._details is not None
+                else None
+            )
+            lines = details.ingredients if details else ()
+            strengths = frozenset(
+                n for line in lines if line.strength and (n := _number(line.strength))
+            )
+            rows.append(
+                {
+                    "register_number": c.register_number,
+                    "trade_name_ar": c.trade_name_ar,
+                    "trade_name_en": c.trade_name_en,
+                    "ingredients": list(c.ingredient_names),
+                    "strengths": [
+                        f"{line.name} {line.strength} {line.unit or ''}".strip()
+                        for line in lines
+                        if line.strength
+                    ],
+                    "dosage_form": c.dosage_form_ar or c.dosage_form_en,
+                    "marketing_company": c.marketing_company,
+                    # the search is forgiving: a look-alike name is not the medicine asked for
+                    "name_match": _name_match(query, c, m.exact, strengths),
+                }
+            )
+        return rows
 
     async def drug_details(self, register_number: str) -> dict[str, Any] | None:
         found = await self._details.get_details(self._market, register_number.strip())
@@ -328,6 +350,7 @@ class ContractDrugFacts:
         if not cards:
             raise ValueError("no product with this register number")
         card = cards[0]
+        details = await self._details.get_details(self._market, card.register_number)
         report = await self._contraindications.run(
             [
                 ProductIngredients(
