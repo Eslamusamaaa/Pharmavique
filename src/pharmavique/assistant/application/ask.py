@@ -5,7 +5,8 @@
 3. the model and its tools
 4. empty answer -> "found nothing"
 5. personal dose / stop / switch instruction -> replaced
-6. a number or register number no tool returned -> withheld (no hallucinated facts)
+6. a number or register number no tool returned -> its sentence removed; the whole answer
+   withheld only when too little is left (no hallucinated facts)
 Each question is recorded for observability, without its text.
 """
 
@@ -37,7 +38,9 @@ from pharmavique.assistant.domain.guardrails import (
     INJECTION_REPLY,
     UNGROUNDED_REPLY,
     looks_like_injection,
+    tidy_numbers,
     ungrounded_facts,
+    without_ungrounded_sentences,
 )
 
 MAX_QUESTION = 1000
@@ -108,7 +111,7 @@ class AskAssistant:
         run = await self._runner.run(
             question, level, register_number, spoken=spoken, history=history
         )
-        text = run.text.strip()
+        text = tidy_numbers(run.text.strip())  # "31. 65 ريال" is 31.65, shown and checked as one
         # A page from the open web is unverified (ADR-017): it is cited, but it is not the registry.
         registry = any(citation.kind != "web" for citation in run.citations)
         base = Answer(
@@ -155,17 +158,25 @@ class AskAssistant:
                 base = replace(base, text=unsupported)
         # Numbers from earlier answers in this conversation count as known, so a follow-up
         # that repeats them is not withheld.
-        missing = ungrounded_facts(
-            text, (*run.evidence, question, *(turn.text for turn in history))
-        )
+        known = (*run.evidence, question, *(turn.text for turn in history))
+        missing = ungrounded_facts(text, known)
         if missing:
-            return (
-                replace(
-                    base, text=UNGROUNDED_REPLY, refused=True, general=False, outcome="ungrounded"
-                ),
-                run,
-                missing,
-            )
+            # Only the sentences with a number no tool returned go; the rest of a good answer
+            # stays (2026-11-24: one mis-read price hid a whole correct answer).
+            kept = without_ungrounded_sentences(text, known)
+            if kept is None:
+                return (
+                    replace(
+                        base,
+                        text=UNGROUNDED_REPLY,
+                        refused=True,
+                        general=False,
+                        outcome="ungrounded",
+                    ),
+                    run,
+                    missing,
+                )
+            return replace(base, text=kept), run, missing
         return base, run, []
 
     async def _detected(self, question: str) -> bool:

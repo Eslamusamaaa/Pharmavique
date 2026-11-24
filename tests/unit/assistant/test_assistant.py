@@ -263,6 +263,25 @@ async def test_an_answer_with_an_invented_price_is_withheld() -> None:
     assert answer.outcome == "ungrounded"
 
 
+async def test_one_unknown_price_removes_its_line_not_the_whole_answer() -> None:
+    text = (
+        "بانتولوك 40 مجم مسجل في الهيئة، والمادة الفعالة بانتوبرازول [1].\n"
+        "- بانتوفير 40 مجم بسعر 26. 6 ريال [2].\n"
+        "- بانتوماكس 40 مجم بسعر 99 ريال [3]."
+    )
+    runner = FakeRunner(text)
+    runner.result = AgentRun(
+        text, (CITE,), ("same_ingredient",), evidence=('{"strength": "40", "price": "26.6"}',)
+    )
+
+    answer = await AskAssistant(runner).ask("ايه بدايله؟", Level.PATIENT, "1-1")
+
+    assert not answer.refused
+    assert answer.outcome == "answered"
+    assert "26.6 ريال" in answer.text
+    assert "99" not in answer.text
+
+
 async def test_every_answer_is_recorded_without_the_question_text() -> None:
     observer = RecordingObserver()
     runner = FakeRunner("الباراسيتامول [1].")

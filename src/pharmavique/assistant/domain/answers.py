@@ -132,7 +132,8 @@ _CONSULT = re.compile(
 _DOSE = re.compile("|".join(f"(?:{r})" for r in _DOSE_RULES), re.IGNORECASE)
 _STOP_SWITCH = re.compile("|".join(f"(?:{r})" for r in _STOP_SWITCH_RULES), re.IGNORECASE)
 _RECOMMEND = re.compile("|".join(f"(?:{r})" for r in _RECOMMEND_RULES), re.IGNORECASE)
-_SENTENCES = re.compile(r"(?<=[.!?؟؛\n])\s*")
+# sentence ends: a line break, ! ? ؟ ؛, or a full stop followed by a space (never inside 26.6)
+_SENTENCES = re.compile(r"(?<=[!?؟؛\n])\s*|(?<=\.)\s+")
 
 
 MIN_KEPT_CHARS = 40  # below this, what is left after removing sentences is not an answer

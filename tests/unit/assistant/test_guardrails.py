@@ -67,3 +67,47 @@ def test_arabic_indic_digits_and_trailing_zeros_count_as_the_same_number() -> No
 
 def test_numbers_without_a_medicine_unit_are_not_checked() -> None:
     assert ungrounded_facts("اتصل بـ 997 أو اسأل خلال 24 ساعة", ()) == []
+
+
+def test_a_price_written_with_a_space_after_the_point_is_one_number() -> None:
+    # Real case (2026-11-24): the model wrote "31. 65 ريال" for 31.65; the check read "65 ريال",
+    # found it nowhere, and the whole answer about PANTOLOC was withheld.
+    from pharmavique.assistant.domain.guardrails import tidy_numbers
+
+    text = tidy_numbers("بانتوماكس — 31. 65 ريال، وبارالوك (25. 45 ريال)، والتركيز 40 مجم.")
+
+    assert text == "بانتوماكس — 31.65 ريال، وبارالوك (25.45 ريال)، والتركيز 40 مجم."
+    assert ungrounded_facts(text, ('{"price": "31.65"}', '{"price": "25.45", "s": "40"}')) == []
+
+
+def test_a_numbered_list_is_not_joined_into_a_decimal() -> None:
+    from pharmavique.assistant.domain.guardrails import tidy_numbers
+
+    assert tidy_numbers("1. 5 ملجم أقراص") == "1. 5 ملجم أقراص"
+    assert tidy_numbers("الخيارات:\n2. بانتوفير") == "الخيارات:\n2. بانتوفير"
+
+
+def test_only_the_sentence_with_an_unknown_number_is_removed() -> None:
+    from pharmavique.assistant.domain.guardrails import without_ungrounded_sentences
+
+    answer = (
+        "بانتولوك 40 مجم مسجل في الهيئة [1].\n"
+        "- بانتوفير 40 مجم بسعر 26.6 ريال [2].\n"
+        "- بانتوماكس 40 مجم بسعر 99 ريال [3].\n"
+        "القرار للصيدلي أو الطبيب."
+    )
+    evidence = ('{"strength": "40", "price": "26.6"}',)
+
+    kept = without_ungrounded_sentences(answer, evidence)
+
+    assert kept is not None
+    assert "بانتوفير" in kept
+    assert "99" not in kept
+    assert "بانتوماكس" not in kept
+    assert "ما قدرت أتأكد" in kept  # the person is told something was left out
+
+
+def test_nothing_is_left_when_every_sentence_has_an_unknown_number() -> None:
+    from pharmavique.assistant.domain.guardrails import without_ungrounded_sentences
+
+    assert without_ungrounded_sentences("سعره 12.5 ريال [1].", ('{"amount": "8"}',)) is None

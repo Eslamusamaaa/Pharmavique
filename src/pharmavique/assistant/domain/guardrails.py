@@ -62,6 +62,46 @@ def _canonical(number: str) -> str:
     return text.rstrip(".") if "." in text else text
 
 
+# "31. 65 ريال": some models put a space after the decimal point. Joined only when a unit or a
+# currency follows and the first number does not start a line (a numbered list item: "1. 5 mg").
+_SPACED_DECIMAL = re.compile(rf"(\d+)\.\s+(\d+)(?=\s*(?:{_UNITS})(?![A-Za-z]))", re.IGNORECASE)
+
+
+def tidy_numbers(text: str) -> str:
+    def join(match: re.Match[str]) -> str:
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        if not text[line_start : match.start()].strip(" \t-*•"):
+            return match.group(0)  # a list number, not a decimal
+        return f"{match.group(1)}.{match.group(2)}"
+
+    return _SPACED_DECIMAL.sub(join, text)
+
+
+UNGROUNDED_NOTE = (
+    "(شلت أرقام ما قدرت أتأكد منها من مصادرنا؛ اسأل الصيدلي عنها أو افتح صفحة الدواء.)"
+)
+_MIN_KEPT_CHARS = 40  # below this, what is left is not an answer
+# Sentence ends: a line break, ! ? ؟ ؛, or a full stop followed by a space (never inside 26.6).
+_SENTENCE_ENDS = re.compile(r"(?<=[!?؟؛\n])[ \t]*|(?<=\.)[ \t]+")
+
+
+def without_ungrounded_sentences(answer: str, evidence: Sequence[str]) -> str | None:
+    """The answer without the sentences (or list lines) that hold a number no tool returned, plus
+    a short note; None when what is left is too short to stand as an answer."""
+    pieces = _SENTENCE_ENDS.split(answer)
+    kept = [p for p in pieces if not ungrounded_facts(p, evidence)]
+    if len(kept) == len(pieces):
+        return answer
+    joined = "".join(
+        piece if i == 0 or kept[i - 1].endswith("\n") else f" {piece}"
+        for i, piece in enumerate(kept)
+    )
+    rest = re.sub(r"\n{3,}", "\n\n", joined).strip()
+    if len(rest) < _MIN_KEPT_CHARS:
+        return None
+    return f"{rest}\n\n{UNGROUNDED_NOTE}"
+
+
 def ungrounded_facts(answer: str, evidence: Sequence[str]) -> list[str]:
     """Numbers with a medicine unit or currency, and register numbers, that no tool returned."""
     text = answer.translate(_ARABIC_DIGITS)
