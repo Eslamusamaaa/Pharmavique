@@ -58,6 +58,8 @@ type Turn =
 
 let counter = 0;
 const nextId = () => `t${++counter}`;
+// the question a photo carries when it is sent without one (Saudi dialect)
+const PHOTO_ONLY_QUESTION = 'وش هذا الدواء؟';
 
 export default function Assistant() {
   const { c } = useTheme();
@@ -75,6 +77,8 @@ export default function Assistant() {
   const busy = turns.some((t) => t.role === 'pending');
   const [reading, setReading] = useState(false);
   const [photo, setPhoto] = useState<{ uri: string; mimeType: string } | null>(null);
+  // true while the text in the box came from the microphone: its answer is spoken too
+  const [spokenDraft, setSpokenDraft] = useState(false);
   const readingNow = useRef(false);
 
   const ask = async (question: string, spoken = false, shown?: string, photoUri?: string) => {
@@ -92,6 +96,7 @@ export default function Assistant() {
       )
       .slice(-6);
     setText('');
+    setSpokenDraft(false);
     Keyboard.dismiss(); // the answer is what matters now, not the keyboard
     setTurns((all) => [...all, { id: nextId(), role: 'user', text: shown ?? q, sent: q, photo: photoUri }, { id: pendingId, role: 'pending' }]);
     try {
@@ -116,10 +121,13 @@ export default function Assistant() {
     setPhoto({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
   };
 
+  // A photo can go alone (the question is then what the medicine is), or with a written or spoken
+  // question.
   const sendWithPhoto = async () => {
     const attached = photo;
-    const asked = text.trim();
-    if (!attached || !asked || readingNow.current || busy) return;
+    const asked = text.trim() || PHOTO_ONLY_QUESTION;
+    const spoken = spokenDraft;
+    if (!attached || readingNow.current || busy) return;
     readingNow.current = true;
     setReading(true);
     Keyboard.dismiss();
@@ -138,7 +146,7 @@ export default function Assistant() {
       readingNow.current = false;
       setReading(false);
       await ask(`${asked}
-مكتوب على العلبة (مقروء من صورة): "${printed}"`, false, asked, attached.uri);
+مكتوب على العلبة (مقروء من صورة): "${printed}"`, spoken, asked, attached.uri);
     } catch (e) {
       // the photo stays attached so the person can send again
       setTurns((all) => [...all, { id: nextId(), role: 'error', text: friendlyError(e) }]);
@@ -148,7 +156,7 @@ export default function Assistant() {
     }
   };
 
-  const send = () => (photo ? sendWithPhoto() : ask(text));
+  const send = () => (photo ? sendWithPhoto() : ask(text, spokenDraft));
 
   // On the website the browser's own file chooser already offers the camera or the library.
   const onPhoto = () =>
@@ -186,14 +194,21 @@ export default function Assistant() {
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
   }, [turns]);
 
+  // What was said goes into the box, not straight to the assistant: the person can read it, fix
+  // it, add a photo, and send them together (or send the words alone).
   const onMic = async () => {
     if (mic.state === 'listening') {
-      const heard = await mic.stop();
-      if (heard) ask(heard, true);
+      const heard = (await mic.stop())?.trim();
+      if (heard) {
+        setText((typed) => (typed.trim() ? `${typed.trim()} ${heard}` : heard));
+        setSpokenDraft(true);
+      }
     } else if (mic.state === 'idle') {
       await mic.start();
     }
   };
+
+  const canSend = !busy && !reading && mic.state !== 'transcribing' && (!!text.trim() || !!photo);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -307,7 +322,7 @@ export default function Assistant() {
           <View style={[styles.attached, { backgroundColor: c.sf, borderColor: c.ln }]}>
             <Image source={{ uri: photo.uri }} style={styles.thumb} contentFit="cover" />
             <T size={13} color={c.ink2} style={{ flex: 1 }}>
-              صورة مرفقة. اكتب سؤالك عنها ثم أرسل.
+              صورة مرفقة. اكتب أو قل سؤالك عنها، أو أرسلها كذا.
             </T>
             <Pressable onPress={() => setPhoto(null)} accessibilityLabel="أزل الصورة" style={styles.iconBtn}>
               <XIcon size={20} color={c.ink2} />
@@ -318,13 +333,16 @@ export default function Assistant() {
         <View style={[styles.inputBar, { backgroundColor: c.bg, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TextInput
             value={text}
-            onChangeText={setText}
+            onChangeText={(typed) => {
+              setText(typed);
+              if (!typed.trim()) setSpokenDraft(false);
+            }}
             onSubmitEditing={send}
             placeholder={
               mic.state === 'listening'
                 ? 'نسمعك… اضغط مرة ثانية إذا خلصت'
                 : photo
-                  ? 'اكتب سؤالك عن الصورة'
+                  ? 'اكتب أو قل سؤالك عن الصورة (اختياري)'
                   : 'اكتب أو تكلّم عن اسم أو مادة أو سعر'
             }
             placeholderTextColor={c.ink2}
@@ -352,7 +370,7 @@ export default function Assistant() {
               <MicrophoneIcon size={22} color={c.pr} />
             )}
           </Pressable>
-          <Pressable onPress={send} disabled={busy || reading || !text.trim()} style={[styles.roundBtn, { backgroundColor: c.pr, opacity: busy || reading || !text.trim() ? 0.5 : 1 }]} accessibilityLabel="إرسال">
+          <Pressable onPress={send} disabled={!canSend} style={[styles.roundBtn, { backgroundColor: c.pr, opacity: canSend ? 1 : 0.5 }]} accessibilityLabel="إرسال">
             <PaperPlaneTiltIcon size={22} color={c.prt} weight="fill" />
           </Pressable>
         </View>
