@@ -16,6 +16,15 @@ from langchain_core.messages import AIMessage, BaseMessage
 
 FIRST_TIMEOUT = 25.0  # seconds before the backup is tried
 _FALLBACK_ON = (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)
+# 413: Groq's free plan refuses a request bigger than its tokens-per-minute limit (a long question
+# with long tool results); 5xx: the provider failed. The backup has other limits, so it is tried.
+_FALLBACK_STATUS = frozenset({413, 500, 502, 503, 504})
+
+
+def _worth_the_backup(error: BaseException) -> bool:
+    if isinstance(error, (*_FALLBACK_ON, TimeoutError)):
+        return True
+    return isinstance(error, openai.APIStatusError) and error.status_code in _FALLBACK_STATUS
 
 
 class _BoundWithBackup:
@@ -29,7 +38,9 @@ class _BoundWithBackup:
             async with asyncio.timeout(self._first_timeout):
                 answer: AIMessage = await self._first.ainvoke(messages)
                 return answer
-        except (*_FALLBACK_ON, TimeoutError):
+        except (openai.APIError, TimeoutError) as error:
+            if not _worth_the_backup(error):
+                raise
             backup_answer: AIMessage = await self._backup.ainvoke(messages)
             return backup_answer
 

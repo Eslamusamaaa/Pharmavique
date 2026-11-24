@@ -89,3 +89,31 @@ def test_the_model_name_is_the_first_models() -> None:
     assert (
         FallbackChatModel(Model("a", AIMessage("x")), Model("b", AIMessage("y"))).model_name == "a"
     )
+
+
+def status_error(code: int) -> openai.APIStatusError:
+    request = httpx2.Request("POST", "https://x.test")
+    return openai.APIStatusError(
+        "Request too large for model on tokens per minute (TPM): Limit 8000, Requested 8401",
+        response=httpx2.Response(code, request=request),
+        body=None,
+    )
+
+
+@pytest.mark.parametrize("code", [413, 500, 502, 503])
+async def test_a_request_too_large_or_a_provider_error_moves_to_the_backup(code: int) -> None:
+    # Real case (2026-11-23): Groq's free plan refused a long question with 413, and the
+    # person got a 500 instead of the backup's answer.
+    first, backup = Model("a", status_error(code)), Model("b", AIMessage("from b"))
+
+    answer = await ask(FallbackChatModel(first, backup))
+
+    assert answer.content == "from b"
+
+
+async def test_a_bad_request_is_not_sent_to_the_backup() -> None:
+    first, backup = Model("a", status_error(400)), Model("b", AIMessage("from b"))
+
+    with pytest.raises(openai.APIStatusError):
+        await ask(FallbackChatModel(first, backup))
+    assert backup.calls == 0
