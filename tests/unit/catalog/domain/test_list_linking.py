@@ -310,6 +310,73 @@ def test_a_listed_strength_that_is_not_the_registered_strength_is_never_a_match(
     assert result["62"] == ("possible", "same trade name, a different strength or form")
 
 
+def test_a_combination_strength_must_match_each_ingredient_not_only_the_numbers_seen() -> None:
+    # Real SFDA row: only "TENORYL PLUS 10 mg/5 mg TABLET" is listed. 5/5 and 10/10 are other
+    # products: their numbers are a subset of {10, 5}, but not the same strengths.
+    index = ProductLinkIndex(
+        [
+            LinkableProduct.build(
+                "70", "TENORYL PLUS 5 mg/5 mg TABLET", ("AMLODIPINE", "PERINDOPRIL"),
+                strengths=["5", "5"], dosage_form="Tablet",
+            ),
+            LinkableProduct.build(
+                "71", "TENORYL PLUS 10 mg/10 mg TABLET", ("AMLODIPINE", "PERINDOPRIL"),
+                strengths=["10", "10"], dosage_form="Tablet",
+            ),
+            LinkableProduct.build(
+                "72", "TENORYL PLUS 10 mg/5 mg TABLET", ("AMLODIPINE", "PERINDOPRIL"),
+                strengths=["10", "5"], dosage_form="Tablet",
+            ),
+        ]
+    )  # fmt: skip
+
+    found = index.link(
+        "drug-shortage",
+        {"Generic Name": "AMLODIPINE,PERINDOPRIL"},
+        (("Trade name", "TENORYL PLUS 10 mg/5 mg TABLET"),),
+    )
+
+    assert {i.register_number: i.confidence for i in found} == {
+        "70": "possible",
+        "71": "possible",
+        "72": "matched",
+    }
+
+
+def test_a_listed_pack_size_that_is_not_the_product_pack_is_never_a_match() -> None:
+    # Real SFDA row: the 14-capsule packs are short; the 28-capsule packs are other registrations.
+    index = ProductLinkIndex(
+        [
+            LinkableProduct.build(
+                "80", "EZORA 40 MG GASTRO-RESISTANT HARD CAPSULES (28S)", ("ESOMEPRAZOLE",),
+                strengths=["40"], dosage_form="Gastro-resistant capsule, hard",
+            ),
+            LinkableProduct.build(
+                "81", "EZORA 40 MG GASTRO-RESISTANT HARD CAPSULES (14S)", ("ESOMEPRAZOLE",),
+                strengths=["40"], dosage_form="Gastro-resistant capsule, hard",
+            ),
+            LinkableProduct.build(
+                "82", "PLAXOTRIN 5 MG/ML CONCENTRATE FOR SOLUTION FOR INFUSION (10ml)",
+                ("PACLITAXEL",), strengths=["5"], dosage_form="Concentrate for solution",
+            ),
+        ]
+    )  # fmt: skip
+
+    ezora = index.link(
+        "drug-shortage",
+        {"Generic Name": "ESOMEPRAZOLE"},
+        (("Trade name", "EZORA 40 MG GASTRO-RESISTANT HARD CAPSULES (14S)"),),
+    )
+    plaxotrin = index.link(
+        "drug-shortage",
+        {"Generic Name": "PACLITAXEL"},
+        (("Trade name", "PLAXOTRIN 5 MG/ML CONCENTRATE FOR SOLUTION FOR INFUSION (20 ml)"),),
+    )
+
+    assert {i.register_number: i.confidence for i in ezora} == {"80": "possible", "81": "matched"}
+    assert {i.register_number: i.confidence for i in plaxotrin} == {"82": "possible"}
+
+
 def test_a_shortage_of_a_brand_says_nothing_about_a_longer_brand_name() -> None:
     index = ProductLinkIndex(
         [
@@ -323,3 +390,83 @@ def test_a_shortage_of_a_brand_says_nothing_about_a_longer_brand_name() -> None:
     )
 
     assert {item.register_number: item.confidence for item in found} == {"40": "matched"}
+
+
+def test_a_concentration_per_another_volume_a_starter_pack_or_a_generic_name_is_not_a_match() -> (
+    None
+):
+    # Real rows of the resolved list
+    index = ProductLinkIndex(
+        [
+            LinkableProduct.build(
+                "90", "ATROSOL 250 mcg/ml nebuliser solution", ("IPRATROPIUM BROMIDE",),
+                strengths=["250"], dosage_form="Nebuliser solution",
+            ),
+            LinkableProduct.build(
+                "91", "CHAMPIX 0.5 MG F-C TAB", ("VARENICLINE",),
+                strengths=["0.5"], dosage_form="Film-coated tablet",
+            ),
+            LinkableProduct.build(
+                "92", "DEXTROSE 5%", ("DEXTROSE",), strengths=["5"],
+                dosage_form="Solution for infusion",
+            ),
+        ]
+    )  # fmt: skip
+
+    def found(generic: str, name: str) -> dict[str, str]:
+        rows = index.link(
+            "drug-shortage-resolved", {"Generic Name": generic}, (("Trade name", name),)
+        )
+        return {r.register_number: r.confidence for r in rows}
+
+    assert found("IPRATROPIUM BROMIDE", "ATROSOL 250 mcg/2 ml nebuliser solution") == {
+        "90": "possible"
+    }
+    assert found("VARENICLINE", "CHAMPIX 0.5 MG 11 tablets +1 MG 14 tablets") == {"91": "possible"}
+    assert "matched" not in found("DEXTROSE", "5 % w/v DEXTROSE Injection 500 ml").values()
+
+
+def test_the_only_product_named_after_its_substance_that_fits_the_row_is_a_match() -> None:
+    index = ProductLinkIndex(
+        [
+            LinkableProduct.build(
+                "95", "CYTARABINE 100MG-1ML VIAL", ("CYTARABINE",), strengths=["100"],
+                dosage_form="Solution for injection",
+            ),
+            LinkableProduct.build(
+                "96", "CYTARABINE 500MG-5ML VIAL", ("CYTARABINE",), strengths=["500"],
+                dosage_form="Solution for injection",
+            ),
+        ]
+    )  # fmt: skip
+
+    rows = index.link(
+        "drug-shortage",
+        {"Generic Name": "CYTARABINE"},
+        (("Trade name", "CYTARABINE 100MG-1ML VIAL"),),
+    )
+
+    assert {r.register_number: r.confidence for r in rows} == {"95": "matched", "96": "possible"}
+
+
+def test_a_generic_name_written_once_per_maker_matches_that_many_products() -> None:
+    def vial(number: str) -> LinkableProduct:
+        return LinkableProduct.build(
+            number, "CYTARABINE 100MG-1ML VIAL", ("CYTARABINE",), strengths=["100"],
+            dosage_form="Solution for injection",
+        )  # fmt: skip
+
+    index = ProductLinkIndex([vial("97"), vial("98")])
+    once = index.link(
+        "drug-shortage",
+        {"Generic Name": "CYTARABINE"},
+        (("Trade name", "CYTARABINE 100MG-1ML VIAL"),),
+    )
+    twice = index.link(
+        "drug-shortage",
+        {"Generic Name": "CYTARABINE"},
+        (("Trade name", "CYTARABINE 100MG-1ML VIAL"), ("Trade name", "CYTARABINE 100MG-1ML VIAL")),
+    )
+
+    assert {r.confidence for r in once} == {"possible"}
+    assert {r.confidence for r in twice} == {"matched"}

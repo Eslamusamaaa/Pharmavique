@@ -6,7 +6,7 @@ check). Nothing here claims two drugs are the same product when the evidence is 
 """
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -33,9 +33,43 @@ class RowLink:
     reason: str
 
 
+def _number_list(text: str) -> tuple[str, ...]:
+    """Every number written, repeats kept ("5 mg/5 mg" gives ("5", "5"))."""
+    return tuple(n.replace(",", ".") for n in _NUMBER.findall(normalize_text(text)))
+
+
 def _numbers(trade_name: str) -> frozenset[str]:
     """The numbers written in a trade name ("ESOMA 20 MG" gives {"20"}): its strength and pack."""
-    return frozenset(n.replace(",", ".") for n in _NUMBER.findall(normalize_text(trade_name)))
+    return frozenset(_number_list(trade_name))
+
+
+_PACK_COUNT = re.compile(r"(?<![\d.])(\d+)\s*'?s\b", re.IGNORECASE)  # "(28S)", "56 S", "14's"
+_VOLUME = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*ml\b", re.IGNORECASE)  # "(10ml)", "500 ml"
+
+
+# "250 mcg/2 ml" is per 2 ml, "250 mcg/ml" per 1 ml: the volume after a slash.
+_PER_VOLUME = re.compile(r"/\s*(\d+(?:\.\d+)?)?\s*ml\b", re.IGNORECASE)
+# An amount with a mass or unit after it: how many strengths a name writes.
+_UNIT_AMOUNT = re.compile(r"\d+(?:\.\d+)?\s*(?:mg|mcg|µg|g|gm|iu|i\.u)\b", re.IGNORECASE)
+
+
+def _per_volume(text: str) -> frozenset[str]:
+    return frozenset(m.group(1) or "1" for m in _PER_VOLUME.finditer(text))
+
+
+def _strength_count(text: str) -> int:
+    return len(_UNIT_AMOUNT.findall(text))
+
+
+def _pack(text: str) -> tuple[frozenset[str], frozenset[str]]:
+    """(pack counts, volumes) a name writes. A volume after a slash is a concentration
+    ("250 mcg/2 ml"), not the size of the pack, so it is left out."""
+    plain = text.replace("\xa0", " ")
+    counts = frozenset(m.group(1) for m in _PACK_COUNT.finditer(plain))
+    volumes = frozenset(
+        m.group(1) for m in _VOLUME.finditer(plain) if not plain[: m.start()].rstrip().endswith("/")
+    )
+    return counts, volumes
 
 
 # Words after a brand that describe the form, not another product ("esoma delayed release").
@@ -92,11 +126,34 @@ class ListedName:
     numbers: frozenset[str]
     form: str | None
     qualifiers: frozenset[str]
+    number_list: tuple[str, ...] = ()  # every number, repeats kept: "10 mg/5 mg" is not "5 mg/5 mg"
+    pack_counts: frozenset[str] = frozenset()
+    volumes: frozenset[str] = frozenset()
+    per_volume: frozenset[str] = frozenset()  # "250 mcg/2 ml" gives {"2"}
+    strength_count: int = (
+        0  # amounts with a unit: a starter pack writes more than one per substance
+    )
 
 
 def _listed_name(value: str) -> ListedName:
     form, qualifiers = _form_of(value)
-    return ListedName(_numbers(value), form, qualifiers)
+    counts, volumes = _pack(value)
+    return ListedName(
+        _numbers(value),
+        form,
+        qualifiers,
+        _number_list(value),
+        counts,
+        volumes,
+        _per_volume(value),
+        _strength_count(value),
+    )
+
+
+def _covers(listed: tuple[str, ...], ours: tuple[str, ...]) -> bool:
+    """Each of our strengths is written in the listed name, as many times as we have it."""
+    have = Counter(listed)
+    return all(have[number] >= count for number, count in Counter(ours).items())
 
 
 def _verdict(listed: ListedName, item: "LinkableProduct") -> str:
@@ -110,7 +167,21 @@ def _verdict(listed: ListedName, item: "LinkableProduct") -> str:
         ours = item.qualifiers if item.has_dosage_form else item.qualifiers - {"modified"}
         if wanted != ours:
             return "conflict"
-    mine = item.strengths or item.name_numbers
+    # A different pack (14 or 28 capsules, a 10 or 20 ml vial) is another registration.
+    if listed.pack_counts and item.pack_counts and not listed.pack_counts & item.pack_counts:
+        return "conflict"
+    if listed.volumes and item.volumes and not listed.volumes & item.volumes:
+        return "conflict"
+    # Another concentration ("250 mcg/2 ml" is not "250 mcg/ml").
+    if listed.per_volume and item.per_volume and not listed.per_volume & item.per_volume:
+        return "conflict"
+    # More strengths than the product has substances: a starter pack ("0.5 mg 11 tablets + 1 mg
+    # 14 tablets"), another registration than a single-strength product.
+    if listed.strength_count > max(1, len(item.ingredients)):
+        return "conflict"
+    if listed.numbers and item.strength_list:
+        return "confirmed" if _covers(listed.number_list, item.strength_list) else "conflict"
+    mine = item.name_numbers
     if listed.numbers and mine:
         return "confirmed" if mine <= listed.numbers else "conflict"
     return "unconfirmed"
@@ -179,6 +250,10 @@ class LinkableProduct:
     form: str | None = None  # main dosage form from the registry (and the name)
     qualifiers: frozenset[str] = frozenset()
     has_dosage_form: bool = False  # the registry states a dosage form
+    strength_list: tuple[str, ...] = ()  # the registry's strengths, repeats kept ("5", "5")
+    pack_counts: frozenset[str] = frozenset()  # pack counts the trade name writes ("28S")
+    volumes: frozenset[str] = frozenset()  # pack volumes the trade name writes ("10ml")
+    per_volume: frozenset[str] = frozenset()  # "250 mcg/ml" gives {"1"}
 
     @classmethod
     def build(
@@ -191,6 +266,8 @@ class LinkableProduct:
         dosage_form: str = "",
     ) -> "LinkableProduct":
         form, qualifiers = _form_of(f"{dosage_form} {trade_name}")
+        counts, volumes = _pack(trade_name)
+        strength_list = _number_list(" ".join(strengths))
         return cls(
             register_number=register_number,
             brand=normalize_text(core_name(trade_name)),
@@ -202,7 +279,18 @@ class LinkableProduct:
             form=form,
             qualifiers=qualifiers,
             has_dosage_form=bool(dosage_form.strip()),
+            strength_list=strength_list,
+            pack_counts=counts,
+            volumes=volumes,
+            per_volume=_per_volume(trade_name),
         )
+
+    @property
+    def generic_named(self) -> bool:
+        """The product is named after its substance ("DEXTROSE 5%"): a list row that names only
+        the substance cannot say which maker's product it means."""
+        words = set(self.brand.split())
+        return bool(words) and any(words <= set(i.split()) for i in self.ingredients)
 
     def has_substances(self, wanted: tuple[str, ...]) -> bool:
         """The same set of substances: each one on both sides is matched by one on the other."""
@@ -307,7 +395,28 @@ class ProductLinkIndex:
                 if item.brand and _brand_related(brand, item.brand)
                 for name in names
             ]
-            if listed:
+            if listed and item.generic_named:
+                # Named after its substance: the row can mean any maker's product, unless no more
+                # registered products of these substances fit its strength and form than it names.
+                fitting = [
+                    other
+                    for other in seen.values()
+                    if other.generic_named
+                    and other.has_substances(wanted)
+                    and "confirmed" in {_verdict(name, other) for name in listed}
+                ]
+                # SFDA writes a generic trade name once per product it means ("CYTARABINE
+                # 100MG-1ML VIAL" three times for three makers): fitting products up to that count.
+                naming = sum(_verdict(name, item) == "confirmed" for name in listed)
+                if naming and len(fitting) <= naming:
+                    links.append(RowLink(item.register_number, "matched", "generic and trade name"))
+                else:
+                    links.append(
+                        RowLink(
+                            item.register_number, "possible", "the row names only the substance"
+                        )
+                    )
+            elif listed:
                 verdicts = {_verdict(name, item) for name in listed}
                 if "confirmed" in verdicts:
                     links.append(RowLink(item.register_number, "matched", "generic and trade name"))
