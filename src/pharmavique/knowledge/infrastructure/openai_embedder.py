@@ -64,3 +64,32 @@ class OpenAICompatibleEmbedder:
                     f"expected {self._dimensions}"
                 )
         return vectors
+
+
+class FallbackEmbedder:
+    """The same model at several providers, tried in order (bge-m3 on Cloudflare, then on
+    OpenRouter: identical vectors, so the stored label stays one). Any failure of one provider
+    moves the texts to the next; only when all fail is the last error raised."""
+
+    def __init__(self, embedders: Sequence[OpenAICompatibleEmbedder]) -> None:
+        if not embedders:
+            raise ValueError("at least one embedder is needed")
+        if len({e.model for e in embedders}) != 1:
+            raise ValueError("backups must store vectors under the same model label")
+        self._embedders = list(embedders)
+
+    @property
+    def model(self) -> str:
+        return self._embedders[0].model
+
+    @property
+    def url(self) -> str:
+        return self._embedders[0].url
+
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        for embedder in self._embedders[:-1]:
+            try:
+                return await embedder.embed(texts)
+            except Exception:  # noqa: S112 - any failure of this provider: the next one is asked
+                continue
+        return await self._embedders[-1].embed(texts)

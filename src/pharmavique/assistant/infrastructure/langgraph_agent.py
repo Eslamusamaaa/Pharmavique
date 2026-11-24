@@ -39,7 +39,7 @@ from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.infrastructure.prompts import system_prompt
 
 MAX_STEPS = 20  # graph steps (model + tool turns): room for the tool budget and an answer
-RUN_TIMEOUT = 75.0  # seconds for the whole answer, tools included
+RUN_TIMEOUT = 150.0  # seconds for the whole answer, tools and backup models included
 VERIFY = (
     "Before answering, look up every medicine named in my question or in our conversation with "
     "search_drugs, then answer from what the registry returns. Never identify a medicine from "

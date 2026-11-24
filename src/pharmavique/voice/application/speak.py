@@ -1,4 +1,8 @@
-"""Use cases: speak a text in the Saudi Arabic voice, and transcribe a voice question."""
+"""Use cases: speak a text in the Saudi Arabic voice, and transcribe a voice question.
+
+Each takes a first provider and free backups, tried in order: any failure of one provider moves
+the request to the next, and only when all fail is the last error raised.
+"""
 
 from dataclasses import dataclass
 
@@ -16,22 +20,35 @@ class SpokenAudio:
 
 
 class Speak:
-    def __init__(self, tts: TextToSpeech) -> None:
-        self._tts = tts
+    def __init__(self, tts: TextToSpeech, *backups: TextToSpeech) -> None:
+        self._voices = [tts, *backups]
 
     async def run(self, text: str) -> SpokenAudio:
         clean = speakable(text)[:MAX_TEXT]
         if not clean:
             raise ValueError("nothing to say")
-        segments = split_for_speech(clean, self._tts.max_segment)
-        return SpokenAudio(await self._tts.synthesize(segments), self._tts.media_type)
+        for position, voice in enumerate(self._voices):
+            # each provider takes its own segment length, so the text is cut for each one
+            segments = split_for_speech(clean, voice.max_segment)
+            try:
+                return SpokenAudio(await voice.synthesize(segments), voice.media_type)
+            except Exception:  # any failure of this provider: the next one is asked
+                if position == len(self._voices) - 1:
+                    raise
+        raise RuntimeError("no voice to ask")  # not reached: there is always one
 
 
 class Transcribe:
-    def __init__(self, stt: SpeechToText) -> None:
-        self._stt = stt
+    def __init__(self, stt: SpeechToText, *backups: SpeechToText) -> None:
+        self._listeners = [stt, *backups]
 
     async def run(self, audio: bytes, filename: str, language: str = "ar") -> str:
         if not audio or len(audio) > MAX_AUDIO_BYTES:
             raise ValueError("audio must be between 1 byte and 25 MB")
-        return (await self._stt.transcribe(audio, filename, language)).strip()
+        for position, listener in enumerate(self._listeners):
+            try:
+                return (await listener.transcribe(audio, filename, language)).strip()
+            except Exception:  # any failure of this provider: the next one is asked
+                if position == len(self._listeners) - 1:
+                    raise
+        raise RuntimeError("no listener to ask")  # not reached: there is always one

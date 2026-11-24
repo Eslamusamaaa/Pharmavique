@@ -38,11 +38,20 @@ class ElevenLabsTextToSpeech:
         parts: list[bytes] = []
         url = f"{BASE_URL}/text-to-speech/{self._voice_id}?output_format={OUTPUT_FORMAT}"
         for segment in segments:
-            response = await self._client.post(
-                url,
-                headers=self._headers,
-                json={"text": segment, "model_id": self._model_id, "language_code": self._language},
-            )
+            try:
+                response = await self._client.post(
+                    url,
+                    headers=self._headers,
+                    json={
+                        "text": segment,
+                        "model_id": self._model_id,
+                        "language_code": self._language,
+                    },
+                )
+            except httpx.HTTPError as error:
+                raise SpeechError(
+                    f"speech provider unreachable ({type(error).__name__})"
+                ) from error
             if response.status_code != 200:
                 raise SpeechError(f"speech provider answered HTTP {response.status_code}")
             parts.append(response.content)

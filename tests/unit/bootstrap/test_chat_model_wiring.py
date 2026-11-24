@@ -97,3 +97,64 @@ def test_the_scanner_can_run_on_cloudflare_alone(monkeypatch: pytest.MonkeyPatch
 
     assert build_scanner(cloud, search=nothing, catalog=nothing) is not None
     assert build_scanner(settings(monkeypatch), search=nothing, catalog=nothing) is None
+
+
+def test_every_free_model_with_a_key_joins_the_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    model = build_chat_model(
+        settings(
+            monkeypatch,
+            {
+                "GROQ_API_KEY": "g",
+                "OPENROUTER_API_KEY": "o",
+                "CLOUDFLARE_API_TOKEN": "t",
+                "CLOUDFLARE_ACCOUNT_ID": "abc123",
+            },
+        )
+    )
+
+    assert isinstance(model, FallbackChatModel)
+    assert model.model_names == [
+        "openai/gpt-oss-120b",
+        "@cf/google/gemma-4-26b-a4b-it",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "google/gemma-4-31b-it:free",
+    ]
+    assert all(name.endswith(":free") for name in model.model_names[2:])
+
+
+def test_the_embedder_has_openrouter_as_its_backup(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pharmavique.bootstrap.ai import build_embedder
+
+    embedder = build_embedder(
+        settings(
+            monkeypatch,
+            {"OPENROUTER_API_KEY": "o", "CLOUDFLARE_API_TOKEN": "t", "CLOUDFLARE_ACCOUNT_ID": "a"},
+        )
+    )
+
+    assert embedder is not None
+    assert [e.url for e in embedder._embedders] == [
+        "https://api.cloudflare.com/client/v4/accounts/a/ai/v1/embeddings",
+        "https://openrouter.ai/api/v1/embeddings",
+    ]
+
+
+def test_voice_has_a_backup_for_listening_and_speaking(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pharmavique.bootstrap.ai import build_stt, build_tts
+    from pharmavique.voice.infrastructure.cloudflare_speech import CloudflareSpeechToText
+    from pharmavique.voice.infrastructure.elevenlabs_speech import ElevenLabsTextToSpeech
+    from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
+
+    monkeypatch.delenv("PHARMAVIQUE_TTS_PROVIDER", raising=False)
+    env = settings(
+        monkeypatch,
+        {
+            "GROQ_API_KEY": "g",
+            "ELEVENLABS_API_KEY": "e",
+            "CLOUDFLARE_API_TOKEN": "t",
+            "CLOUDFLARE_ACCOUNT_ID": "a",
+        },
+    )
+
+    assert [type(s) for s in build_stt(env)] == [GroqSpeechToText, CloudflareSpeechToText]
+    assert [type(v) for v in build_tts(env)] == [ElevenLabsTextToSpeech, GroqTextToSpeech]

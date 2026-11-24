@@ -100,6 +100,16 @@ class Settings(BaseSettings):
     # citations (31 to 42 s each); gpt-oss-120b there answered one of four (the rest came back
     # empty); Llama 4 Scout wrote tool calls as text and answered in English.
     cloudflare_llm_model: str = "@cf/google/gemma-4-26b-a4b-it"
+    # The next backups, free models on OpenRouter with tool calling, tried in order after
+    # Cloudflare. Measured 2026-11-24 on an Arabic question with a search tool: Nemotron 3 Ultra
+    # called it with "بنادول" in 5 s; Nemotron 3.5 Lightning searched "Benadryl" (left out); the
+    # Gemma 4 free models were rate limited upstream at that moment. Free models only.
+    llm_backup_models: list[str] = [
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "google/gemma-4-31b-it:free",
+    ]
+    # Speech to text backup: Whisper on Cloudflare Workers AI (free Neurons).
+    cloudflare_stt_model: str = "@cf/openai/whisper-large-v3-turbo"
     # bge-m3 on Cloudflare: the same model as `embedding_model`, with identical vectors.
     cloudflare_embedding_model: str = "@cf/baai/bge-m3"
     # Reads boxes and prescriptions (Llama 4 Scout, with image input through the chat endpoint).

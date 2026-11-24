@@ -111,9 +111,68 @@ async def test_a_request_too_large_or_a_provider_error_moves_to_the_backup(code:
     assert answer.content == "from b"
 
 
-async def test_a_bad_request_is_not_sent_to_the_backup() -> None:
+async def test_any_error_of_a_model_moves_to_the_next() -> None:
+    # The owner's rule (2026-11-24): no request may fail while a free backup can answer. Groq
+    # answers 400 when its model writes a broken tool call, so a 400 is worth the backup too.
     first, backup = Model("a", status_error(400)), Model("b", AIMessage("from b"))
 
-    with pytest.raises(openai.APIStatusError):
-        await ask(FallbackChatModel(first, backup))
-    assert backup.calls == 0
+    answer = await ask(FallbackChatModel(first, backup))
+
+    assert answer.content == "from b"
+
+
+async def test_the_chain_goes_on_to_the_third_model() -> None:
+    first, second = Model("a", status_error(413)), Model("b", rate_limit())
+    third = Model("c", AIMessage("from c"))
+
+    answer = await ask(FallbackChatModel(first, second, third))
+
+    assert answer.content == "from c"
+    assert third.bound_with == ["t"]
+
+
+async def test_a_slow_middle_backup_moves_to_the_last() -> None:
+    first = Model("a", rate_limit())
+    second = Model("b", AIMessage("late"), delay=1)
+    third = Model("c", AIMessage("from c"))
+
+    answer = await ask(FallbackChatModel(first, second, third, backup_timeout=0.05))
+
+    assert answer.content == "from c"
+
+
+async def test_the_last_model_is_not_cut_short() -> None:
+    first, backup = Model("a", rate_limit()), Model("b", AIMessage("from b"), delay=0.1)
+
+    answer = await ask(FallbackChatModel(first, backup, first_timeout=0.01, backup_timeout=0.01))
+
+    assert answer.content == "from b"
+
+
+async def test_a_rate_limited_model_rests_for_a_minute() -> None:
+    now = [0.0]
+    first, backup = Model("a", rate_limit()), Model("b", AIMessage("from b"))
+    model = FallbackChatModel(first, backup, clock=lambda: now[0])
+
+    await ask(model)
+    await ask(model)
+    assert first.calls == 1  # skipped on the second question
+
+    now[0] = 61.0
+    await ask(model)
+    assert first.calls == 2
+
+
+async def test_when_every_model_rests_they_are_still_tried() -> None:
+    first, backup = Model("a", rate_limit()), Model("b", rate_limit())
+    model = FallbackChatModel(first, backup, clock=lambda: 0.0)
+
+    for _ in range(2):
+        with pytest.raises(openai.RateLimitError):
+            await ask(model)
+    assert (first.calls, backup.calls) == (2, 2)
+
+
+def test_a_fallback_needs_a_backup() -> None:
+    with pytest.raises(ValueError, match="backup"):
+        FallbackChatModel(Model("a", AIMessage("x")))

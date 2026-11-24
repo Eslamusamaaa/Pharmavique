@@ -28,7 +28,10 @@ from pharmavique.interactions.infrastructure.postgres import (
     PostgresInteractionStore,
 )
 from pharmavique.knowledge.application.retrieve import RetrievePassages
-from pharmavique.knowledge.infrastructure.openai_embedder import OpenAICompatibleEmbedder
+from pharmavique.knowledge.infrastructure.openai_embedder import (
+    FallbackEmbedder,
+    OpenAICompatibleEmbedder,
+)
 from pharmavique.knowledge.infrastructure.postgres import PostgresPassageSearch
 from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.recognition.infrastructure.openai_vision import (
@@ -37,8 +40,9 @@ from pharmavique.recognition.infrastructure.openai_vision import (
 )
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
-from pharmavique.voice.application.ports import TextToSpeech
+from pharmavique.voice.application.ports import SpeechToText, TextToSpeech
 from pharmavique.voice.application.speak import Speak, Transcribe
+from pharmavique.voice.infrastructure.cloudflare_speech import CloudflareSpeechToText
 from pharmavique.voice.infrastructure.elevenlabs_speech import ElevenLabsTextToSpeech
 from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
 from pharmavique.voice.infrastructure.llm_name import LlmDrugNameExtractor
@@ -47,35 +51,41 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
-def build_embedder(settings: Settings) -> OpenAICompatibleEmbedder | None:
+def build_embedder(settings: Settings) -> FallbackEmbedder | None:
     """bge-m3 on Cloudflare when it is configured (free, and its vectors are identical to the ones
-    OpenRouter made: cosine 1.0 on six stored chunks), else on OpenRouter. The label stored with
-    the vectors stays `embedding_model` either way, so nothing is re-embedded."""
+    OpenRouter made: cosine 1.0 on six stored chunks), with OpenRouter as its backup. The label
+    stored with the vectors stays `embedding_model` either way, so nothing is re-embedded."""
+    embedders: list[OpenAICompatibleEmbedder] = []
     cloudflare_url = settings.cloudflare_base_url
     if cloudflare_url is not None and settings.cloudflare_api_token is not None:
-        return OpenAICompatibleEmbedder(
-            cloudflare_url,
-            settings.cloudflare_api_token.get_secret_value(),
-            settings.embedding_model,
-            settings.embedding_dimensions,
-            api_model=settings.cloudflare_embedding_model,
-            send_dimensions=False,
+        embedders.append(
+            OpenAICompatibleEmbedder(
+                cloudflare_url,
+                settings.cloudflare_api_token.get_secret_value(),
+                settings.embedding_model,
+                settings.embedding_dimensions,
+                api_model=settings.cloudflare_embedding_model,
+                send_dimensions=False,
+            )
         )
-    if settings.openrouter_api_key is None:
-        return None
-    return OpenAICompatibleEmbedder(
-        settings.embedding_base_url,
-        settings.openrouter_api_key.get_secret_value(),
-        settings.embedding_model,
-        settings.embedding_dimensions,
-    )
+    if settings.openrouter_api_key is not None:
+        embedders.append(
+            OpenAICompatibleEmbedder(
+                settings.embedding_base_url,
+                settings.openrouter_api_key.get_secret_value(),
+                settings.embedding_model,
+                settings.embedding_dimensions,
+            )
+        )
+    return FallbackEmbedder(embedders) if embedders else None
 
 
 def build_chat_model(settings: Settings) -> Any | None:
     """A LangChain chat model with tool calling, over an OpenAI-compatible endpoint.
 
-    With Cloudflare configured it is Groq (or OpenRouter) first and the same model on Cloudflare as
-    the backup: Groq's free plan allows 8,000 tokens a minute, about one answer.
+    Every free model that has a key is in the chain, in order: Groq (or OpenRouter), then Gemma on
+    Cloudflare, then the free OpenRouter models of `llm_backup_models`. Groq's free plan allows
+    8,000 tokens a minute, about one answer, so the backups carry the rest.
     """
     from langchain_openai import ChatOpenAI  # imported here: only the API process needs it
 
@@ -83,31 +93,50 @@ def build_chat_model(settings: Settings) -> Any | None:
         key, base_url = settings.groq_api_key, GROQ_BASE_URL
     else:
         key, base_url = settings.openrouter_api_key, OPENROUTER_BASE_URL
-    cloudflare_url = settings.cloudflare_base_url
-    backup = (
-        CloudflareChatOpenAI(
-            model=settings.cloudflare_llm_model,
-            base_url=cloudflare_url,
-            api_key=settings.cloudflare_api_token,
-            temperature=0,
-            timeout=60,
-            max_retries=1,
+    models: list[Any] = []
+    if key is not None:
+        models.append(
+            ChatOpenAI(
+                model=settings.llm_model,
+                base_url=base_url,
+                api_key=key,
+                temperature=0,
+                timeout=60,
+                max_retries=0,  # hand over to the backup at once
+            )
         )
-        if cloudflare_url is not None
-        else None
-    )
-    if key is None:
-        return backup
-    first = ChatOpenAI(
-        model=settings.llm_model,
-        base_url=base_url,
-        api_key=key,
-        temperature=0,
-        timeout=60,
-        # Alone, wait out short limits instead of failing. With a backup, hand over at once.
-        max_retries=0 if backup is not None else 4,
-    )
-    return FallbackChatModel(first, backup) if backup is not None else first
+    cloudflare_url = settings.cloudflare_base_url
+    if cloudflare_url is not None:
+        models.append(
+            CloudflareChatOpenAI(
+                model=settings.cloudflare_llm_model,
+                base_url=cloudflare_url,
+                api_key=settings.cloudflare_api_token,
+                temperature=0,
+                timeout=60,
+                max_retries=0,
+            )
+        )
+    if settings.openrouter_api_key is not None:
+        models.extend(
+            ChatOpenAI(
+                model=name,
+                base_url=OPENROUTER_BASE_URL,
+                api_key=settings.openrouter_api_key,
+                temperature=0,
+                timeout=60,
+                max_retries=0,
+            )
+            for name in settings.llm_backup_models
+            if name != settings.llm_model
+        )
+    if not models:
+        return None
+    if len(models) == 1:
+        alone: Any = models[0]
+        alone.max_retries = 4  # alone, wait out short limits instead of failing
+        return alone
+    return FallbackChatModel(*models)
 
 
 def build_name_extractor(settings: Settings) -> LlmDrugNameExtractor | None:
@@ -116,29 +145,50 @@ def build_name_extractor(settings: Settings) -> LlmDrugNameExtractor | None:
     return None if model is None else LlmDrugNameExtractor(model)
 
 
-def build_tts(settings: Settings) -> TextToSpeech | None:
-    if settings.tts_provider == "elevenlabs" and settings.elevenlabs_api_key is not None:
-        return ElevenLabsTextToSpeech(
+def build_tts(settings: Settings) -> list[TextToSpeech]:
+    """Every voice that has a key, the chosen provider first: ElevenLabs and Groq's Orpheus Arabic
+    Saudi back each other up."""
+    elevenlabs: TextToSpeech | None = None
+    groq: TextToSpeech | None = None
+    if settings.elevenlabs_api_key is not None:
+        elevenlabs = ElevenLabsTextToSpeech(
             settings.elevenlabs_api_key.get_secret_value(),
             settings.elevenlabs_voice_id,
             settings.elevenlabs_model,
         )
     if settings.groq_api_key is not None:
-        return GroqTextToSpeech(
+        groq = GroqTextToSpeech(
             settings.groq_api_key.get_secret_value(), settings.tts_model, settings.tts_voice
         )
-    return None
+    order = [elevenlabs, groq] if settings.tts_provider == "elevenlabs" else [groq, elevenlabs]
+    return [voice for voice in order if voice is not None]
+
+
+def build_stt(settings: Settings) -> list[SpeechToText]:
+    """Whisper on Groq, then the same Whisper on Cloudflare as its free backup."""
+    listeners: list[SpeechToText] = []
+    if settings.groq_api_key is not None:
+        listeners.append(
+            GroqSpeechToText(settings.groq_api_key.get_secret_value(), settings.stt_model)
+        )
+    if settings.cloudflare_api_token is not None and settings.cloudflare_account_id:
+        listeners.append(
+            CloudflareSpeechToText(
+                settings.cloudflare_account_id,
+                settings.cloudflare_api_token.get_secret_value(),
+                settings.cloudflare_stt_model,
+            )
+        )
+    return listeners
 
 
 def build_voice(settings: Settings) -> tuple[Transcribe | None, Speak | None]:
-    """Whisper through Groq for listening; ElevenLabs (or Groq) for the Saudi Arabic voice."""
-    transcribe = None
-    if settings.groq_api_key is not None:
-        transcribe = Transcribe(
-            GroqSpeechToText(settings.groq_api_key.get_secret_value(), settings.stt_model)
-        )
-    tts = build_tts(settings)
-    return transcribe, (Speak(tts) if tts is not None else None)
+    """Listening and the Saudi Arabic voice, each with every free backup that has a key."""
+    listeners, voices = build_stt(settings), build_tts(settings)
+    return (
+        Transcribe(*listeners) if listeners else None,
+        Speak(*voices) if voices else None,
+    )
 
 
 def build_scanner(

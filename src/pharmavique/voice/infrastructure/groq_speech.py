@@ -55,12 +55,15 @@ class GroqSpeechToText:
         self._client = client or httpx.AsyncClient(timeout=60.0)
 
     async def transcribe(self, audio: bytes, filename: str, language: str) -> str:
-        response = await self._client.post(
-            f"{BASE_URL}/audio/transcriptions",
-            headers=self._headers,
-            data={"model": self._model, "language": language, "response_format": "json"},
-            files={"file": (filename, audio)},
-        )
+        try:
+            response = await self._client.post(
+                f"{BASE_URL}/audio/transcriptions",
+                headers=self._headers,
+                data={"model": self._model, "language": language, "response_format": "json"},
+                files={"file": (filename, audio)},
+            )
+        except httpx.HTTPError as error:
+            raise SpeechError(f"speech provider unreachable ({type(error).__name__})") from error
         if response.status_code != 200:
             raise _error(response)
         return str(response.json().get("text", ""))
@@ -81,16 +84,21 @@ class GroqTextToSpeech:
     async def synthesize(self, segments: Sequence[str]) -> bytes:
         parts = []
         for segment in segments:
-            response = await self._client.post(
-                f"{BASE_URL}/audio/speech",
-                headers=self._headers,
-                json={
-                    "model": self._model,
-                    "voice": self._voice,
-                    "input": segment,
-                    "response_format": "wav",
-                },
-            )
+            try:
+                response = await self._client.post(
+                    f"{BASE_URL}/audio/speech",
+                    headers=self._headers,
+                    json={
+                        "model": self._model,
+                        "voice": self._voice,
+                        "input": segment,
+                        "response_format": "wav",
+                    },
+                )
+            except httpx.HTTPError as error:
+                raise SpeechError(
+                    f"speech provider unreachable ({type(error).__name__})"
+                ) from error
             if response.status_code != 200:
                 raise _error(response)
             parts.append(response.content)
