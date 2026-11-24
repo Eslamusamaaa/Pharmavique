@@ -1,4 +1,4 @@
-# Handoff: where Pharmavique stands (2026-11-22)
+# Handoff: where Pharmavique stands (2026-11-24)
 
 For someone (or a fresh chat) with no memory of this work. Sections 1 and 2 are the owner's standing
 rules; the rest is state, commands and what is next. The README (section 2 and 19) has the feature
@@ -53,7 +53,13 @@ Arabia first, Egypt as a pluggable adapter. Modular monolith, DDD, onion archite
 - `docker compose up -d db redis`: Postgres 17 (pg_trgm, pgvector) on 127.0.0.1:5432 and Redis on 6379
   (containers `pharmavique-db-1`, `pharmavique-redis-1`). Docker Desktop once failed to start with
   "sailor-ingest.sock": quit it, rename `%LOCALAPPDATA%\\Docker\\run` and `%LOCALAPPDATA%\\docker-secrets-engine`
-  (for example to `run.stale-<date>`), start it again; volumes survive. Never factory-reset.
+  (for example to `run.stale-<date>`), start it again; volumes survive. Never factory-reset. It happened
+  again on 2026-11-24 and the same fix worked.
+- **API servers left running from earlier sessions** do not reload code. On 2026-11-24 the server on port 8000
+  (the one the phone link `http://100.85.219.44:8000` uses) had been running since 2026-11-22, so it served
+  code without the search and shortage fixes of 2026-11-23 and 2026-11-24, and port 8002 had another stale
+  one. After pulling or changing code, stop them and start the API again, then run `cache-invalidate`
+  (the shared Redis cache keeps old search answers for a while).
 - **Use `127.0.0.1`, not `localhost`**, in `PHARMAVIQUE_DATABASE_URL` and `PHARMAVIQUE_REDIS_URL`: on this
   Windows machine `localhost` costs about two seconds per new connection (the code fixes it for Redis).
 - Tool quirks learned the hard way:
@@ -102,6 +108,14 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 
 ## 6. Pending actions that are the owner's
 
+0. **Push the local commits and refresh production (2026-11-24).** 14 commits of 2026-11-23 plus the fixes of
+   2026-11-24 were only local, so GitHub shows a red cross on 9a99fab (CI failed: the architecture test did not
+   list the new `offers` context; the fix is local commit 93f51af). Production (Vercel + Neon) still has the
+   bugs fixed on 2026-11-24 (section 9b): checked live on 2026-11-24, `انسولين` finds unrelated products,
+   AUGMENTIN 1 G TAB shows 30 "not equivalent" products and none of its 4 equivalents, and EZORA 40 mg (28S),
+   PLAXOTRIN (10 ml) and GAVILDA (28S) are shown as short while SFDA lists other packs. After the push, run
+   Actions, Daily refresh, Run workflow (steps `lists`) so the shortage links are rebuilt with the new rules,
+   and restart the local API on port 8000.
 1. **Run the app on a real phone.** It has only been type-checked: location, camera and every new screen
    (sign-up code, my list, company, operator, pharmacies, shelf, prescription check) are untried.
 2. ~~JWT secret and `analytics-rebuild`~~ done on 2026-11-22 (the secret is in `.env`, accounts answer 401 for a wrong password).
@@ -131,8 +145,34 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
 - Pharmacy addresses are a city plus a national-address code: "nearby" is by city. 32 of 34 cities have a
   point (Al-Namas failed a region sanity check, Alhafoof was not found); the points are unreviewed.
 - Similar-name warnings: 605 of 4,859 brands (12%) have a strong match; no pharmacist has reviewed them.
-- Interaction data (DDInter, openFDA) is incomplete and matches by ingredient name: "nothing found" is
-  never "safe".
+- Interaction data (DDInter 2.0, 234,757 pairs) is incomplete and matches by ingredient name: "nothing found" is
+  never "safe". About 18% of DDInter pairs have level `unknown`; the app shows them as "تداخل مسجّل بدون تقييم"
+  (for example paracetamol with ibuprofen), never as major. Checked 2026-11-24: warfarin with aspirin major,
+  clarithromycin with simvastatin major, amiodarone with digoxin major; no pair with itself; no pair recorded
+  twice with two levels. Interactions and contraindications are **not** refreshed daily: they come from fixed
+  downloads (DDInter, MeDIC) in `data/interactions/`, not from SFDA.
+- Contraindications (MeDIC, 3,960 rows from US/EU/Japan labels) are filtered before they are shown
+  (`interactions/application/contraindications.py`, tightened 2026-11-24): the condition must be in the label
+  text, in a sentence that says "contraindicated" / "should not" or in a short list item; sentences limited to
+  preterm infants, pregnant women, a combination with another drug, or what the drug treats are dropped; a label
+  whose opening names a route or form (eye, inhaled, nasal, rectal, vaginal, cream, gel, patch, implant...) is
+  dropped; a general name inside a more specific one of the same ingredient ("asthma" inside "status
+  asthmaticus") is dropped. A second pass (same day) also drops a condition named only as a qualifier ("with or
+  without coma", "shock (nonanaphylactic)", "diarrhea caused by poisoning", "patients with psoriasis
+  ... who have", a heading such as "Myocardial Infarction Metoprolol is contraindicated if ..."),
+  hedged lines ("probably should not", "may be contraindicated", "should not ordinarily"), lines
+  about one strength ("the 10% strength"), NSAID "asthma ... after taking aspirin", inhaler and
+  suspension labels, and **every label row for a product used locally** (route or form says skin,
+  eye, nose, ear, mouth, rectal, vaginal, inhaled: lidocaine gel is not contraindicated in heart
+  block). Shown: 1,068 of 3,960 rows (was 1,985); 372 of them reach a Saudi product, and all 372
+  were read one by one on 2026-11-24. This removed real errors on common drugs
+  (atorvastatin "atherosclerosis" and "primary hypercholesterolemia", which are its uses; Brufen "tetralogy of
+  Fallot" from the IV ibuprofen for preterm babies; injected insulin "COPD" from the inhaled AFREZZA label;
+  dexamethasone tablets "glaucoma" from an eye implant; esomeprazole "duodenal ulcer"; pantoprazole
+  "bronchospasm"; sildenafil "hepatic impairment" from a dosing sentence; hydrocortisone "ichthyosis" from a
+  cream). **What remains is not reviewed by a pharmacist**: the leftovers seen in the review are statements the
+  labels really make in a narrow form (enoxaparin "thrombocytopenia" means the antibody-positive kind;
+  epinephrine "cardiac dilatation" comes from an old vasopressor label). A pharmacist review of the shown rows is the only way to be sure (like Q-26).
 - Row-level security does nothing for a database superuser: production must connect as an ordinary role.
 - Drugs: the daily update loads what it read even when a run is partial (`data/refresh/ATTENTION.md` says
   what was not checked). A drug that left the SFDA list is withdrawn only after it is missing from two
@@ -168,6 +208,46 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
   a test box in 3.5 s for about 12 Neurons). A tool-call message must carry `content: ""`, not null, or
   Cloudflare answers 400 (`CloudflareChatOpenAI`). Groq's free plan allows 8,000 tokens a minute (about one
   assistant answer); three questions at once now all answer, but in 41 to 74 s. Speech to text stays on Groq.
+- Shortage links (`catalog/domain/list_linking.py`, fixed 2026-11-24): a shortage row counts for a product only
+  when it names the product's brand, strength and form; since 2026-11-24 also each strength as many times as the
+  product has it ("10 mg/5 mg" is not "5 mg/5 mg") and the same pack when both name one ("14S" is not "28S", a
+  "10 ml" vial is not a "20 ml" one). Local result: 1,103 products shown as short (was 1,107). Audit of every
+  matched link: the brand is always in the SFDA row's trade names; 19 links still differ from the row text, all
+  in the resolved list (generic "DEXTROSE 5%" products against "5% w/v DEXTROSE Injection 250 ml", ATROSOL
+  250 mcg/ml against "250 mcg/2 ml", CHAMPIX 0.5 mg against a starter pack) plus Tyenne (no strength in our
+  name). Second pass (2026-11-24): a concentration per another volume ("250 mcg/2 ml" is not "250 mcg/ml")
+  and a starter pack ("0.5 mg 11 tablets + 1 mg 14 tablets") are conflicts; a product named after its
+  substance ("DEXTROSE 5%", "CYTARABINE 100MG-1ML VIAL") is matched only when no more registered products
+  fit the row's strength and form than the row names (SFDA writes a generic trade name once per maker).
+  Final local result: **1,033 products shown as short** (1,108 links); every matched link was checked
+  against the row's trade names; the one textual difference left is Tyenne (no strength in our name, the
+  registry strength fits). Ambiguous generic rows are "possible", which the app never shows as short.
+  Shortage and resolved status come only from SFDA's two lists; nothing says a pharmacy has stock.
+- Equivalence (`substitution/application/compare.py`, tightened 2026-11-24): "equivalent" needs the same
+  ingredient names and strengths, the same written dosage form, **the same route** (an IV and an IM vial
+  of one drug are not interchangeable: the IM one comes with lidocaine), **the same release and device
+  words in the names** (soluble, E.C, XR/SR/MR, retard, pen, vial, inhaler...), **no biologic**
+  (biosimilars of insulin, adalimumab, trastuzumab and so on are for the pharmacist), and **names whose
+  printed strength agrees with the registry** (SFDA records GARDIA PLUS 8/12.5 with candesartan 16 mg).
+  Anything else is "possible, needs pharmacist check". Audit of the whole catalog: 14,434 equivalent pairs
+  (was 15,652); what still differs between two equivalent names is only brand words (PLUS/HCT/Duo/Trio).
+- Equivalence matches ingredient names exactly: "AMOXICILLIN TRIHYDRATE" + "Potassium Clavulanate" (MEGAMOX,
+  Vauxlav) is not grouped with "AMOXICILLIN" + "CLAVULANIC ACID", so those are not offered as equivalents of
+  AUGMENTIN 1 G (a miss, never a wrong "equivalent").
+- Some SFDA registry strengths are written per ml where the product is per 5 ml (CURAM 156.25 mg/5 ml is
+  "125 mg/ml" in the registry; MEGAMOX 228 is "600 mg/ml"). The app shows what SFDA states; it is not changed.
+- Pictures: of 4,382 shop pictures, 437 are `strength_conflict` (the box shows other strengths, for example
+  the AUGMENTIN 1 G TAB picture is a 156 mg suspension box) and 1,126 more come from a shop page whose
+  address names another variant or strength (the PANADOL 500 picture is from a "بانادول اكسترا" page,
+  QUETTA 25 mg from "quetta-xr-400-mg", LIPICURE 40 from a 10 mg page). Since 2026-11-24 neither is served
+  (`catalog/domain/picture_page.py`, checked in the picture store, so production needs no picture reload);
+  the app draws its placeholder. 2,819 pictures are shown. 16 mapped picture files are missing on disk. The
+  operator screen still counts all 4,382 as "real pictures".
+- Arabic search of generic names (fixed 2026-11-24): the registry writes ingredients only in English, so an
+  Arabic generic name was found only when an Arabic trade name happened to contain it.
+  `search/domain/arabic_names.py` is an alias table of about 95 common generics (Arabic spellings to the English
+  name). Measured on 47 common Arabic generic names: 15 failed before, 2 after (`زنك` finds ZINNAT, a misspelled
+  `اوزيمبك`). A generic that is not in the table and in no Arabic trade name is still not found: add it there.
 - Not built: Redis failover, replicas, CDN, shared picture storage, the pictures image on ghcr (the push
   never completed; the pictures exist only on the laptop), push notifications (dropped), the Egypt adapter.
 
@@ -182,8 +262,119 @@ users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); E
 - Faults found by those real runs and fixed: the console email crashed printing Arabic on Windows; an
   empty `PHARMAVIQUE_REDIS_URL` crashed start-up; a wrong geocoder point (Al-Namas) was rejected.
 
+## 9b. Full check of 2026-11-24 (everything in the app today; nothing new started)
+
+Quality gate, real output: `ruff check .` all passed; `ruff format --check .` 572 files formatted; `mypy src
+tests` no issues in 513 files; `lint-imports` 8 contracts kept; `pytest` (with integration, Docker up) **1,667
+passed** (1,647 before the fixes; 20 new tests, each written failing first); `npx tsc --noEmit` clean;
+`npm run build:web` rebuilt `mobile/dist`.
+
+Local database (Docker) checked: 9,186 drugs, all listed, each with a search entry and a picture row (4,382 real,
+4,804 drawn cards); 10 SFDA lists (shortage 723, resolved 586, safety alerts 276, labeling 241, circulars 146,
+DHPC 105, RMM 579, approvals 462, companies 6,135, pharmacies 385); 10,131 knowledge chunks, every one with a
+vector (dhpc 819, circulars 275, rmm 579, safety alerts 1,739, labeling 241, us-labels 6,478); 234,757
+interaction pairs; 3,960 contraindication rows. Production has 9,187 drugs (one added on 2026-11-23 is not in the
+local copy).
+
+Run against the real API and the website (port 8001, fresh code):
+- Search: 64 queries (English, Arabic, misspellings, strength and form, register number, Arabic-Indic digits),
+  all under 130 ms; brands right in Arabic and English (`بنادول`, `اوجمنتين`, `augmntin`, `augmentin 1g`,
+  `nexium 40`).
+- Assistant (real Groq/Cloudflare calls): a shortage question used `search_drugs` + `shortage` with citations;
+  warfarin with aspirin used `check_interactions` (major, DDInter, cited); a dose question was refused; an
+  unknown name used `sfda_site_check` (live SFDA site, then "not in SFDA's list", cited); Tenazin (added on
+  2026-11-23) was found. One run said the SFDA site was unreachable (a single timeout; later calls worked).
+- Voice: Saudi text to ElevenLabs speech (3.6 s MP3) and back through Groq Whisper gave the same sentence
+  (`باندول` for `بانادول`, which search still finds). Box scan read "Augmentin 156 mg/5 ml suspension" and
+  offered AUGMENTIN candidates, marked `needs_review`.
+- Website: patient role screen, search with suggestions, drug page with equivalents, shortage banner,
+  contraindications; company and operator screens with a temporary local operator account (deleted after).
+
+Faults found and fixed on 2026-11-24 (each with a failing test first):
+1. The same-ingredient list dropped the real equivalents (API and the assistant's tool): only the 30 cheapest
+   products of the ingredient set were compared, so AUGMENTIN 1 G TAB got suspensions and injections and "no
+   equivalent" (the assistant said so too), while 4 equivalent 1 g tablets exist (CLAVODAR, JULMENTIN 2X,
+   MEGAMOX 1GM, KLAVOX 1GM) plus 3 "needs pharmacist check". Now every product of the set is compared and the
+   closest verdicts are kept (`bootstrap/api_drugs.py`, `bootstrap/assistant_facts.py`).
+2. Shortage links: combination strengths compared as sets, pack sizes ignored (section 8).
+3. Contraindications shown for conditions the label does not forbid (section 8).
+4. Arabic generic-name search (section 8).
+5. Pictures whose box states another strength were served as the product's picture (section 8).
+6. Company screen: prices shown as "15.100000"; the API's English notes shown on Arabic screens (company, shelf,
+   allergy). The app now has its own Saudi notes and two-decimal prices.
+7. The daily refresh schedule moved from 01:00 to 01:17 UTC (section 9c).
+
+Second round the same day, before the first push (the owner asked for no wrong information at all):
+8. Equivalence: route, release and device words, biologics, name-versus-registry strength (section 8).
+9. Shortage: concentration per volume, starter packs, products named after their substance (section 8).
+10. Contraindications: qualifiers, hedges, local-use products; all 372 rows that reach a Saudi product read.
+11. The assistant took "كونكور 5" for CONCOR 5 PLUS: search results now carry the registered strengths, a
+    typed number matches the registered strength, and a name with extra product words is `longer_name`,
+    never the product asked about. Checked live: "هل كونكور 5 ناقص؟" answers about CONCOR 5 mg.
+12. Pictures from a shop page of another variant or strength (section 8).
+13. Scan candidates ignored the strength and form read: "Augmentin 1 g tablets" did not list AUGMENTIN
+    1 G TAB. The finder now fetches 25 candidates and orders them by the strength and form read. Checked live
+    with a generated prescription (Augmentin 1 g, Panadol 500, Nexium 40: each right product first, dose
+    "غير واضح") and a generated shelf (CONCOR, GLUCOPHAGE 500, ZYRTEC 10).
+Quality gate after the second round: ruff, format, mypy (517 files), lint-imports (8 kept) all clean;
+**pytest 1,702 passed**; `tsc` clean.
+
+Allowed on purpose, not changed: the assistant may repeat a label's "if you faint, stop and call your
+doctor" (an existing rule allows a stop instruction in the same sentence as a doctor). Web search results
+(Tavily) are used only for a medicine not in the registry and are marked unverified; checked live with
+Crocin Advance (found on pharmeasy.in, paracetamol, cited, "not in SFDA's list" checked on the SFDA site).
+
+## 9c. The daily refresh on GitHub (checked 2026-11-24)
+
+What it refreshes every day (`scripts/daily_refresh.sh`, `.github/workflows/daily-refresh.yml`, into Neon):
+- **Drugs** (SFDA drug list, about 9,190): re-read; changed details loaded; prices tracked; a drug missing from
+  two complete runs is withdrawn (at most 50). Last scheduled run (2026-11-23): 9,187 rows, 42 added, 17 removed,
+  14 changed, 11 price changes; status `partial` (5 rows the pager promised were not returned), so nothing was
+  withdrawn; one product rejected (`1708260283`, no ingredient line).
+- **Lists**: shortage, resolved shortage, safety alerts, safety labeling, circulars, DHPC, RMM, approvals. A list
+  is loaded only when its crawl has at least 85% of the baseline rows. The shortage detail pages (trade names)
+  are read before loading. New DHPC, alert, circular, RMM and labeling rows get chunks and vectors for the
+  assistant (no OCR on GitHub: scanned PDFs get no text).
+- **Not refreshed daily**: the SFDA **pharmacies** list (385 rows, loaded once), drug companies, the interaction
+  and contraindication data (fixed downloads, not SFDA), pictures (`Pictures load` is manual).
+- `cache-invalidate` exits 4 on GitHub: production has no shared cache, so this is expected.
+
+Runs seen: the only scheduled run so far (2026-11-23) started at 08:25 UTC instead of 01:00 (7.5 h late) and
+succeeded in 1 h 51 min; the run of **2026-11-24 had not started at 08:32 UTC**. GitHub delays or drops
+scheduled runs at the start of an hour when busy, so the cron is now `17 1 * * *` (in effect once pushed). If a
+day is missed, run it by hand (Actions, Daily refresh, Run workflow). The manual runs of 2026-11-23 (10:52 and
+12:33, lists only) succeeded. Production checked live on 2026-11-24: the shortage status of 8 sampled products
+agrees with the current rules, except the pack-size cases fixed today (section 6, item 0).
+
+The laptop's own task `PharmaviqueDailyRefresh` (03:00) ran at 09:54 on 2026-11-24 because the laptop was off at
+03:00; Docker was down at that moment and the run ended with code 0xC000013A, nothing loaded, leaving
+`data/refresh/running.lock`. The lock is ignored after 12 hours, so the next run is not blocked. The laptop task
+writes only to the local database; production is refreshed by GitHub.
+
+## 9d. Pharmacies: the current situation (2026-11-24)
+
+Two different things:
+
+1. **SFDA's list of licensed pharmacies** (385 rows: name, phone, address code, region; no website, no stock).
+   About 110 are Nahdi, then Al Dawaa, Lemon, United, Adam. "Nearby pharmacies" works by city: 32 of 34 cities
+   have a point (OpenStreetMap, unreviewed); `/v1/pharmacies`, `/v1/pharmacies/cities` and
+   `/v1/pharmacies/nearby` answer. Loaded once, not refreshed daily. Exact locations: Q-39.
+2. **Pharmacy catalogs (prices, availability, pictures, descriptions), context `offers`** (ADR-019,
+   `docs/PHARMACY_SCRAPING_PLAN.md`, `docs/PHARMACY_VALIDATION.md`), approved by the owner on 2026-11-23 (D-1 to
+   D-12). Done: phase 1 (schema, matching, lifecycle and price rules, tests) and phase 2 (5 pilot sites validated:
+   Nahdi, United, Innova, Adam, Dr. Move; Al-Dawaa, Lemon and Kunooz refuse automated clients with 403 and are not
+   bypassed). Phase 3 started: the first loads stored **21,239 listings** (Nahdi 7,108, Adam 5,323, United
+   4,689, Innova 2,938, Dr. Move 1,181) of about 130,000 in the sitemaps, with 21,239 prices and 221 downloaded
+   pictures; 2,758 addresses skipped (category pages, robots rules). Dr. Move hit its rate limit twice (runs
+   marked `blocked`; the crawler now waits 15 s per page there). Five runs of 2026-11-23 never finished (the
+   laptop stopped; they stay `partial` with no end time) and **no crawl is running now**. Not done: the rest of
+   the first load (days of polite crawling), matching to SFDA products (0 matches so far; phase 4 needs a human
+   review of 100 pairs), the daily offers workflow (phase 5) and anything in the app (phase 7). No offers data
+   is shown to users.
+
 ## 10. Git
 
-Branch `main`, remote `origin` = https://github.com/Eslamusamaaa/Pharmavique. Untracked files that must
+Branch `main`, remote `origin` = https://github.com/Eslamusamaaa/Pharmavique. On 2026-11-24 `main` was 14
+commits ahead of `origin/main` (not pushed), plus the uncommitted fixes of that day (section 9b). Untracked files that must
 stay out of commits: `claude-code-prompt.md`, `expo-go-qr.png`, `data/media/placeholders/`. `data/` is
 git-ignored (databases dumps, crawls, pictures); `data/README.md` says how to rebuild each folder.
