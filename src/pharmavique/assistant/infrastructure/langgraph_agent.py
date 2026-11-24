@@ -416,6 +416,27 @@ def _tokens(messages: Sequence[BaseMessage]) -> tuple[int, int]:
     return inputs, outputs
 
 
+# "[10, 11]", "[10،11]" or "[15-22]": several records in one bracket (models write it although the
+# prompt asks for [10][11]). Unread, such a citation counted as none, and a cited "used for"
+# sentence was removed as unsupported (2026-11-24).
+_CITATION_GROUP = re.compile(r"\[(\d+(?:\s*[,،\-–]\s*\d+)+)\]")  # noqa: RUF001
+_MAX_RANGE = 20
+
+
+def split_citation_groups(text: str) -> str:
+    def split(match: re.Match[str]) -> str:
+        numbers: list[int] = []
+        for part in re.split(r"\s*[,،]\s*", match.group(1)):
+            ends = re.split(r"\s*[\-–]\s*", part)  # noqa: RUF001
+            if len(ends) == 2 and 0 < int(ends[1]) - int(ends[0]) <= _MAX_RANGE:
+                numbers.extend(range(int(ends[0]), int(ends[1]) + 1))
+            else:
+                numbers.extend(int(end) for end in ends)
+        return "".join(f"[{n}]" for n in numbers)
+
+    return _CITATION_GROUP.sub(split, text)
+
+
 def _final_text(messages: Sequence[BaseMessage]) -> str:
     for message in reversed(messages):
         if isinstance(message, AIMessage) and not message.tool_calls:
@@ -516,6 +537,7 @@ class LangGraphAgentRunner:
             raise AssistantBusy("the answer took too long") from error
         inputs, outputs = _tokens(messages)
         # Keep only records the answer cites and that really exist, renumbered 1..n in that order.
+        text = split_citation_groups(text)
         cited = sorted(
             {int(n) for n in _CITED.findall(text) if 1 <= int(n) <= len(citations.items)}
         )

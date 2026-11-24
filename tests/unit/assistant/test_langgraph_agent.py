@@ -529,3 +529,14 @@ async def test_a_no_result_from_the_sfda_site_is_a_citable_official_record() -> 
         ("sfda_site", "https://sfda.test/en/drugs-list?TradeName=Redoxon")
     ]
     assert "sfda_site_check" in run.tools_used
+
+
+def test_several_records_in_one_bracket_are_each_cited() -> None:
+    # Real case (2026-11-24): "[10, 11]" counted as no citation, so a cited "used for" sentence
+    # about paracetamol was removed as unsupported.
+    from pharmavique.assistant.infrastructure.langgraph_agent import split_citation_groups
+
+    assert split_citation_groups("يخفف الصداع [10, 11].") == "يخفف الصداع [10][11]."
+    assert split_citation_groups("أشكال حقن [15-18]") == "أشكال حقن [15][16][17][18]"
+    assert split_citation_groups("[2،3] و [4]") == "[2][3] و [4]"
+    assert split_citation_groups("رقم [2024-11]") == "رقم [2024][11]"  # not a range: no expansion
