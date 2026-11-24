@@ -19,7 +19,7 @@ owner's laptop and writes to the **local** database, so the Neon database is not
 
 ## How it runs
 
-`.github/workflows/daily-refresh.yml` runs every day at 01:00 UTC (04:00 in Saudi Arabia) and by hand
+`.github/workflows/daily-refresh.yml` runs every day at 01:17 UTC (04:17 in Saudi Arabia; off the hour, when GitHub delays or drops fewer scheduled runs) and by hand
 (Actions, Daily refresh, Run workflow; a short trial: steps `lists`, lists `drug-shortage`). It calls
 `scripts/daily_refresh.sh`, the Linux twin of `scripts/daily_refresh.ps1`:
 
