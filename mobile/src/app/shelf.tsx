@@ -24,6 +24,9 @@ import { radius, useTheme } from '@/theme';
 
 type Stage = { kind: 'start' } | { kind: 'reading' } | { kind: 'review'; result: ScanResult } | { kind: 'error'; detail: string };
 
+// The API's note is in English; the app speaks Saudi Arabic.
+const SHELF_NOTE = 'الأدوية اللي أكّدتها بعد مسح الرف. ما فيها كميات وما تقول شي عن المخزون.';
+
 export default function ShelfScan() {
   const { c } = useTheme();
   const { account } = useAccount();
@@ -170,7 +173,7 @@ export default function ShelfScan() {
               </Row>
             ))}
             <T size={12.5} color={c.ink2}>
-              {shelf.note}
+              {SHELF_NOTE}
             </T>
           </View>
         ) : null}

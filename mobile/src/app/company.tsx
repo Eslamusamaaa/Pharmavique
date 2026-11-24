@@ -43,8 +43,21 @@ const BASIS_AR: Record<string, string> = {
   unconfirmed: 'العملة غير مؤكدة',
 };
 
+// The notes under each tab, in the app's language (the API's own notes are in English).
+const NOTE_MARKET =
+  'الأرقام من سجل الهيئة (SFDA) حسب آخر تحديث، وما هي مبيعات ولا مخزون ولا طلب. الأسعار أسعار العبوة المسجّلة، والعبوات تختلف.';
+const NOTE_GAPS =
+  'الخانة الضعيفة فيها شركات مسجّلة قليلة. الخانة الناقصة تركيز وشكل موجودين لهذي المادة لكن ما اجتمعوا أبد، وممكن ما يكون لها معنى طبي أو نظامي. وما تقول شي عن الطلب.';
+const NOTE_RADAR = 'التغييرات اللي انرصدت في السجل من أول تحديث للبيانات. تبيّن وش تغيّر، مو ليش.';
+
+/** "15.100000" from the API reads as "15.10". */
+function money(amount: string | number): string {
+  const n = Number(amount);
+  return Number.isFinite(n) ? n.toFixed(2) : String(amount);
+}
+
 function priceText(r: PriceRange): string {
-  const range = r.lowest === r.highest ? r.lowest : `${r.lowest} – ${r.highest}`;
+  const range = r.lowest === r.highest ? money(r.lowest) : `${money(r.lowest)} – ${money(r.highest)}`;
   return `${range} ${r.currency_code ?? ''} (${r.count} دواء) · ${BASIS_AR[r.currency_basis] ?? r.currency_basis}`;
 }
 
@@ -238,7 +251,7 @@ function MarketView({ data }: { data: MarketMap }) {
         </Card>
       ))}
       <T size={12.5} color={c.ink2}>
-        {data.note}
+        {NOTE_MARKET}
       </T>
     </View>
   );
@@ -278,7 +291,7 @@ function GapsView({ data }: { data: Gaps }) {
         </View>
       ) : null}
       <T size={12.5} color={c.ink2}>
-        {data.note}
+        {NOTE_GAPS}
       </T>
     </View>
   );
@@ -306,7 +319,7 @@ function RadarView({ data }: { data: Radar }) {
               <T size={14}>
                 {KIND_AR[i.kind]}
                 {i.kind === 'price_changed' && i.old_price && i.new_price
-                  ? ` · من ${i.old_price} إلى ${i.new_price} ${i.currency_code ?? ''}`
+                  ? ` · من ${money(i.old_price)} إلى ${money(i.new_price)} ${i.currency_code ?? ''}`
                   : ''}
               </T>
               {i.marketing_company ? (
@@ -322,7 +335,7 @@ function RadarView({ data }: { data: Radar }) {
         ))
       )}
       <T size={12.5} color={c.ink2}>
-        {data.note}
+        {NOTE_RADAR}
       </T>
     </View>
   );

@@ -70,6 +70,10 @@ function currencyLabel(price: Price): string {
   return price.currency_code ? `${price.currency_code} (غير مؤكد)` : 'عملة غير مذكورة في المصدر';
 }
 
+// The API's allergy note is in English; the app speaks Saudi Arabic.
+const ALLERGY_NOTE =
+  'المقارنة باسم المادة الفعالة بس. حساسية الفصيلة (مثل البنسلين والأموكسيسيلين) ما تنحسب، وعدم التطابق ما يعني إنه آمن.';
+
 export default function DrugScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -282,7 +286,7 @@ export default function DrugScreen() {
               </T>
             ))}
             <T size={12.5} color={c.ink2}>
-              اسأل الصيدلي أو الطبيب قبل أي استخدام. {allergy.note}
+              اسأل الصيدلي أو الطبيب قبل أي استخدام. {ALLERGY_NOTE}
             </T>
           </View>
         ) : null}
