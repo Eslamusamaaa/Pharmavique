@@ -6,7 +6,8 @@ This is the only place in `search` that knows the catalog's contract. It turns e
 
 from collections.abc import AsyncIterator, Sequence
 
-from pharmavique.catalog.contracts.queries import CatalogQueries, ProductCard
+from pharmavique.catalog.contracts.queries import CatalogNames, CatalogQueries, ProductCard
+from pharmavique.search.application.ports import ProductNames
 from pharmavique.search.domain.documents import ProductKey, ProductToIndex
 from pharmavique.shared_kernel.market import Market
 
@@ -39,3 +40,16 @@ class CatalogProductSource:
             if page.next_after is None:
                 return
             after = page.next_after
+
+
+class CatalogNameSource:
+    """Implements the `NameSource` port over `CatalogNames.trade_names` (names only)."""
+
+    def __init__(self, names: CatalogNames) -> None:
+        self._names = names
+
+    async def names(self, market: Market) -> Sequence[ProductNames]:
+        return [
+            ProductNames(n.register_number, n.en, n.ar)
+            for n in await self._names.trade_names(market)
+        ]
