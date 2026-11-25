@@ -106,6 +106,8 @@ try {
                 Invoke-Step "drugs-withdraw" @("sfda-withdraw-absent", "--run-id", $run, "--baseline", $baselineId) @(0, 2) | Out-Null
             }
             Invoke-Step "search-reindex" @("search-reindex") | Out-Null
+            # every product's look-alike names, so the API reads one row (about two minutes)
+            Invoke-Step "similar-names" @("similar-names-rebuild") | Out-Null
             # price changes, withdrawals and relistings become alerts for the people who saved them
             Invoke-Step "alerts-relay" @("outbox-relay", "--once") | Out-Null
             # one email per person with their new alerts (only for confirmed addresses that allow it)
@@ -117,6 +119,11 @@ try {
             $changes = Join-Path $root "data\sfda\$run\changes.md"
             if (Test-Path $changes) { Copy-Item $changes (Join-Path $logs "drug-changes.md") -Force }
         }
+    }
+
+    if ($Steps -contains "names") {
+        # the look-alike names alone, without a crawl: after a migration, or to fill them now
+        Invoke-Step "similar-names" @("similar-names-rebuild") | Out-Null
     }
 
     if ($Steps -contains "lists") {

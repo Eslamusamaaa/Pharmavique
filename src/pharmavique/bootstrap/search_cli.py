@@ -1,11 +1,13 @@
 """Search commands (composition root: wires search to the catalog and to Postgres).
 
 search-reindex   rebuild the search index from the catalog's product cards (safe to repeat)
+similar-names-rebuild   store every product's look-alike names (daily refresh, safe to repeat)
 search           look a name up (typed, misspelled, Arabic or English) and print what it finds
 """
 
 import argparse
 import sys
+import time
 from typing import Any
 
 from pharmavique.bootstrap.settings import get_settings
@@ -13,9 +15,11 @@ from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.db.engine import create_engine, create_session_factory
 from pharmavique.search.application.handlers import RebuildIndexHandler, SearchProductsHandler
+from pharmavique.search.application.similar_names import RebuildSimilarNames
 from pharmavique.search.contracts.queries import SearchQuery
-from pharmavique.search.infrastructure.catalog_source import CatalogProductSource
+from pharmavique.search.infrastructure.catalog_source import CatalogNameSource, CatalogProductSource
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
+from pharmavique.search.infrastructure.similar_names import PostgresSimilarNameStore
 from pharmavique.shared_kernel.market import Market
 
 EXIT_OK = 0
@@ -28,6 +32,12 @@ def add_arguments(commands: Any) -> None:
     )
     reindex.add_argument("--market", default="SA", choices=[m.value for m in Market])
     reindex.add_argument("--page-size", type=int, default=500)
+
+    similar = commands.add_parser(
+        "similar-names-rebuild",
+        help="compute and store every product's look-alike names (safe to repeat)",
+    )
+    similar.add_argument("--market", default="SA", choices=[m.value for m in Market])
 
     find = commands.add_parser("search", help="look a drug name up in the search index")
     find.add_argument("text", help="what to look for, for example 'panadool extra'")
@@ -63,6 +73,25 @@ async def reindex(args: argparse.Namespace) -> int:
     finally:
         await engine.dispose()
     print(f"indexed {count} products for market {args.market}")
+    return EXIT_OK
+
+
+async def rebuild_similar_names(args: argparse.Namespace) -> int:
+    url = _database_url()
+    if url is None:
+        return EXIT_NO_DATABASE
+    engine = create_engine(url)
+    started = time.perf_counter()
+    try:
+        session_factory = create_session_factory(engine)
+        count = await RebuildSimilarNames(
+            CatalogNameSource(SqlAlchemyProductReader(session_factory)),
+            PostgresSimilarNameStore(session_factory),
+        ).rebuild(Market(args.market))
+    finally:
+        await engine.dispose()
+    seconds = time.perf_counter() - started
+    print(f"stored the look-alike names of {count} products for {args.market} in {seconds:.0f} s")
     return EXIT_OK
 
 

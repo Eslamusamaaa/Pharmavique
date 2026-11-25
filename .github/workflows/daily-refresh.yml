@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       steps:
-        description: "steps to run: drugs, lists or drugs,lists (add weekly, monthly for the slow lists)"
+        description: "steps to run: drugs, lists or drugs,lists (add weekly, monthly for the slow lists; names alone stores the look-alike names)"
         default: "drugs,lists"
       fast_lists:
         description: "lists to crawl (a short trial: drug-shortage)"

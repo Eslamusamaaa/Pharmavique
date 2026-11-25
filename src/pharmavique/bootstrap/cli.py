@@ -7,6 +7,7 @@ Commands
     sfda-lists    crawl the other official SFDA lists (shortages, pharmacies, companies, ...)
     sfda-images-export / sfda-images-queries / sfda-images    find and store product pictures
     search-reindex / search    build the search index from the catalog and look names up
+    similar-names-rebuild      store every product's look-alike names (daily refresh)
 """
 
 import argparse
@@ -692,6 +693,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(search_cli.reindex(args))
     if args.command == "search":
         return asyncio.run(search_cli.lookup(args))
+    if args.command == "similar-names-rebuild":
+        return asyncio.run(search_cli.rebuild_similar_names(args))
     if args.command == "sfda-images-export":
         return images.export_products(args)
     if args.command == "sfda-images-queries":

@@ -6,6 +6,7 @@
 #   bash scripts/daily_refresh.sh                       # drugs and lists
 #   STEPS=lists FAST_LISTS=drug-shortage bash scripts/daily_refresh.sh   # a short trial
 #   STEPS=lists,weekly,monthly bash scripts/daily_refresh.sh   # also the slow lists, today
+#   STEPS=names bash scripts/daily_refresh.sh           # only store the look-alike names again
 #
 # How often each list is read (owner's decision 2026-11-24):
 #   every day   the drugs and the fast lists below; the shortage lists also a second time at noon
@@ -117,11 +118,18 @@ PY
       step drugs-withdraw 0,2 sfda-withdraw-absent --run-id "$run" --baseline "$baseline_id"
     fi
     step search-reindex 0 search-reindex
+    # every product's look-alike names, so the API reads one row (about two minutes)
+    step similar-names 0 similar-names-rebuild
     step alerts-relay 0 outbox-relay --once
     step alerts-email 0,4 notify-emails        # 4: not configured, nothing to send
     step analytics-rebuild 0 analytics-rebuild
     step cache-invalidate 0,4 cache-invalidate # 4: no shared cache in this deployment
   fi
+fi
+
+# the look-alike names alone, without a crawl (STEPS=names): after a migration, or to fill them now
+if has_step names; then
+  step similar-names 0 similar-names-rebuild
 fi
 
 # ---------------------------------------------------------------------------- the fast lists
