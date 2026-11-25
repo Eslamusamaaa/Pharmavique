@@ -16,6 +16,7 @@ from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.bootstrap.api_auth import signed_in_for_ai
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.bootstrap.api_history import HistoryCheckOut, history_for_request
+from pharmavique.bootstrap.trust import GRADE_LABEL_AR, TrustGrade, grade_of_citation
 from pharmavique.shared_kernel.principal import Principal
 
 router = APIRouter(prefix="/v1/assistant", tags=["assistant"])
@@ -53,6 +54,8 @@ class CitationOut(BaseModel):
     url: str | None
     kind: str
     published: str | None
+    trust_grade: TrustGrade
+    trust_label_ar: str
 
 
 class AnswerOut(BaseModel):
@@ -153,6 +156,8 @@ def answer_out(answer: Answer) -> AnswerOut:
                 url=c.url,
                 kind=c.kind,
                 published=c.published,
+                trust_grade=grade_of_citation(c.kind, c.source_id, c.url),
+                trust_label_ar=GRADE_LABEL_AR[grade_of_citation(c.kind, c.source_id, c.url)],
             )
             for n, c in numbered
         ],

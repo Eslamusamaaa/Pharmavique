@@ -61,6 +61,8 @@ async def test_an_answer_comes_with_its_citations_and_level() -> None:
             "url": "https://s/1",
             "kind": "catalog",
             "published": None,
+            "trust_grade": "official_sa",
+            "trust_label_ar": "رسمي سعودي",
         }
     ]
     assert body["grounded"] is True

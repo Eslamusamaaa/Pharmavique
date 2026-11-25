@@ -10,7 +10,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.bootstrap.cached_response import cached_json
+from pharmavique.bootstrap.trust import GRADE_LABEL_AR, TrustGrade, grade_of_source
 from pharmavique.catalog.contracts.queries import CatalogQueries
 from pharmavique.interactions.contracts.queries import (
     ContraindicationChecks,
@@ -44,6 +46,10 @@ class FindingOut(BaseModel):
     registers: list[str]
     ingredients: list[str]
     source: str | None
+    # "unverified" for DDInter: research data nobody has checked (a duplicate comes from our own
+    # registry data and is graded like it)
+    trust_grade: TrustGrade
+    trust_label_ar: str
 
 
 class UnmatchedOut(BaseModel):
@@ -58,6 +64,7 @@ class CheckOut(BaseModel):
     unknown_registers: list[str]
     complete: bool
     note: str
+    disclaimer: str = DISCLAIMER
 
 
 def get_checks(request: Request) -> InteractionChecks:
@@ -113,6 +120,8 @@ async def check(
                 registers=list(f.registers),
                 ingredients=list(f.ingredients),
                 source=f.source,
+                trust_grade=grade_of_source(f.source or "sfda"),
+                trust_label_ar=GRADE_LABEL_AR[grade_of_source(f.source or "sfda")],
             )
             for f in report.findings
         ],
@@ -128,6 +137,8 @@ class ContraindicationOut(BaseModel):
     disease: str  # as the source names the condition
     text: str  # the label text it was taken from
     source: str
+    trust_grade: TrustGrade
+    trust_label_ar: str
 
 
 class ContraindicationsOut(BaseModel):
@@ -136,6 +147,7 @@ class ContraindicationsOut(BaseModel):
     hidden_unverified: int  # source rows not shown because their text does not name the condition
     complete: bool  # always false: a missing record is never a clearance
     note: str
+    disclaimer: str = DISCLAIMER
 
 
 def get_contraindications(request: Request) -> ContraindicationChecks:
@@ -188,6 +200,8 @@ async def contraindications(
                     disease=item.disease,
                     text=item.text,
                     source=item.source,
+                    trust_grade=grade_of_source(item.source),
+                    trust_label_ar=GRADE_LABEL_AR[grade_of_source(item.source)],
                 )
                 for item in report.items
             ],

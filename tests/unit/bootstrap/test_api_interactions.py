@@ -72,8 +72,11 @@ async def test_two_products_with_a_recorded_pair_give_a_finding_with_the_source(
             "registers": ["1", "2"],
             "ingredients": ["WARFARIN SODIUM", "ASPIRIN"],
             "source": "ddinter-2.0",
+            "trust_grade": "unverified",
+            "trust_label_ar": "غير موثّق",
         }
     ]
+    assert "not medical advice" in body["disclaimer"]
     assert [p["register_number"] for p in body["products"]] == ["1", "2"]
     assert body["complete"] is False
     assert body["unknown_registers"] == []
@@ -135,8 +138,11 @@ async def test_a_products_recorded_contraindications_come_with_label_text_and_so
             "disease": "pregnancy",
             "text": "Pregnancy text.",
             "source": "medic",
+            "trust_grade": "unverified",
+            "trust_label_ar": "غير موثّق",
         }
     ]
+    assert "not medical advice" in body["disclaimer"]
     assert body["complete"] is False
     assert "ليست نصيحة" in body["note"]
 
