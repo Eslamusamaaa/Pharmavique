@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from pharmavique.foundation.http.client import async_client
 from pharmavique.recognition.application.ports import VisionReader
 from pharmavique.recognition.domain.scans import ExtractedLine, ScanKind
 
@@ -115,7 +116,7 @@ class OpenAICompatibleVisionReader:
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._model = model
-        self._client = client or httpx.AsyncClient(timeout=timeout)
+        self._client = client or async_client(timeout=timeout)
 
     async def read(self, image: bytes, media_type: str, kind: ScanKind) -> list[ExtractedLine]:
         image, media_type = shrink(image, media_type)

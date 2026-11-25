@@ -7,6 +7,8 @@ why it only adds to the deterministic rules in `assistant.domain.guardrails`.
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
+
 BASE_URL = "https://api.groq.com/openai/v1"
 
 
@@ -21,7 +23,7 @@ class GroqPromptGuard:
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._model = model
         self._threshold = threshold
-        self._client = client or httpx.AsyncClient(timeout=10.0)
+        self._client = client or async_client(timeout=10.0)
 
     async def is_injection(self, text: str) -> bool:
         response = await self._client.post(

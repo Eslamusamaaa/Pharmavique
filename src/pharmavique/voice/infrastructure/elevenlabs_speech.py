@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
 
 BASE_URL = "https://api.elevenlabs.io/v1"
@@ -32,7 +33,7 @@ class ElevenLabsTextToSpeech:
         self._voice_id = voice_id
         self._model_id = model_id
         self._language = language_code
-        self._client = client or httpx.AsyncClient(timeout=90.0)
+        self._client = client or async_client(timeout=90.0)
 
     async def synthesize(self, segments: Sequence[str]) -> bytes:
         parts: list[bytes] = []

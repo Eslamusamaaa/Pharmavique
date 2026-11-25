@@ -8,6 +8,8 @@ from collections.abc import Sequence
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
+
 
 class EmbeddingError(RuntimeError):
     pass
@@ -34,7 +36,7 @@ class OpenAICompatibleEmbedder:
         self._api_model = api_model or model
         self._send_dimensions = send_dimensions
         self._dimensions = dimensions
-        self._client = client or httpx.AsyncClient(timeout=timeout)
+        self._client = client or async_client(timeout=timeout)
 
     @property
     def model(self) -> str:

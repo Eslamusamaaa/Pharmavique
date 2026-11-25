@@ -12,6 +12,8 @@ from collections.abc import Sequence
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
+
 BASE_URL = "https://api.groq.com/openai/v1"
 
 
@@ -52,7 +54,7 @@ class GroqSpeechToText:
     def __init__(self, api_key: str, model: str, client: httpx.AsyncClient | None = None) -> None:
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._model = model
-        self._client = client or httpx.AsyncClient(timeout=60.0)
+        self._client = client or async_client(timeout=60.0)
 
     async def transcribe(self, audio: bytes, filename: str, language: str) -> str:
         try:
@@ -79,7 +81,7 @@ class GroqTextToSpeech:
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._model = model
         self._voice = voice
-        self._client = client or httpx.AsyncClient(timeout=60.0)
+        self._client = client or async_client(timeout=60.0)
 
     async def synthesize(self, segments: Sequence[str]) -> bytes:
         parts = []

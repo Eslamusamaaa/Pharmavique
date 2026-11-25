@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, quote, urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from pharmavique.foundation.http.client import async_client
+
 BASE_URL = "https://www.sfda.gov.sa"
 USER_AGENT = "DrugRegistrySync/0.1 (polite research crawler; throttled; honours robots.txt)"
 NO_RESULTS = "No Results Found"
@@ -75,7 +77,7 @@ class SfdaSiteSearch:
         ttl: float = 3600.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._client = client or httpx.AsyncClient(
+        self._client = client or async_client(
             timeout=12.0, headers={"User-Agent": USER_AGENT}, follow_redirects=True
         )
         self._min_gap = min_gap

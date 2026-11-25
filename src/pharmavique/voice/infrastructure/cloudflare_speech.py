@@ -10,6 +10,7 @@ import base64
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
 
 API_URL = "https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/{model}"
@@ -21,7 +22,7 @@ class CloudflareSpeechToText:
     ) -> None:
         self._url = API_URL.format(account=account_id.strip(), model=model)
         self._headers = {"Authorization": f"Bearer {api_token}"}
-        self._client = client or httpx.AsyncClient(timeout=60.0)
+        self._client = client or async_client(timeout=60.0)
 
     async def transcribe(self, audio: bytes, filename: str, language: str) -> str:
         payload = {"audio": base64.b64encode(audio).decode("ascii"), "language": language}

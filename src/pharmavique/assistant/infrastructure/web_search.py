@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from pharmavique.foundation.http.client import async_client
+
 TAVILY_URL = "https://api.tavily.com/search"
 MAX_SNIPPET = 600  # characters of one result given to the model
 
@@ -22,7 +24,7 @@ class TavilyWebSearch:
         self, api_key: str, client: httpx.AsyncClient | None = None, timeout: float = 15.0
     ) -> None:
         self._headers = {"Authorization": f"Bearer {api_key}"}
-        self._client = client or httpx.AsyncClient(timeout=timeout)
+        self._client = client or async_client(timeout=timeout)
 
     async def search(self, query: str, limit: int) -> list[dict[str, Any]]:
         payload = {
