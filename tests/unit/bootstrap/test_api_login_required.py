@@ -41,6 +41,7 @@ PUBLIC = {
     ("GET", "/v1/products/{register_number}/picture"),
     ("GET", "/v1/products/{register_number}/shortage"),
     ("GET", "/v1/compare"),
+    ("GET", "/v1/sources"),
     ("GET", "/v1/ingredients"),
     ("POST", "/v1/pharmacies/nearby"),
     ("GET", "/v1/pharmacies/cities"),

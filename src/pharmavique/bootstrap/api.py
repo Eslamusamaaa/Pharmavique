@@ -34,6 +34,7 @@ from pharmavique.bootstrap import (
     api_recognition,
     api_shelf,
     api_shortage,
+    api_sources,
     api_voice,
     features,
     health,
@@ -50,6 +51,7 @@ from pharmavique.bootstrap.identity_wiring import build_email_sender, build_iden
 from pharmavique.bootstrap.job_handlers import build_handlers
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import check_signing_secret, get_settings
+from pharmavique.bootstrap.sources_status import SourceStatusReader, SqlAlchemySourceStatusReader
 from pharmavique.bootstrap.web_app import mount_web_app
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
 from pharmavique.catalog.contracts.queries import (
@@ -191,6 +193,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 SystemClock(),
             )
             app.state.quality = SqlAlchemyQualityReader(session_factory)
+            app.state.source_status = SqlAlchemySourceStatusReader(session_factory)
             app.state.pharmacies = SqlAlchemyPharmacyReader(session_factory)
             app.state.refresh_history = FileRefreshHistory(Path(settings.refresh_dir))
             if settings.jwt_secret is not None:
@@ -243,6 +246,7 @@ def create_app(
     job_max_queue_depth: int | None = None,
     analytics: AnalyticsService | None = None,
     quality: CatalogQuality | None = None,
+    source_status: SourceStatusReader | None = None,
     pharmacies: CatalogPharmacies | None = None,
     refresh_history: FileRefreshHistory | None = None,
     rate_limit_per_minute: int | None = None,
@@ -281,6 +285,7 @@ def create_app(
     app.state.token_verifier = token_verifier
     app.state.analytics = analytics
     app.state.quality = quality
+    app.state.source_status = source_status
     app.state.pharmacies = pharmacies
     app.state.pharmacy_directories = {}
     app.state.refresh_history = refresh_history
@@ -351,6 +356,7 @@ def create_app(
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)
     app.include_router(api_shelf.router)
+    app.include_router(api_sources.router)
     app.include_router(api_jobs.router)
     if settings.web_dir:
         mount_web_app(app, Path(settings.web_dir))
