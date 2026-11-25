@@ -1,4 +1,4 @@
-# Handoff: where Pharmavique stands (2026-11-24)
+# Handoff: where Pharmavique stands (2026-11-25)
 
 For someone (or a fresh chat) with no memory of this work. Sections 1 and 2 are the owner's standing
 rules; the rest is state, commands and what is next. The README (section 2 and 19) has the feature
@@ -48,6 +48,11 @@ Arabia first, Egypt as a pluggable adapter. Modular monolith, DDD, onion archite
 
 ## 3. Environment
 
+- **The owner uses production, not the laptop**: `https://pharmavique.vercel.app` (Vercel project
+  `zikola/pharmavique`, fra1; Neon `pharmavique` in Frankfurt; no Redis there). Measure and verify speed
+  and behaviour there too, not only on localhost. `vercel ls --prod` and `vercel inspect <url> --logs` work
+  from this machine. A push to `main` deploys production in about two minutes.
+
 - Windows 11. Project: `C:\Users\Laptop World\Downloads\Pharmavique-20261118T213916Z-1-001\Pharmavique`.
   The virtualenv is `.venv` inside it; use `uv run ...`. Shells: Git Bash and PowerShell.
 - `docker compose up -d db redis`: Postgres 17 (pg_trgm, pgvector) on 127.0.0.1:5432 and Redis on 6379
@@ -69,14 +74,19 @@ Arabia first, Egypt as a pluggable adapter. Modular monolith, DDD, onion archite
   - after adding an app route run `npx expo customize tsconfig.json` to regenerate typed routes, then `tsc`;
   - set `PYTHONIOENCODING=utf-8` when printing Arabic from scripts; pytest prints harmless
     "WinError 145" temp-folder warnings;
-  - the Bash tool refuses removals it judges risky: say so to the owner instead of working around it.
+  - the Bash tool refuses removals it judges risky: say so to the owner instead of working around it;
+  - a plain `uv run` / `uv sync` removes the optional `scraper` extra (playwright): use `--all-extras`
+    (`daily_refresh.ps1` syncs it itself);
+  - piping a patch to `git apply` from Python with `text=True` turns every newline into CRLF on Windows: pass bytes;
+  - when measuring the local API in-process, switch off the rate limit and the shared cache, or the
+    numbers are 429s and cache hits.
 
 ## 4. Run it
 
 ```powershell
 docker compose up -d db redis
-uv run alembic upgrade heads                  # note: heads. Current heads: identity_0002, watchlist_0004,
-                                              # catalog_0005, analytics_0001, search_0001, knowledge_0001, interactions_0002
+uv sync --all-extras                          # playwright (the crawler) is the optional `scraper` extra
+uv run alembic upgrade heads                  # note: heads (one per context; search is at search_0002)
 uv run uvicorn pharmavique.bootstrap.api:create_app --factory --port 8000
 uv run pharmavique outbox-relay               # delivers catalog events: alerts, radar, cache invalidation
 uv run pharmavique worker                     # only with PHARMAVIQUE_JOB_BACKEND=arq
@@ -108,7 +118,13 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 
 ## 6. Pending actions that are the owner's
 
-0. **Push the local commits and refresh production (2026-11-24).** 14 commits of 2026-11-23 plus the fixes of
+0. **Fill the stored look-alike names in production (2026-11-25).** The code is ready (table
+   `search.similar_name`, migration `search_0002`, command `similar-names-rebuild`). Until it is filled, the
+   API falls back to building the name index (2.6 s on the first similar-names answer of each instance).
+   Steps: push; GitHub Actions, **Database migrate**, Run workflow; then **Daily refresh**, Run workflow with
+   steps `names` (about two minutes of work). From then on the nightly run refreshes it after the reindex.
+00. ~~Push the local commits and refresh production (2026-11-24).~~ Pushed on 2026-11-25 (with the latency
+   work below). Kept for the record: 14 commits of 2026-11-23 plus the fixes of
    2026-11-24 were only local, so GitHub shows a red cross on 9a99fab (CI failed: the architecture test did not
    list the new `offers` context; the fix is local commit 93f51af). Production (Vercel + Neon) still has the
    bugs fixed on 2026-11-24 (section 9b): checked live on 2026-11-24, `انسولين` finds unrelated products,
@@ -352,6 +368,30 @@ doctor" (an existing rule allows a stop instruction in the same sentence as a do
 (Tavily) are used only for a medicine not in the registry and are marked unverified; checked live with
 Crocin Advance (found on pharmeasy.in, paracetamol, cited, "not in SFDA's list" checked on the SFDA site).
 
+## 9e. Latency (2026-11-25; numbers in `docs/PERFORMANCE.md`)
+
+The owner found the app slow everywhere. Measured on production and fixed:
+- **Cold start 8.2 s to 0.45 s.** The Vercel function was 327 MB (over the 250 MB standard size) because
+  playwright was a runtime dependency: it is now the `scraper` extra. Startup imported LangChain, LangGraph
+  and the OpenAI client (1.7 s; now loaded on the first question) and made twelve HTTP clients that each
+  loaded the certificates (2.2 s; now one shared TLS context). A test keeps those libraries out of startup.
+- **Edge cache.** Public answers: `max-age=60, s-maxage=600, stale-while-revalidate=86400`; same-ingredient,
+  shortage, similar names, contraindications and compare are cached too; the no-picture 404 for a day; the
+  page shell `max-age=0, must-revalidate, s-maxage=3600` (Vercel clears the edge on each deployment).
+- **Web scripts 7.3 MB to 1.8 MB** (490 KB compressed): icons come one by one from
+  `mobile/src/components/icons.ts`; add a new icon there, never import `phosphor-react-native` directly.
+- **Assistant 29-65 s to 4.5-7.6 s** on production. Groq's free plan allows 8,000 tokens a minute per model
+  and a question uses 10,000-16,000, so: Groq `gpt-oss-20b` (its own limit) follows `gpt-oss-120b`; Gemma on
+  Cloudflare runs with thinking off (`cloudflare_llm_thinking`, 11.7 s to 2.5 s for one answer; a leftover
+  "thought" marker is stripped); tool results go as compact JSON; documents as 4 passages of 800 characters
+  (six of 1,200 made one call 12,500 tokens, which Groq refuses outright); backup timeout 25 s.
+- **Similar names.** The index read only names (`CatalogNames.trade_names`, 0.04 s) and reduces each brand once:
+  3.1 s to 2.6 s on Vercel's first call. Then the daily refresh stores every product's look-alikes
+  (`search.similar_name`, 126 s for 9,186 products locally) and the API reads one row: 0.05 s, the same answers
+  as the index on 200 of 200 sampled products. Production table not filled yet (section 6, item 0).
+- Not done: thumbnails of the product pictures (median 53 KB, 10% above 283 KB, largest 4.3 MB, shown at
+  72 px); streaming the assistant's progress to the app; a provider with a larger free token limit.
+
 ## 9c. The daily refresh on GitHub (checked 2026-11-24)
 
 What it refreshes every day (`scripts/daily_refresh.sh`, `.github/workflows/daily-refresh.yml`, into Neon):
@@ -371,6 +411,8 @@ What it refreshes every day (`scripts/daily_refresh.sh`, `.github/workflows/dail
 - **Not refreshed daily**: the interaction and contraindication data (fixed downloads, not SFDA) and the
   pictures (`Pictures load` is manual).
 - `cache-invalidate` exits 4 on GitHub: production has no shared cache, so this is expected.
+- **Look-alike names** (added 2026-11-25): `similar-names-rebuild` runs after `search-reindex` in the drugs
+  step; `STEPS=names` (or the workflow input `names`) runs it alone.
 
 Runs seen: the only scheduled run so far (2026-11-23) started at 08:25 UTC instead of 01:00 (7.5 h late) and
 succeeded in 1 h 51 min; the run of **2026-11-24 had not started at 08:32 UTC**. GitHub delays or drops

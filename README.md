@@ -97,7 +97,8 @@ The project is **API first**: the mobile app holds no drug data of its own and e
 | Contraindications | Done | 3,960 drug-disease records (MeDIC) on the drug page and for the assistant |
 | Product pictures | Done, shipped as a Docker image | 3,815 of 9,162 drugs have a real pharmacy picture (42%); the rest show a marked placeholder |
 | Mobile app | Done for the core journeys | Home, search, drug page with pictures, assistant, voice search, box and prescription scan, first-launch role choice, interaction check (pharmacist) and "my medicines" (patient) |
-| Daily refresh | Built, to be scheduled | `scripts/daily_refresh.ps1` re-reads drugs, prices, fast lists and pictures and loads the difference |
+| Daily refresh | Done, runs on GitHub Actions into Neon | `scripts/daily_refresh.sh` (GitHub, nightly) and `scripts/daily_refresh.ps1` (laptop) re-read drugs, prices and the fast lists, load the difference, reindex search and store every product's look-alike names |
+| Production deployment | Live | `https://pharmavique.vercel.app` (Vercel Hobby, fra1) with Neon in Frankfurt; the API serves the website. Latency work of 2026-11-25: cold start 8.2 s to 0.45 s, answers kept at the Vercel edge, web scripts 7.3 MB to 1.8 MB, assistant 29-65 s to 4.5-7.6 s ([PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | Security | Hardened | Per-client rate limits, secret scanning, Dependabot, protected `main`, pinned CI actions, see [SECURITY.md](SECURITY.md) |
 | Accounts and roles | Done | Email and password, roles patient, pharmacist, company, operator, refresh-token rotation with replay detection, sign-in screens in the app ([ADR-009](docs/adr/ADR-009-identity-and-sessions.md)) |
 | Saved medicines, allergies, alerts, weekly digest, price-changed mark | Done | `watchlist` context under row-level security, the catalog outbox relay, alerts for price changes, withdrawals and relistings ([ADR-010](docs/adr/ADR-010-outbox-relay-and-alerts.md)). Shortage and safety-notice alerts are not built yet |
@@ -411,7 +412,10 @@ flowchart LR
   parameterised, and with `PHARMAVIQUE_REDIS_URL` set the instances share the rate limit, a versioned
   read cache for search and drug pages, spoken-answer links and a background job queue for scans and
   assistant questions (Arq workers, [ADR-012](docs/adr/ADR-012-shared-state-read-cache-and-jobs.md));
-  measured baselines are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md). Not built: shared storage for
+  measured baselines are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md). On Vercel there is no Redis:
+  public answers carry `s-maxage=600, stale-while-revalidate=86400` so the Vercel edge serves repeats,
+  the language-model stack loads on the first question (not at startup), and the crawler's browser is
+  an optional extra kept out of the function. Not built: shared storage for
   pictures (the API serves them from `PHARMAVIQUE_MEDIA_DIR`), Redis failover, database replicas and
   PgBouncer, a CDN, and the app does not call the jobs endpoints yet.
 
@@ -564,7 +568,8 @@ bash scripts/recollect_safety_lists.sh                    # the six safety lists
 ```
 
 **Daily refresh.** `scripts/daily_refresh.ps1` runs the whole routine and writes a log and a summary per
-step under `data/refresh/<date>/` (git-ignored): drugs and prices (`sfda-update`, load, search reindex),
+step under `data/refresh/<date>/` (git-ignored): drugs and prices (`sfda-update`, load, search reindex,
+every product's look-alike names),
 the fast lists (shortages, safety notices, approvals, circulars), pictures for new drugs, and on Sundays the
 shops' sitemaps and missing pictures. It is polite, safe to repeat, never overlaps itself, and a failing
 step does not stop the next one. On Windows register it once with
@@ -635,6 +640,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `pharmavique sfda-lists-load --run-id ID` | Load the lists and link rows to products |
 | `pharmavique knowledge-build --run-id ID` | Cut official documents into cited chunks |
 | `pharmavique search-reindex` | Rebuild the search index |
+| `pharmavique similar-names-rebuild` | Compute and store every product's look-alike names (about two minutes; the daily refresh runs it after the reindex; `STEPS=names` runs it alone) |
 | `pharmavique search "query"` | Try the search from the terminal |
 | `pharmavique sfda-images*` | Product picture pipeline (`--from-sitemap-pictures` takes pictures from the shops' sitemaps with no page requests) |
 | `pharmavique sfda-pictures-load` | Load the drug-to-picture mapping into the catalog |
