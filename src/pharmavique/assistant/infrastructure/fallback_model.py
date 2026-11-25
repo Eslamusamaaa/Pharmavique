@@ -20,7 +20,7 @@ import openai
 from langchain_core.messages import AIMessage, BaseMessage
 
 FIRST_TIMEOUT = 25.0  # seconds before the first model's backup is tried
-BACKUP_TIMEOUT = 45.0  # for the backups that are not the last one (Gemma took 31 to 42 s)
+BACKUP_TIMEOUT = 25.0  # for the backups that are not the last one (Gemma without thinking: 1-6 s)
 RATE_LIMIT_PAUSE = 60.0  # seconds a rate-limited model is skipped (the limits are per minute)
 
 

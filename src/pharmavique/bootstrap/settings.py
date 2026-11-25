@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     # citations (31 to 42 s each); gpt-oss-120b there answered one of four (the rest came back
     # empty); Llama 4 Scout wrote tool calls as text and answered in English.
     cloudflare_llm_model: str = "@cf/google/gemma-4-26b-a4b-it"
+    # Gemma 4 thinks before it answers: about 1,800 characters of hidden reasoning for a three
+    # sentence answer, 11.7 s; with thinking off the same answer took 2.5 s (2026-11-25).
+    cloudflare_llm_thinking: bool = False
     # The next backups, free models on OpenRouter with tool calling, tried in order after
     # Cloudflare. Measured 2026-11-24 on an Arabic question with a search tool: Nemotron 3 Ultra
     # called it with "بنادول" in 5 s; Nemotron 3.5 Lightning searched "Benadryl" (left out); the

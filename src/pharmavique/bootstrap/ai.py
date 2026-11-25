@@ -152,6 +152,9 @@ def build_chat_model(settings: Settings) -> Any | None:
                 temperature=0,
                 timeout=60,
                 max_retries=0,
+                extra_body={
+                    "chat_template_kwargs": {"enable_thinking": settings.cloudflare_llm_thinking}
+                },
             )
         )
     if settings.openrouter_api_key is not None:

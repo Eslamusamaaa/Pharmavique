@@ -31,3 +31,35 @@ def test_other_messages_are_left_as_they_are() -> None:
     payload = model()._get_request_payload([HumanMessage("وش هذا الدواء؟"), AIMessage("جواب")])
 
     assert [m["content"] for m in payload["messages"]] == ["وش هذا الدواء؟", "جواب"]
+
+
+def _reply(content: str) -> str:
+    response = {
+        "id": "r",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "@cf/google/gemma-4-26b-a4b-it",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    message = model()._create_chat_result(response).generations[0].message
+    assert isinstance(message.content, str)
+    return message.content
+
+
+def test_a_thinking_marker_left_at_the_start_of_a_reply_is_removed() -> None:
+    # With thinking switched off Gemma once answered with only the word of its thinking channel,
+    # and that word was shown to the person as the whole answer (2026-11-25).
+    assert _reply("thought") == ""
+    assert _reply("thought\nالجواب [1]") == "الجواب [1]"  # noqa: RUF001
+    assert _reply("<|channel>thought\nالجواب") == "الجواب"  # noqa: RUF001
+
+
+def test_a_reply_that_only_mentions_the_word_is_kept() -> None:
+    assert _reply("thoughtful advice") == "thoughtful advice"
+    assert _reply("الجواب thought") == "الجواب thought"
