@@ -29,11 +29,13 @@ import argparse
 import asyncio
 import csv
 import io
+import json
 import random
 import statistics
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -62,6 +64,21 @@ class Item:
     brand: str  # normalized brand, used to compare
 
 
+THRESHOLDS = (0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+PERSON_COLUMNS = ("patient", "name", "doctor", "phone", "id")  # a label file never names a person
+
+
+@dataclass(frozen=True)
+class Label:
+    """One labelled photo of the committed answer file (the photo itself stays on this machine)."""
+
+    file: str
+    kind: str  # "box", "prescription", "shelf" or "" when the file does not say
+    numbers: list[str]  # the register numbers really visible or written
+    source_url: str  # where the photo came from, "" when taken by the owner
+    notes: str
+
+
 @dataclass
 class Tally:
     expected: int = 0
@@ -75,6 +92,10 @@ class Tally:
     seconds: list[float] = field(default_factory=list)
     doses_not_unclear: int = 0
     failures: int = 0
+    # for each expected medicine whose name was read: (score of the best candidate, was it right)
+    scored: list[tuple[float, bool]] = field(default_factory=list)
+    # what went wrong, per picture: only file names, register numbers and flags, never text
+    cases: list[dict[str, object]] = field(default_factory=list)
 
 
 def font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -215,10 +236,25 @@ async def evaluate(
             (i for i, r in enumerate(result.lines) if same_brand(r.line.name, item.brand)), None
         )
         if index is None:
+            tally.cases.append(
+                {"file": label, "problem": "name_not_read", "expected": item.register_number}
+            )
             continue
         matched_lines.add(index)
         tally.read += 1
         numbers = [c.register_number for c in result.lines[index].candidates]
+        best = max((c.score for c in result.lines[index].candidates), default=0.0)
+        tally.scored.append((best, numbers[:1] == [item.register_number]))
+        if numbers[:1] != [item.register_number]:
+            tally.cases.append(
+                {
+                    "file": label,
+                    "problem": "wrong_product",
+                    "expected": item.register_number,
+                    "top3": numbers[:3],
+                    "best_score": round(best, 3),
+                }
+            )
         brands = [
             brand_of(c.trade_name_en or c.trade_name_ar or "")
             for c in result.lines[index].candidates
@@ -228,12 +264,71 @@ async def evaluate(
         tally.brand_top1 += any(same_brand(b, item.brand) for b in brands[:1])
         tally.brand_top3 += any(same_brand(b, item.brand) for b in brands[:3])
     tally.extra += len(result.lines) - len(matched_lines)
+    for index in range(len(result.lines)):
+        if index not in matched_lines:
+            tally.cases.append(
+                {
+                    "file": label,
+                    "problem": "extra_line",
+                    "confidence": result.lines[index].confidence.value,
+                }
+            )
     read = sum(
         1 for item in items if any(same_brand(r.line.name, item.brand) for r in result.lines)
     )
     print(
         f"  {label}: {read}/{len(items)} read, {len(result.lines)} lines, {tally.seconds[-1]:.0f}s"
     )
+
+
+def sweep(
+    scored: list[tuple[float, bool]], thresholds: tuple[float, ...] = THRESHOLDS
+) -> list[dict[str, float | int]]:
+    """For each threshold: how many read lines would count as confident, how many of those had the
+    right product first, and the same for the lines left uncertain. Picking the threshold is a
+    trade-off between asking too often and trusting a wrong match."""
+    rows: list[dict[str, float | int]] = []
+    for threshold in thresholds:
+        confident = [right for score, right in scored if score >= threshold]
+        uncertain = [right for score, right in scored if score < threshold]
+        rows.append(
+            {
+                "threshold": threshold,
+                "confident": len(confident),
+                "confident_right": sum(confident),
+                "uncertain": len(uncertain),
+                "uncertain_right": sum(uncertain),
+            }
+        )
+    return rows
+
+
+def write_report(
+    path: Path, kind: ScanKind, tally: Tally, photos: int, labelled_by: str = ""
+) -> None:
+    """The result as JSON, to keep in git: numbers, failure cases and the sweep. No image, no text
+    that was read, no names of people."""
+    data = {
+        "date": datetime.now(UTC).date().isoformat(),
+        "kind": kind.value,
+        "photos": photos,
+        "labelled_by": labelled_by,
+        "metrics": {
+            "expected": tally.expected,
+            "read": tally.read,
+            "top1": tally.top1,
+            "top3": tally.top3,
+            "brand_top1": tally.brand_top1,
+            "brand_top3": tally.brand_top3,
+            "extra_lines": tally.extra,
+            "lines": tally.lines,
+            "pictures_failed": tally.failures,
+            "doses_not_unclear": tally.doses_not_unclear,
+        },
+        "sweep": sweep(tally.scored),
+        "cases": tally.cases,
+    }
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def report(kind: ScanKind, tally: Tally) -> None:
@@ -255,6 +350,38 @@ def report(kind: ScanKind, tally: Tally) -> None:
     if tally.seconds:
         median, slowest = statistics.median(tally.seconds), max(tally.seconds)
         print(f"seconds per picture: median {median:.0f}, max {slowest:.0f}")
+    if tally.scored:
+        print("\nconfidence threshold: lines called confident, and how many of them were right")
+        for row in sweep(tally.scored):
+            print(
+                f"  {row['threshold']:.2f}: confident {row['confident']} "
+                f"({row['confident_right']} right), uncertain {row['uncertain']} "
+                f"({row['uncertain_right']} would have been right)"
+            )
+    for case in tally.cases[:20]:
+        print(f"  case: {case}")
+    if len(tally.cases) > 20:
+        print(f"  ... and {len(tally.cases) - 20} more cases (use --report to keep all of them)")
+
+
+def read_label_rows(labels: Path) -> list[Label]:
+    """The committed answer file: `file,kind,register_numbers,source_url,notes` (all but the file
+    and the register numbers are optional). A column that could hold personal data is refused."""
+    with labels.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for column in reader.fieldnames or []:
+            if column.strip().lower().startswith(PERSON_COLUMNS):
+                raise ValueError(f"the label file must not hold personal data: column {column!r}")
+        return [
+            Label(
+                file=row["file"].strip(),
+                kind=(row.get("kind") or "").strip(),
+                numbers=[n.strip() for n in row["register_numbers"].split(";") if n.strip()],
+                source_url=(row.get("source_url") or "").strip(),
+                notes=(row.get("notes") or "").strip(),
+            )
+            for row in reader
+        ]
 
 
 def read_labels(folder: Path) -> list[tuple[Path, list[str]]]:
@@ -273,7 +400,18 @@ async def main() -> int:
     parser.add_argument("--kind", choices=[k.value for k in ScanKind], default="box")
     parser.add_argument("--synthetic", type=int, default=0, help="how many pictures to draw")
     parser.add_argument("--per-picture", type=int, default=0, help="medicines per drawn picture")
-    parser.add_argument("--folder", type=Path, help="pictures plus labels.csv")
+    parser.add_argument("--folder", type=Path, help="pictures plus labels.csv (older layout)")
+    parser.add_argument(
+        "--labels", type=Path, help="the committed answer file, for example eval/scan/labels.csv"
+    )
+    parser.add_argument(
+        "--images",
+        type=Path,
+        default=Path("data/eval/images"),
+        help="where the photos are (stay on this machine, never in git)",
+    )
+    parser.add_argument("--report", type=Path, help="write the result as JSON (keep it in git)")
+    parser.add_argument("--labelled-by", default="", help="who wrote the answers, for the report")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--keep", type=Path, help="save the drawn pictures here")
     args = parser.parse_args()
@@ -294,11 +432,36 @@ async def main() -> int:
         print("no vision provider is configured", file=sys.stderr)
         return 4
     tally = Tally()
+    photos = 0
     rng = random.Random(args.seed)  # noqa: S311 - picks test pictures, nothing secret
     try:
-        if args.folder:
+        if args.labels:
             async with factory() as session:
-                for path, numbers in read_labels(args.folder):
+                rows = [r for r in read_label_rows(args.labels) if r.kind in ("", kind.value)]
+                for label in rows:
+                    found = (
+                        await session.execute(
+                            text(
+                                "SELECT register_number, data->'trade_name'->>'en' AS name "
+                                "FROM catalog.products WHERE register_number = ANY(:n)"
+                            ),
+                            {"n": label.numbers},
+                        )
+                    ).all()
+                    items = [
+                        Item(r.register_number, r.name or "", brand_of(r.name or "")) for r in found
+                    ]
+                    path = args.images / label.file
+                    media = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+                    await evaluate(
+                        scanner, kind, path.read_bytes(), media, items, tally, label.file
+                    )
+            photos = len(rows)
+        elif args.folder:
+            async with factory() as session:
+                folder_rows = read_labels(args.folder)
+                photos = len(folder_rows)
+                for path, numbers in folder_rows:
                     rows = (
                         await session.execute(
                             text(
@@ -318,6 +481,7 @@ async def main() -> int:
                 args.per_picture
                 or {ScanKind.BOX: 1, ScanKind.PRESCRIPTION: 4, ScanKind.SHELF: 8}[kind]
             )
+            photos = args.synthetic
             for number in range(args.synthetic):
                 items = await sample_items(engine, per, rng)
                 image = make_picture(kind, items, rng)
@@ -330,6 +494,9 @@ async def main() -> int:
     finally:
         await engine.dispose()
     report(kind, tally)
+    if args.report:
+        write_report(args.report, kind, tally, photos, args.labelled_by)
+        print(f"result written to {args.report}")
     return 0
 
 

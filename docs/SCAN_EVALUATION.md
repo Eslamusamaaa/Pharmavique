@@ -21,32 +21,60 @@ in `PHARMAVIQUE_VISION_MODELS`. The text is clean and printed, so **these number
 - Not covered by these numbers: glare, angles, blur, crowded shelves, boxes whose name is partly hidden,
   Arabic-only boxes, handwritten prescriptions, photos taken in a pharmacy. They are the real risk.
 
-## Measure real photos
+## Measure real photos (the dataset format)
 
-1. Collect photos (the owner or a pharmacist; no patient names or personal details in them).
-2. Put them in one folder, for example `data/eval/shelves/`, with a `labels.csv`:
+Decision of 2026-11-25: the photos come from the internet and from pictures people posted (a patient, a
+group), for boxes, prescriptions and shelves. They can show people, so **the photos stay on this machine
+and never go to git**; only the answer file and the results do.
+
+1. Put the photos in `data/eval/images/` (the folder is ignored by git).
+2. Write the answers in the committed file `eval/scan/labels.csv`:
 
    ```
-   file,register_numbers
-   shelf1.jpg,0902221712;0211234420;1802256914
-   rx1.jpg,0902221712;1802256914
+   file,kind,register_numbers,source_url,notes
+   box-001.jpg,box,0902221712,https://example.org/where-it-was-found,dim light
+   rx-001.jpg,prescription,0902221712;1802256914,,printed
+   shelf-001.jpg,shelf,0902221712;0211234420;1802256914,,
    ```
 
-   The register numbers are the medicines that are really visible or written (look them up in the app).
-3. Run it:
+   - `file`: the photo's name inside `data/eval/images/`; `kind`: `box`, `prescription` or `shelf`.
+   - `register_numbers`: the medicines really visible or written (look them up in the app), `;` apart.
+   - `source_url`: where the photo came from (empty when the owner took it); `notes`: light, angle, hand
+     writing.
+   - **No patient, doctor or any other person's name, phone or id**, not in the file and not in the
+     notes. The tool refuses a file with a column named like one (`patient`, `name`, `doctor`, `phone`,
+     `id`).
+3. Run it for one kind at a time and keep the result:
 
    ```powershell
-   uv run python scripts/scan_eval.py --kind shelf --folder data/eval/shelves
-   uv run python scripts/scan_eval.py --kind prescription --folder data/eval/prescriptions
+   uv run python scripts/scan_eval.py --kind box --labels eval/scan/labels.csv --report eval/scan/result-box.json --labelled-by "the owner"
    ```
 
-   It prints, per picture and in total: names read, the right product first and in the first three, the
-   same brand first and in the first three, lines the model invented, seconds per picture and, for
-   prescriptions, that no dose was read.
-4. Keep the folder out of git (`data/` is ignored) and record the result here with the date, the number
-   of photos and who labelled them.
+   It prints, per picture and in total: names read, the right product first and in the first three
+   (recall at 1 and at 3), the same brand first and in the first three, lines the model invented,
+   seconds per picture and, for prescriptions, that no dose was read. It then prints the **failure
+   cases**: `name_not_read` (a medicine on the label that no line named), `wrong_product` (the name was
+   read but the right product was not first; with the three it offered) and `extra_line` (a line that
+   matches no labelled medicine, with whether it was called confident).
+4. `--report` writes a JSON with the numbers, the cases and the confidence table, and nothing else (no
+   image, no text that was read). Commit it and record the date, the number of photos and who
+   labelled them below.
 
-To try the pictures the tool draws, add `--keep <folder>` to save them. `--synthetic N` draws N pictures.
+The older layout (`--folder` with a `labels.csv` next to the photos) still works.
+
+### Not sure of the name: ask, do not guess
+
+Each scanned line now says `confidence`: `confident` when the registry name that matches best scores at
+least `PHARMAVIQUE_SCAN_MIN_SCORE` (default 0.9), otherwise `uncertain` (and always when no name matched).
+A person confirms every line either way and no medical information appears before they do. For an
+uncertain line the app says it is not sure, offers the three closest names, a "none of these" search by
+name and a button to retake the photo.
+
+**The 0.9 is a first value, not a measured one.** It comes from typed names (2026-11-25): a name printed
+exactly scores 0.95 or more, one wrong letter about 0.7, an unrelated word 0.57 at most. Photos will
+score differently. The last table the tool prints, for thresholds from 0.50 to 0.95, shows how many read
+lines would count as confident and how many of those had the right product first, and how many right
+ones would be asked about for nothing: choose the threshold from it once there are real photos.
 
 ## What to do with the result
 
