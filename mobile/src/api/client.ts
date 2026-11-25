@@ -68,6 +68,18 @@ export type SameIngredient = {
 /** The picture of a product; the API answers 404 when the drug has none. */
 export const pictureUrl = (register: string) => `${API_URL}/v1/products/${encodeURIComponent(register)}/picture`;
 
+// Where the signed-in account's access token comes from (set by `@/api/auth`, which imports this
+// module, so the dependency is handed in instead of imported). Requests that run a model send it.
+let tokenSource: () => Promise<string | null> = async () => null;
+export function setTokenSource(source: () => Promise<string | null>): void {
+  tokenSource = source;
+}
+
+async function authHeader(): Promise<Record<string, string>> {
+  const token = await tokenSource();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -209,6 +221,7 @@ export function friendlyError(e: unknown): string {
     }
     return `ما قدرت أوصل للسيرفر. تأكد أن الـ API شغال وأن الجوال على نفس الشبكة.\n(${API_URL})${detail}`;
   }
+  if (status === 401) return 'سجّل دخولك عشان تستخدم هالخدمة.';
   if (status === 404) return 'هذا الدواء غير موجود في السجل.';
   if (status === 429) return 'المساعد مشغول لحظات. جرّب مرة ثانية بعد ثواني.';
   if (status === 502) return 'خدمة قراءة الصور مشغولة الحين. جرّب مرة ثانية بعد شوي، أو اكتب اسم الدواء.';
@@ -266,7 +279,7 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
     response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       signal,
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(await authHeader()) },
       body: JSON.stringify(body),
     });
   } catch (error) {
@@ -338,7 +351,7 @@ export async function postFile<T>(
     response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       body: form,
-      headers: { Accept: 'application/json', ...extraHeaders },
+      headers: { Accept: 'application/json', ...(await authHeader()), ...extraHeaders },
     });
   } catch (error) {
     throw new ApiError('network', null, reason(error));

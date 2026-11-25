@@ -19,8 +19,17 @@ import { Row, T } from '@/components/ui';
 import { useRecentActions } from '@/state/recents';
 import { useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
+import { SignInGate } from '@/components/SignInGate';
 
 export default function VoiceSearch() {
+  return (
+    <SignInGate what="البحث الصوتي">
+      <VoiceSearchScreen />
+    </SignInGate>
+  );
+}
+
+function VoiceSearchScreen() {
   const { c } = useTheme();
   const mic = useVoiceInput();
   const { add } = useRecentActions();

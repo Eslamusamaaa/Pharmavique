@@ -2,7 +2,7 @@
 // The refresh token lives in the device's secure storage (Keychain or Keystore), never in plain
 // storage. The short-lived access token stays in memory and is renewed with the refresh token.
 
-import { API_URL } from '@/api/client';
+import { API_URL, setTokenSource } from '@/api/client';
 import { readToken, writeToken } from '@/lib/token-storage';
 
 export type AccountRole = 'patient' | 'pharmacist' | 'company' | 'operator';
@@ -228,3 +228,6 @@ export function arabicAuthError(error: unknown): string {
       return 'صار خطأ. جرّب مرة ثانية.';
   }
 }
+
+// Requests that run a model (assistant, scans, voice) carry the account's token.
+setTokenSource(accessToken);

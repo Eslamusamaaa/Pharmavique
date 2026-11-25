@@ -34,7 +34,9 @@ export default function VerifyEmail() {
     setError(null);
     try {
       await verifyEmail(email, code);
-      router.replace('/account');
+      // back to where sign-in was opened from (the assistant, a scan...), else the account
+      if (router.canGoBack()) router.back();
+      else router.replace('/account');
     } catch (e) {
       setError(arabicAuthError(e));
     } finally {

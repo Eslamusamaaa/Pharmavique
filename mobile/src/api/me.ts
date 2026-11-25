@@ -137,13 +137,19 @@ export type ShelfItem = { register_number: string; added_at: string; product: Pr
 export type Shelf = { count: number; items: ShelfItem[]; note: string };
 
 /** Optional features this server has switched on (public). */
-export async function getFeatures(signal?: AbortSignal): Promise<{ shelf_scan: boolean }> {
+export type Features = { shelf_scan: boolean; login_for_ai: boolean; sources_page: boolean };
+
+// When the server cannot be asked, optional screens stay hidden and a guest is asked to sign in
+// (the server refuses a guest anyway while `login_for_ai` is on).
+const FEATURES_UNKNOWN: Features = { shelf_scan: false, login_for_ai: true, sources_page: false };
+
+export async function getFeatures(signal?: AbortSignal): Promise<Features> {
   try {
     const response = await fetch(`${API_URL}/v1/features`, { signal, headers: { Accept: 'application/json' } });
-    if (!response.ok) return { shelf_scan: false };
-    return (await response.json()) as { shelf_scan: boolean };
+    if (!response.ok) return FEATURES_UNKNOWN;
+    return { ...FEATURES_UNKNOWN, ...((await response.json()) as Partial<Features>) };
   } catch {
-    return { shelf_scan: false };
+    return FEATURES_UNKNOWN;
   }
 }
 

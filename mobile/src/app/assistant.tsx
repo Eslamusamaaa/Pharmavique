@@ -49,6 +49,7 @@ import { DisclaimerBar, Row, T } from '@/components/ui';
 import { roleInfo, useRole } from '@/state/role';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
+import { SignInGate } from '@/components/SignInGate';
 
 type Turn =
   | { id: string; role: 'user'; text: string; sent?: string; photo?: string }
@@ -62,6 +63,14 @@ const nextId = () => `t${++counter}`;
 const PHOTO_ONLY_QUESTION = 'وش هذا الدواء؟';
 
 export default function Assistant() {
+  return (
+    <SignInGate what="المساعد">
+      <AssistantScreen />
+    </SignInGate>
+  );
+}
+
+function AssistantScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ register?: string; name?: string; q?: string }>();

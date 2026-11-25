@@ -31,6 +31,7 @@ import { DisclaimerBar, Pill, Row, T } from '@/components/ui';
 import { useSavedBasket, type BasketItem } from '@/state/basket';
 import { useRole } from '@/state/role';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
+import { SignInGate } from '@/components/SignInGate';
 
 type Kind = 'box' | 'prescription';
 type Stage =
@@ -40,6 +41,14 @@ type Stage =
   | { kind: 'error'; photo: string | null; detail: string };
 
 export default function Scan() {
+  return (
+    <SignInGate what="تصوير الدواء">
+      <ScanScreen />
+    </SignInGate>
+  );
+}
+
+function ScanScreen() {
   const { c } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
