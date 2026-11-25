@@ -150,6 +150,20 @@ class LasaIndex:
     def __len__(self) -> int:
         return len(self._brand)
 
+    def similar_for_all(self, limit: int) -> dict[str, tuple[LasaMatch, ...]]:
+        """`similar_to` for every indexed product. The matches depend only on the normalized brand
+        (products with the same brand are skipped as the same brand), so each brand is compared
+        once and its products share the answer: about half the work on the SFDA catalog."""
+        by_brand: dict[str, list[str]] = defaultdict(list)
+        for register_number, text in self._normalized.items():
+            by_brand[text].append(register_number)
+        every: dict[str, tuple[LasaMatch, ...]] = {}
+        for numbers in by_brand.values():
+            matches = self.similar_to(numbers[0], limit)
+            for number in numbers:
+                every[number] = matches
+        return every
+
     def similar_to(self, register_number: str, limit: int) -> tuple[LasaMatch, ...]:
         text = self._normalized.get(register_number)
         if text is None:

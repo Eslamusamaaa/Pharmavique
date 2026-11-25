@@ -73,3 +73,28 @@ def test_results_are_best_first_and_limited() -> None:
 
 def test_an_unknown_register_number_has_no_look_alikes() -> None:
     assert index().similar_to("999", limit=10) == ()
+
+
+def test_the_matches_of_every_product_at_once_equal_asking_one_by_one() -> None:
+    # The daily refresh stores these; each brand is compared once and shared by its strengths.
+    index = LasaIndex(
+        [
+            ("1", "panadol"),
+            ("1b", "panadol"),  # another strength of the same brand
+            ("2", "banadol"),
+            ("3", "panadool"),
+            ("4", "panadol extra"),
+            ("5", "augmentin"),
+            ("6", "بنادول"),
+            ("7", "بنادوول"),
+            ("8", ""),  # nothing left after normalizing: not indexed
+        ]
+    )
+
+    every = index.similar_for_all(limit=2)
+
+    assert set(every) == {"1", "1b", "2", "3", "4", "5", "6", "7"}
+    for number, matches in every.items():
+        assert matches == index.similar_to(number, 2), number
+    assert every["1"]
+    assert every["6"]
