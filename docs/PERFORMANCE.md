@@ -97,11 +97,25 @@ All six answered with citations. Groq still runs out within a minute when questi
 other; then Gemma answers in 1 to 8 s a call. A provider with a larger free token limit would remove
 most of the remaining wait (not set up: it needs a new key from the owner).
 
-### Not verified yet
+### Production after the deployment (2026-11-25, deployment `pharmavique-qj2bn3so4`)
 
-- The Vercel numbers after these changes: they need a deployment (push to `main`). Then measure the
-  cold start of `/health`, a search and a drug page again, and check the build log no longer says
-  "exceeds the standard size".
+The build log no longer says "exceeds the standard size"; `__common` is 394 KB (was 6 MB).
+
+| What | Before | After |
+|---|---|---|
+| First request to the new deployment (`/health`) | 8.2 s | 0.45 s |
+| First search on it | 2.0 s | 1.8 s (then 0.27 s) |
+| Eight simultaneous uncached searches | not measured | 0.50 to 0.63 s each |
+| Drug page requests, first time | 0.27 to 3.3 s | 0.43 to 0.75 s; similar names 3.1 s |
+| The same requests again | 0.21 to 0.32 s (function) | 0.21 to 0.23 s, `X-Vercel-Cache: HIT` |
+| App shell | a function call | `HIT` at the edge, 0.22 s |
+| Assistant (four questions, one at a time) | 29 to 65 s when Groq ran out | 4.5 to 7.6 s, all cited |
+
+Still slow after that deployment: the first similar-names answer of each instance (3.1 s) read all
+9,186 products in full to build the name index. It now reads only the register number and the two
+trade names (`CatalogNames.trade_names`: 0.04 s locally) and reduces each distinct brand once (about
+45% of the names repeat). Building the index locally: 1.7 s to 0.5 s, with the same matches on 300
+random products. Not deployed yet.
 
 ## Not measured yet
 
