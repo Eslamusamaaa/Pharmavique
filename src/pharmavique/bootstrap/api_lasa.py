@@ -14,7 +14,12 @@ from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_drugs import DISCLAIMER, get_catalog
 from pharmavique.bootstrap.cached_response import cached_json
-from pharmavique.catalog.contracts.queries import CatalogQueries, ProductCard
+from pharmavique.catalog.contracts.queries import (
+    CatalogNames,
+    CatalogQueries,
+    ProductCard,
+    TradeName,
+)
 from pharmavique.search.domain.lasa import LasaIndex, LasaMatch
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.names import core_name
@@ -42,20 +47,41 @@ class LasaState:
         return time.monotonic() - self.built_at < MAX_AGE_SECONDS
 
 
-async def build_state(catalog: CatalogQueries, market: Market) -> LasaState:
-    english: list[tuple[str, str]] = []
-    arabic: list[tuple[str, str]] = []
+async def _all_names(
+    catalog: CatalogQueries, names: CatalogNames | None, market: Market
+) -> list[TradeName]:
+    if names is not None:
+        # only the names: reading every product in full took most of 3.1 s on Vercel (2026-11-25)
+        return list(await names.trade_names(market))
+    found: list[TradeName] = []
     after: str | None = None
     while True:
         page = await catalog.export_cards(market, after, PAGE)
-        for card in page.cards:
-            if card.trade_name_en:
-                english.append((card.register_number, core_name(card.trade_name_en)))
-            if card.trade_name_ar:
-                arabic.append((card.register_number, core_name(card.trade_name_ar)))
+        found.extend(
+            TradeName(c.register_number, c.trade_name_en, c.trade_name_ar) for c in page.cards
+        )
         if page.next_after is None:
-            break
+            return found
         after = page.next_after
+
+
+async def build_state(
+    catalog: CatalogQueries, market: Market, names: CatalogNames | None = None
+) -> LasaState:
+    english: list[tuple[str, str]] = []
+    arabic: list[tuple[str, str]] = []
+    brands: dict[str, str] = {}  # many products share a trade name: each is reduced once
+
+    def brand(name: str) -> str:
+        if name not in brands:
+            brands[name] = core_name(name)
+        return brands[name]
+
+    for name in await _all_names(catalog, names, market):
+        if name.en:
+            english.append((name.register_number, brand(name.en)))
+        if name.ar:
+            arabic.append((name.register_number, brand(name.ar)))
     return LasaState(LasaIndex(english), LasaIndex(arabic))
 
 
@@ -91,7 +117,8 @@ async def _state(request: Request, catalog: CatalogQueries, market: Market) -> L
     async with _lock:
         state = request.app.state.lasa
         if state is None or not state.fresh():
-            state = await build_state(catalog, market)
+            names: CatalogNames | None = getattr(request.app.state, "catalog_names", None)
+            state = await build_state(catalog, market, names)
             request.app.state.lasa = state
         return state
 

@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from pharmavique.bootstrap.api import create_app
-from pharmavique.catalog.contracts.queries import CardPage, ProductCard
+from pharmavique.catalog.contracts.queries import CardPage, ProductCard, TradeName
 from pharmavique.shared_kernel.market import Market
 
 
@@ -132,3 +132,32 @@ async def test_the_limit_applies_to_what_is_shown_not_to_what_is_hidden(
     body = (await client.get("/v1/products/1/similar-names?limit=1")).json()
     assert body["count"] == 1
     assert body["hidden_weaker"] == 1
+
+
+class FakeNames:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def trade_names(self, market: Market) -> tuple[TradeName, ...]:
+        self.calls += 1
+        return tuple(TradeName(c.register_number, c.trade_name_en, c.trade_name_ar) for c in CARDS)
+
+
+class NoExport(FakeCatalog):
+    async def export_cards(self, market: Market, after: str | None, limit: int) -> CardPage:
+        raise AssertionError("the index reads the names only, not every product in full")
+
+
+async def test_the_index_is_built_from_the_names_alone_when_they_can_be_read_alone() -> None:
+    # Reading all 9,186 products in full took most of the 3.1 s of the first answer on Vercel.
+    names = FakeNames()
+    app = create_app(catalog=NoExport())
+    app.state.catalog_names = names
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        body = (await c.get("/v1/products/1/similar-names")).json()
+        await c.get("/v1/products/4/similar-names")
+
+    assert "2" in {r["register_number"] for r in body["results"]}
+    assert names.calls == 1

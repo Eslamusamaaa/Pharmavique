@@ -110,6 +110,20 @@ class CatalogQueries(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class TradeName:
+    register_number: str
+    en: str | None
+    ar: str | None
+
+
+class CatalogNames(Protocol):
+    async def trade_names(self, market: Market) -> tuple[TradeName, ...]:
+        """The trade names of every product of the market (withdrawn ones too), in register-number
+        order: what a name index needs, without reading each product in full."""
+        ...
+
+
 class CatalogDetails(Protocol):
     """The drug page's read side: one product in full, and products with its ingredients."""
 

@@ -263,3 +263,26 @@ async def test_the_reader_serves_cards_and_exports_in_pages(
         "b": "withdrawn",
         "c": "listed",
     }
+
+
+async def test_the_reader_lists_only_the_trade_names_of_every_product(
+    rig: Rig, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    from pharmavique.catalog.contracts.queries import TradeName
+    from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
+
+    await rig.apply.handle(
+        ApplyCatalogChanges((snapshot("a"), snapshot("b"), snapshot("c")), provenance())
+    )
+    await rig.withdraw.handle(WithdrawProducts(Market.SA, ("b",), provenance("run-2")))
+    reader = SqlAlchemyProductReader(session_factory)
+    from pharmavique.catalog.application.queries import ReadProductCardsHandler
+
+    cards = await ReadProductCardsHandler(reader).export_cards(Market.SA, None, limit=10)
+
+    names = await reader.trade_names(Market.SA)
+
+    # the same products and names as the full export, withdrawn ones included
+    assert names == tuple(
+        TradeName(c.register_number, c.trade_name_en, c.trade_name_ar) for c in cards.cards
+    )

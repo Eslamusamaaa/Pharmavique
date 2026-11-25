@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.types import Text
 
 from pharmavique.catalog.application.ports import StoredProduct
+from pharmavique.catalog.contracts.queries import TradeName
 from pharmavique.catalog.domain.product import ListingStatus
 from pharmavique.catalog.domain.values import ProductId
 from pharmavique.catalog.infrastructure.persistence.models import ProductRow
@@ -76,6 +77,18 @@ class SqlAlchemyProductReader:
         async with self._session_factory() as session:
             rows = (await session.execute(statement)).scalars().all()
         return [_stored(row) for row in rows]
+
+    async def trade_names(self, market: Market) -> tuple[TradeName, ...]:
+        """Implements `CatalogNames`: three short columns instead of every product's document."""
+        name = ProductRow.data["trade_name"]
+        statement = (
+            select(ProductRow.register_number, name["en"].astext, name["ar"].astext)
+            .where(ProductRow.market == market.value)
+            .order_by(ProductRow.register_number)
+        )
+        async with self._session_factory() as session:
+            rows = (await session.execute(statement)).all()
+        return tuple(TradeName(number, en, ar) for number, en, ar in rows)
 
     async def with_ingredient_set(
         self, market: Market, names: Sequence[str], limit: int

@@ -150,10 +150,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             session_factory = create_session_factory(engine)
             app.state.search = SearchProductsHandler(PostgresSearchIndex(session_factory))
-            catalog = ReadProductCardsHandler(
-                SqlAlchemyProductReader(session_factory),
-                SqlAlchemyPriceChangeReader(session_factory),
-            )
+            reader = SqlAlchemyProductReader(session_factory)
+            catalog = ReadProductCardsHandler(reader, SqlAlchemyPriceChangeReader(session_factory))
+            app.state.catalog_names = reader
             app.state.catalog = catalog
             app.state.details = catalog
             app.state.assistant = build_assistant(
@@ -268,6 +267,7 @@ def create_app(
     app.state.pictures = pictures
     app.state.list_items = list_items
     app.state.lasa = None
+    app.state.catalog_names = None
     app.state.identity = identity
     app.state.email_sender = email_sender
     app.state.unsubscribe_secret = unsubscribe_secret
