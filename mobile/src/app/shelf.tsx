@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { displayName, friendlyError, type ScanLine, type ScanResult } from '@/api/client';
+import { displayName, friendlyError, isUncertain, type ScanLine, type ScanResult } from '@/api/client';
 import {
   arabicMeError,
   confirmShelf,
@@ -211,6 +211,9 @@ function Review({
           <T weight={700} latin align="left">
             {line.raw_text}
           </T>
+          {line.candidates.length > 0 && isUncertain(line) ? (
+            <Pill tone="wn" label="مو متأكدين من الاسم، راجعه" />
+          ) : null}
           {line.candidates.length === 0 ? (
             <Pill tone="muted" label="ما فيه مطابقة في السجل" />
           ) : (

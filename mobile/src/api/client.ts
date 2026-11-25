@@ -273,8 +273,13 @@ export type ScanLine = {
   form: string | null;
   dose: string | null;
   needs_review: boolean;
+  // "uncertain": the name was not matched with confidence, so the app asks instead of guessing.
+  // A server that does not send it is treated as uncertain (the safe side).
+  confidence?: 'confident' | 'uncertain';
   candidates: ScanCandidate[];
 };
+
+export const isUncertain = (line: ScanLine | undefined): boolean => !line || line.confidence !== 'confident';
 
 export type ScanResult = { kind: 'box' | 'prescription' | 'shelf'; status: 'needs_review' | 'nothing_read'; lines: ScanLine[] };
 

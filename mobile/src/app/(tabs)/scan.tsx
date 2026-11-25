@@ -13,6 +13,7 @@ import {
   MagnifyingGlassIcon,
   PencilSimpleIcon,
   QuestionIcon,
+  WarningIcon,
   ShieldCheckIcon,
 } from '@/components/icons';
 import { useCallback, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   displayName,
   friendlyError,
+  isUncertain,
   scanImage,
   type ScanCandidate,
   type ScanLine,
@@ -203,6 +205,36 @@ function ReviewHeader({ title, onBack }: { title: string; onBack: () => void }) 
   );
 }
 
+// A name that was not matched with confidence is never taken for granted: the person picks one of the
+// closest names, edits the name and searches, or takes the photo again.
+function UncertainNotice({ onRetake }: { onRetake?: () => void }) {
+  const { c } = useTheme();
+  return (
+    <View style={[styles.card, { backgroundColor: c.wns, gap: 8 }]}>
+      <Row gap={6}>
+        <WarningIcon size={18} color={c.wn} weight="fill" />
+        <T weight={700} color={c.wn}>
+          ما تأكدنا من اسم الدواء
+        </T>
+      </Row>
+      <T size={13.5} color={c.ink2}>
+        اختر أقرب اسم من القائمة، أو عدّل الاسم وابحث، أو صوّر مرة ثانية بإضاءة أوضح.
+      </T>
+      {onRetake ? (
+        <Pressable
+          onPress={onRetake}
+          accessibilityRole="button"
+          style={{ minHeight: 44, borderWidth: 1.5, borderColor: c.pr, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <T weight={700} color={c.pr}>
+            صوّر مرة ثانية
+          </T>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function Candidates({ line }: { line: ScanLine }) {
   const { c } = useTheme();
   if (!line.candidates.length)
@@ -299,6 +331,7 @@ function BoxReview({ photo, result, onBack }: { photo: string; result: ScanResul
         <T size={14} color={c.ink2}>
           لن نبحث قبل أن تؤكد. عدّل أي حقل غير صحيح.
         </T>
+        {result.status !== 'nothing_read' && isUncertain(first) ? <UncertainNotice onRetake={onBack} /> : null}
         {result.status === 'nothing_read' ? (
           <View style={[styles.card, { backgroundColor: c.sf }, cardShadow]}>
             <T weight={700}>ما قدرنا نقرأ اسم دواء في الصورة</T>
@@ -377,6 +410,7 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
             ? `${result.lines.length} أسماء مقروءة. أكّد كل صف قبل البحث.`
             : 'ما قدرنا نقرأ أسماء أدوية في الروشتة. جرّب صورة أوضح.'}
         </T>
+        {result.lines.some((l) => isUncertain(l)) ? <UncertainNotice onRetake={onBack} /> : null}
         {result.lines.map((line, i) => (
           <View
             key={`${line.raw_text}-${i}`}
@@ -388,7 +422,13 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
           >
             <Row style={{ justifyContent: 'space-between' }}>
               <T size={13} color={c.ink2}>{`سطر ${i + 1}`}</T>
-              {confirmed[i] ? <Pill tone="ok" label="مؤكَّد" /> : <Pill tone="wn" label="يحتاج مراجعة" />}
+              {confirmed[i] ? (
+                <Pill tone="ok" label="مؤكَّد" />
+              ) : isUncertain(line) ? (
+                <Pill tone="wn" label="مو متأكدين من الاسم" />
+              ) : (
+                <Pill tone="wn" label="يحتاج مراجعة" />
+              )}
             </Row>
             <Row gap={8}>
               <TextInput
@@ -414,17 +454,27 @@ function PrescriptionReview({ photo, result, onBack }: { photo: string; result: 
             />
             <Pressable
               onPress={() => {
+                // an uncertain name is never confirmed by default: the person picks the product first
+                if (isUncertain(line) && !picked[i] && !confirmed[i]) return;
                 const turningOn = !confirmed[i];
                 setConfirmed((all) => all.map((v, j) => (j === i ? !v : v)));
-                // confirming a line takes the closest registry product unless one was chosen already
-                if (turningOn && !picked[i] && line.candidates[0])
+                // confirming a confident line takes the closest registry product unless one was chosen
+                if (turningOn && !picked[i] && !isUncertain(line) && line.candidates[0])
                   setPicked((all) => all.map((p, j) => (j === i ? line.candidates[0] : p)));
               }}
-              style={[styles.confirm, { borderColor: c.ok, backgroundColor: confirmed[i] ? c.oks : 'transparent' }]}
+              disabled={isUncertain(line) && !picked[i] && !confirmed[i]}
+              style={[
+                styles.confirm,
+                {
+                  borderColor: c.ok,
+                  backgroundColor: confirmed[i] ? c.oks : 'transparent',
+                  opacity: isUncertain(line) && !picked[i] && !confirmed[i] ? 0.5 : 1,
+                },
+              ]}
             >
               <CheckIcon size={18} color={c.ok} weight="bold" />
               <T weight={600} color={c.ok}>
-                {confirmed[i] ? 'تم التأكيد' : 'تأكيد السطر'}
+                {confirmed[i] ? 'تم التأكيد' : isUncertain(line) && !picked[i] ? 'اختر الدواء الصحيح أول' : 'تأكيد السطر'}
               </T>
             </Pressable>
           </View>
