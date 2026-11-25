@@ -165,3 +165,21 @@ def test_knowledge_embed_defaults() -> None:
     args = build_parser().parse_args(["knowledge-embed"])
 
     assert (args.batch_size, args.limit) == (32, None)
+
+
+def test_verify_account_parses_a_rejection_with_its_reason() -> None:
+    args = build_parser().parse_args(
+        ["verify-account", "--email", "p@example.com", "--reject", "--note", "no licence"]
+    )
+    assert (args.command, args.email, args.reject, args.note) == (
+        "verify-account",
+        "p@example.com",
+        True,
+        "no licence",
+    )
+
+
+def test_verify_account_verifies_by_default() -> None:
+    args = build_parser().parse_args(["verify-account", "--email", "p@example.com"])
+    assert args.reject is False
+    assert args.note is None

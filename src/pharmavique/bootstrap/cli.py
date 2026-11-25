@@ -743,6 +743,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(analytics_cli.rebuild(args))
     if args.command == "create-operator":
         return asyncio.run(identity_cli.create_operator(args))
+    if args.command == "verify-account":
+        return asyncio.run(identity_cli.verify_account(args))
     if args.command == "interactions-load-medic":
         return asyncio.run(interactions_cli.load_medic(args))
     if args.command == "interactions-load":

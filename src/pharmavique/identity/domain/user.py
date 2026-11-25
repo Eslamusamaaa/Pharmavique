@@ -1,13 +1,16 @@
 """Users, their roles and the rules for emails and passwords.
 
-A role is what the person says they are (patient, pharmacist, company); it is not verified yet, so
-it only selects which views and saved data they get, never access to another tenant's data. The
-operator role cannot be chosen at sign-up: it is made by a command run on the server.
+A role is what the person says they are (patient, pharmacist, company). It selects which views and
+saved data they get, never access to another tenant's data. Pharmacist and company accounts wait for
+an operator to verify or reject them (ADR-020); until then they keep every screen of their role and
+only the "verified" badge waits. The operator role cannot be chosen at sign-up: it is made by a
+command run on the server.
 """
 
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pharmavique.shared_kernel.errors import DomainError, InvariantViolation
@@ -21,6 +24,7 @@ CODE_MAX_PER_HOUR = 5
 MIN_PASSWORD_LENGTH = 10
 MAX_PASSWORD_LENGTH = 200
 MAX_EMAIL_LENGTH = 254
+MAX_REVIEW_NOTE_LENGTH = 500
 SELF_SERVICE_ROLES = frozenset({Role.PATIENT, Role.PHARMACIST, Role.COMPANY})
 TENANT_ROLES = frozenset({Role.PHARMACIST, Role.COMPANY})  # these own a tenant (pharmacy, company)
 
@@ -51,6 +55,31 @@ class SessionRejected(DomainError):
     """The refresh token is unknown, expired or already used."""
 
 
+class AccountNotFound(DomainError):
+    """No account has this id or email."""
+
+
+class RoleReview(StrEnum):
+    """Where an operator's check of a professional role stands."""
+
+    NOT_NEEDED = "not_needed"  # patients and operators
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
+def initial_role_review(role: Role) -> RoleReview:
+    return RoleReview.PENDING if role in TENANT_ROLES else RoleReview.NOT_NEEDED
+
+
+def clean_review_note(note: str | None) -> str | None:
+    """The operator's reason, trimmed; empty means none."""
+    cleaned = (note or "").strip()
+    if len(cleaned) > MAX_REVIEW_NOTE_LENGTH:
+        raise InvariantViolation(f"the reason is longer than {MAX_REVIEW_NOTE_LENGTH} characters")
+    return cleaned or None
+
+
 def normalize_email(raw: str) -> str:
     email = raw.strip().lower()
     if len(email) > MAX_EMAIL_LENGTH or _EMAIL.match(email) is None:
@@ -77,6 +106,9 @@ class User:
     created_at: datetime
     email_verified_at: datetime | None = None  # set when the person enters the emailed code
     email_notifications: bool = True  # may we email them about their saved medicines
+    role_review: RoleReview = RoleReview.NOT_NEEDED
+    role_reviewed_at: datetime | None = None
+    role_review_note: str | None = None  # the operator's reason, shown to the person
 
     @property
     def verified(self) -> bool:

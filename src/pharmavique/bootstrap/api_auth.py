@@ -26,6 +26,7 @@ from pharmavique.identity.domain.user import (
     EmailTaken,
     InvalidCode,
     InvalidCredentials,
+    RoleReview,
     SessionRejected,
 )
 from pharmavique.shared_kernel.email import EmailError, EmailMessage, EmailSender
@@ -59,6 +60,8 @@ class UserOut(BaseModel):
     tenant_id: UUID | None
     email_verified: bool = True
     email_notifications: bool = True
+    # pharmacist and company accounts: pending, verified or rejected by an operator (ADR-020)
+    role_review: RoleReview = RoleReview.NOT_NEEDED
 
 
 class SessionOut(BaseModel):
@@ -69,7 +72,7 @@ class SessionOut(BaseModel):
     user: UserOut
 
 
-def _user(view: UserView) -> UserOut:
+def user_out(view: UserView) -> UserOut:
     return UserOut(
         id=view.id,
         email=view.email,
@@ -77,6 +80,7 @@ def _user(view: UserView) -> UserOut:
         tenant_id=view.tenant_id,
         email_verified=view.email_verified,
         email_notifications=view.email_notifications,
+        role_review=view.role_review,
     )
 
 
@@ -85,7 +89,7 @@ def _session(session: Session) -> SessionOut:
         access_token=session.access_token,
         refresh_token=session.refresh_token,
         expires_in=session.expires_in,
-        user=_user(session.user),
+        user=user_out(session.user),
     )
 
 
@@ -178,7 +182,7 @@ class NotificationsIn(BaseModel):
     email: bool
 
 
-async def _deliver(sender: EmailSender | None, message: EmailMessage) -> None:
+async def deliver(sender: EmailSender | None, message: EmailMessage) -> None:
     """Send after the response has gone out. A failure is logged without the address or the code;
     the person can ask for a new code."""
     if sender is None:
@@ -215,7 +219,7 @@ async def register(
         raise HTTPException(status_code=422, detail=str(error)) from None
     except EmailTaken:
         raise HTTPException(status_code=409, detail="this email already has an account") from None
-    background.add_task(_deliver, sender, registration.email)
+    background.add_task(deliver, sender, registration.email)
     return RegisteredOut(email=registration.user.email)
 
 
@@ -242,7 +246,7 @@ async def resend_code(
 ) -> dict[str, str]:
     message = await service.resend_code(body.email)
     if message is not None:
-        background.add_task(_deliver, sender, message)
+        background.add_task(deliver, sender, message)
     # the same answer whether or not a code was sent: it must not reveal who has an account
     return {"detail": "if this account needs a code, a new one was sent"}
 
@@ -346,7 +350,7 @@ async def me(
     view = await service.profile(principal.user_id)
     if view is None:
         raise _unauthorized("this account no longer exists")
-    return _user(view)
+    return user_out(view)
 
 
 @router.delete("/me", status_code=204, summary="Delete the account and everything saved in it")

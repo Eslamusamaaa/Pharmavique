@@ -3,7 +3,7 @@
 import re
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -14,11 +14,13 @@ from pharmavique.identity.domain.user import (
     CODE_MAX_PER_HOUR,
     CODE_RESEND_SECONDS,
     CODE_TTL_MINUTES,
+    AccountNotFound,
     CodeLocked,
     EmailNotVerified,
     EmailTaken,
     InvalidCode,
     InvalidCredentials,
+    RoleReview,
     SessionRejected,
     User,
 )
@@ -67,6 +69,19 @@ class FakeUsers:
                 self.by[email] = replace(user, email_notifications=enabled)
                 return True
         return False
+
+    async def set_role_review(
+        self, user_id: UUID, review: RoleReview, at: datetime, note: str | None
+    ) -> None:
+        for email, user in self.by.items():
+            if user.id == user_id:
+                self.by[email] = replace(
+                    user, role_review=review, role_reviewed_at=at, role_review_note=note
+                )
+
+    async def pending_role_reviews(self, limit: int) -> list[User]:
+        waiting = [u for u in self.by.values() if u.role_review is RoleReview.PENDING]
+        return sorted(waiting, key=lambda u: u.created_at)[:limit]
 
 
 class FakeSessions:
@@ -491,3 +506,88 @@ async def test_email_notifications_can_be_switched_off_and_on() -> None:
     profile = await svc.profile(session.user.id)
     assert profile is not None
     assert profile.email_notifications is False
+
+
+# ---- verified professional roles (ADR-020) ----------------------------------------------------
+
+
+async def test_a_pharmacist_or_company_starts_pending_and_a_patient_needs_no_review() -> None:
+    svc, *_ = service()
+
+    pharmacist = await sign_up(svc, "p@example.com", GOOD, Role.PHARMACIST)
+    company = await sign_up(svc, "c@example.com", GOOD, Role.COMPANY)
+    patient = await sign_up(svc, "x@example.com", GOOD, Role.PATIENT)
+
+    assert pharmacist.user.role_review is RoleReview.PENDING
+    assert company.user.role_review is RoleReview.PENDING
+    assert patient.user.role_review is RoleReview.NOT_NEEDED
+
+
+async def test_the_operator_sees_the_accounts_waiting_for_review_oldest_first() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "first@example.com", GOOD, Role.PHARMACIST)
+    clock.current += timedelta(minutes=5)
+    await sign_up(svc, "second@example.com", GOOD, Role.COMPANY)
+    await sign_up(svc, "patient@example.com", GOOD, Role.PATIENT)
+
+    pending = await svc.pending_role_reviews()
+
+    assert [v.email for v in pending] == ["first@example.com", "second@example.com"]
+
+
+async def test_verifying_a_pharmacist_records_it_and_emails_them() -> None:
+    svc, users, _, clock = service()
+    session = await sign_up(svc, "p@example.com", GOOD, Role.PHARMACIST)
+
+    view, message = await svc.review_role(session.user.id, approve=True, note=None)
+
+    assert view.role_review is RoleReview.VERIFIED
+    assert users.by["p@example.com"].role_reviewed_at == clock.current
+    assert message.to == "p@example.com"
+    assert "تم توثيق" in message.text
+    assert await svc.pending_role_reviews() == []
+
+
+async def test_a_rejection_carries_its_reason_to_the_person() -> None:
+    svc, users, *_ = service()
+    session = await sign_up(svc, "c@example.com", GOOD, Role.COMPANY)
+
+    view, message = await svc.review_role(
+        session.user.id, approve=False, note="  ما لقينا الشركة في السجل  "
+    )
+
+    assert view.role_review is RoleReview.REJECTED
+    assert users.by["c@example.com"].role_review_note == "ما لقينا الشركة في السجل"
+    assert "ما لقينا الشركة في السجل" in message.text
+
+
+async def test_a_patient_account_cannot_be_reviewed() -> None:
+    svc, *_ = service()
+    session = await sign_up(svc, "x@example.com", GOOD, Role.PATIENT)
+
+    with pytest.raises(InvariantViolation):
+        await svc.review_role(session.user.id, approve=True, note=None)
+
+
+async def test_reviewing_an_unknown_account_fails() -> None:
+    svc, *_ = service()
+
+    with pytest.raises(AccountNotFound):
+        await svc.review_role(uuid4(), approve=True, note=None)
+
+
+async def test_a_very_long_reason_is_refused() -> None:
+    svc, *_ = service()
+    session = await sign_up(svc, "p@example.com", GOOD, Role.PHARMACIST)
+
+    with pytest.raises(InvariantViolation):
+        await svc.review_role(session.user.id, approve=False, note="x" * 501)
+
+
+async def test_the_command_line_reviews_by_email() -> None:
+    svc, *_ = service()
+    await sign_up(svc, "p@example.com", GOOD, Role.PHARMACIST)
+
+    view, _ = await svc.review_role_by_email(" P@Example.com ", approve=True, note=None)
+
+    assert view.role_review is RoleReview.VERIFIED

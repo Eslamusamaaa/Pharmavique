@@ -1,6 +1,7 @@
 """The identity tables against a real Postgres: unique emails, one-time refresh tokens, cascade."""
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -8,10 +9,11 @@ import pytest
 from alembic import command
 from sqlalchemy import text
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
-from pharmavique.identity.domain.user import User
+from pharmavique.identity.domain.user import RoleReview, User, initial_role_review
 from pharmavique.identity.infrastructure.postgres import (
     PostgresCodeStore,
     PostgresSessionStore,
@@ -27,7 +29,9 @@ NOW = datetime(2026, 11, 21, 12, 0, tzinfo=UTC)
 
 def user(email: str = "ana@example.com", role: Role = Role.PATIENT) -> User:
     tenant = uuid4() if role in (Role.PHARMACIST, Role.COMPANY) else None
-    return User(uuid4(), email, "scrypt$hash", role, tenant, NOW)
+    return User(
+        uuid4(), email, "scrypt$hash", role, tenant, NOW, role_review=initial_role_review(role)
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -190,6 +194,77 @@ async def test_the_directory_gives_addresses_only_for_confirmed_accounts(
     assert (found[confirmed.id].email, found[confirmed.id].notify) == ("a@example.com", True)
     assert found[quiet.id].notify is False
     assert await directory.contacts([]) == {}
+
+
+async def test_a_role_review_is_stored_and_the_waiting_list_is_oldest_first(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users = PostgresUserRepository(session_factory)
+    older = user("a@example.com", Role.PHARMACIST)
+    newer = replace(user("b@example.com", Role.COMPANY), created_at=NOW + timedelta(minutes=1))
+    patient = user("c@example.com")
+    for account in (newer, older, patient):
+        await users.add(account)
+
+    assert [u.email for u in await users.pending_role_reviews(10)] == [
+        "a@example.com",
+        "b@example.com",
+    ]
+    assert [u.email for u in await users.pending_role_reviews(1)] == ["a@example.com"]
+
+    await users.set_role_review(older.id, RoleReview.REJECTED, NOW, "no licence found")
+
+    stored = await users.by_id(older.id)
+    assert stored is not None
+    assert (stored.role_review, stored.role_reviewed_at, stored.role_review_note) == (
+        RoleReview.REJECTED,
+        NOW,
+        "no licence found",
+    )
+    assert [u.email for u in await users.pending_role_reviews(10)] == ["b@example.com"]
+
+
+async def test_a_patient_cannot_be_stored_as_waiting_for_review(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users = PostgresUserRepository(session_factory)
+    account = user()
+    await users.add(account)
+
+    with pytest.raises(IntegrityError):
+        await users.set_role_review(account.id, RoleReview.PENDING, NOW, None)
+
+
+async def test_existing_professional_accounts_wait_for_review_after_the_migration(
+    migrated_url: URL,
+    make_alembic_config: object,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    config = make_alembic_config(migrated_url)  # type: ignore[operator]
+    await asyncio.to_thread(command.downgrade, config, "identity_0002")
+    async with session_factory() as session, session.begin():
+        for email, role, tenant in (
+            ("p@example.com", "pharmacist", uuid4()),
+            ("x@example.com", "patient", None),
+        ):
+            await session.execute(
+                text(
+                    "INSERT INTO identity.users (id, email, password_hash, role, tenant_id, "
+                    "created_at, email_verified_at) VALUES (:id, :e, 'h', :r, :t, :n, :n)"
+                ),
+                {"id": uuid4(), "e": email, "r": role, "t": tenant, "n": NOW},
+            )
+    await asyncio.to_thread(command.upgrade, config, "identity@head")
+
+    users = PostgresUserRepository(session_factory)
+    pharmacist, patient = (
+        await users.by_email("p@example.com"),
+        await users.by_email("x@example.com"),
+    )
+    assert pharmacist is not None
+    assert patient is not None
+    assert pharmacist.role_review is RoleReview.PENDING
+    assert patient.role_review is RoleReview.NOT_NEEDED
 
 
 async def test_the_identity_migration_is_reversible(

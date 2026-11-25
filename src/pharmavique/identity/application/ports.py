@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from pharmavique.identity.domain.user import User
+from pharmavique.identity.domain.user import RoleReview, User
 from pharmavique.shared_kernel.principal import Principal
 
 
@@ -25,6 +25,14 @@ class UserRepository(Protocol):
     async def mark_verified(self, user_id: UUID, at: datetime) -> None: ...
 
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool: ...
+
+    async def set_role_review(
+        self, user_id: UUID, review: RoleReview, at: datetime, note: str | None
+    ) -> None: ...
+
+    async def pending_role_reviews(self, limit: int) -> list[User]:
+        """Accounts waiting for an operator's review, oldest first."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)

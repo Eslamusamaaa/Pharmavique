@@ -17,7 +17,7 @@ from pharmavique.bootstrap.unsubscribe import make_token
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.application.service import IdentityService
-from pharmavique.identity.domain.user import User
+from pharmavique.identity.domain.user import RoleReview, User
 from pharmavique.identity.infrastructure.tokens import JwtAccessTokens
 from pharmavique.shared_kernel.email import EmailError, EmailMessage
 from pharmavique.shared_kernel.principal import Principal, Role
@@ -56,6 +56,19 @@ class Users:
                 self.by[email] = replace(user, email_notifications=enabled)
                 return True
         return False
+
+    async def set_role_review(
+        self, user_id: UUID, review: RoleReview, at: datetime, note: str | None
+    ) -> None:
+        for email, user in self.by.items():
+            if user.id == user_id:
+                self.by[email] = replace(
+                    user, role_review=review, role_reviewed_at=at, role_review_note=note
+                )
+
+    async def pending_role_reviews(self, limit: int) -> list[User]:
+        waiting = [u for u in self.by.values() if u.role_review is RoleReview.PENDING]
+        return sorted(waiting, key=lambda u: u.created_at)[:limit]
 
 
 class Codes:
@@ -144,11 +157,18 @@ def outbox() -> Outbox:
 
 
 @pytest.fixture
-async def client(outbox: Outbox) -> AsyncIterator[httpx.AsyncClient]:
-    tokens = JwtAccessTokens("k" * 40)
-    service = IdentityService(
-        Users(), Sessions(), QuickHasher(), tokens, SystemClock(), Codes(), b"k" * 32
+def service() -> IdentityService:
+    return IdentityService(
+        Users(), Sessions(), QuickHasher(), TOKENS, SystemClock(), Codes(), b"k" * 32
     )
+
+
+TOKENS = JwtAccessTokens("k" * 40)
+
+
+@pytest.fixture
+async def client(outbox: Outbox, service: IdentityService) -> AsyncIterator[httpx.AsyncClient]:
+    tokens = TOKENS
     app = create_app(
         identity=service,
         token_verifier=tokens,
@@ -478,3 +498,98 @@ async def test_any_failure_of_the_sender_is_contained_and_never_breaks_sign_up(
     response = await register(client)
 
     assert response.status_code == 201
+
+
+# ---- verified professional roles (ADR-020) ----------------------------------------------------
+
+
+async def operator_headers(client: httpx.AsyncClient, service: IdentityService) -> dict[str, str]:
+    await service.create_operator("op@example.com", GOOD)
+    login = await client.post("/v1/auth/login", json={"email": "op@example.com", "password": GOOD})
+    return bearer(login.json()["access_token"])
+
+
+async def test_my_account_says_whether_my_role_is_verified(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    pharmacist = (await sign_up(client, outbox, "p@example.com", "pharmacist")).json()
+    patient = (await sign_up(client, outbox, "x@example.com", "patient")).json()
+
+    assert pharmacist["user"]["role_review"] == "pending"
+    me = await client.get("/v1/auth/me", headers=bearer(patient["access_token"]))
+    assert me.json()["role_review"] == "not_needed"
+
+
+async def test_the_operator_lists_and_verifies_a_pharmacist_who_is_emailed(
+    client: httpx.AsyncClient, outbox: Outbox, service: IdentityService
+) -> None:
+    pharmacist = (await sign_up(client, outbox, "p@example.com", "pharmacist")).json()
+    headers = await operator_headers(client, service)
+
+    waiting = await client.get("/v1/operator/accounts/pending", headers=headers)
+    assert waiting.status_code == 200
+    assert [a["email"] for a in waiting.json()["accounts"]] == ["p@example.com"]
+    assert waiting.json()["accounts"][0]["role"] == "pharmacist"
+
+    reviewed = await client.post(
+        f"/v1/operator/accounts/{pharmacist['user']['id']}/review",
+        json={"decision": "verified"},
+        headers=headers,
+    )
+    assert reviewed.status_code == 200
+    assert reviewed.json()["role_review"] == "verified"
+    assert outbox.sent[-1].to == "p@example.com"
+    assert "تم توثيق" in outbox.sent[-1].text
+    me = await client.get("/v1/auth/me", headers=bearer(pharmacist["access_token"]))
+    assert me.json()["role_review"] == "verified"
+
+
+async def test_a_rejection_needs_no_reason_but_carries_one(
+    client: httpx.AsyncClient, outbox: Outbox, service: IdentityService
+) -> None:
+    company = (await sign_up(client, outbox, "c@example.com", "company")).json()
+    headers = await operator_headers(client, service)
+
+    reviewed = await client.post(
+        f"/v1/operator/accounts/{company['user']['id']}/review",
+        json={"decision": "rejected", "note": "ما لقينا الشركة في السجل"},
+        headers=headers,
+    )
+
+    assert reviewed.json()["role_review"] == "rejected"
+    assert "ما لقينا الشركة في السجل" in outbox.sent[-1].text
+
+
+async def test_only_an_operator_reviews_accounts(client: httpx.AsyncClient, outbox: Outbox) -> None:
+    pharmacist = (await sign_up(client, outbox, "p@example.com", "pharmacist")).json()
+    headers = bearer(pharmacist["access_token"])
+
+    assert (await client.get("/v1/operator/accounts/pending")).status_code == 401
+    assert (await client.get("/v1/operator/accounts/pending", headers=headers)).status_code == 403
+    own = await client.post(
+        f"/v1/operator/accounts/{pharmacist['user']['id']}/review",
+        json={"decision": "verified"},
+        headers=headers,
+    )
+    assert own.status_code == 403
+
+
+async def test_reviewing_a_patient_or_an_unknown_account_is_refused(
+    client: httpx.AsyncClient, outbox: Outbox, service: IdentityService
+) -> None:
+    patient = (await sign_up(client, outbox, "x@example.com", "patient")).json()
+    headers = await operator_headers(client, service)
+
+    on_patient = await client.post(
+        f"/v1/operator/accounts/{patient['user']['id']}/review",
+        json={"decision": "verified"},
+        headers=headers,
+    )
+    unknown = await client.post(
+        "/v1/operator/accounts/00000000-0000-0000-0000-000000000000/review",
+        json={"decision": "verified"},
+        headers=headers,
+    )
+
+    assert on_patient.status_code == 422
+    assert unknown.status_code == 404

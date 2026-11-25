@@ -1,19 +1,32 @@
-"""The operator's data-quality board: what is missing in the catalog and how the refresh is doing.
+"""The operator's views: the data-quality board and the pharmacist and company accounts to verify.
 
-Read-only and for the `operator` role only. It counts and reports; it never changes data. A number
-that cannot be known (no refresh folder, no log) is reported as unknown, never as zero.
+For the `operator` role only. The quality board counts and reports; it never changes data, and a
+number that cannot be known (no refresh folder, no log) is reported as unknown, never as zero. The
+account review verifies or rejects a professional role and emails the person (ADR-020).
 """
 
 from datetime import UTC, date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from pharmavique.analytics.application.service import AnalyticsService
 from pharmavique.analytics.infrastructure.refresh_files import FileRefreshHistory
-from pharmavique.bootstrap.api_auth import require_roles
+from pharmavique.bootstrap.api_auth import (
+    UserOut,
+    deliver,
+    get_email_sender,
+    get_identity,
+    require_roles,
+    user_out,
+)
 from pharmavique.catalog.contracts.queries import CatalogQuality
+from pharmavique.identity.application.service import IdentityService
+from pharmavique.identity.domain.user import MAX_REVIEW_NOTE_LENGTH, AccountNotFound, RoleReview
+from pharmavique.shared_kernel.email import EmailSender
+from pharmavique.shared_kernel.errors import InvariantViolation
 from pharmavique.shared_kernel.market import Market
 from pharmavique.shared_kernel.principal import Principal, Role
 
@@ -188,3 +201,71 @@ async def quality(
         else None,
         notes=notes,
     )
+
+
+class PendingAccountOut(BaseModel):
+    id: UUID
+    email: str
+    role: str
+    created_at: datetime | None
+    role_review: RoleReview
+
+
+class PendingAccountsOut(BaseModel):
+    count: int
+    accounts: list[PendingAccountOut]
+
+
+class ReviewIn(BaseModel):
+    decision: Literal["verified", "rejected"]
+    note: str | None = Field(default=None, max_length=MAX_REVIEW_NOTE_LENGTH)
+
+
+Identity = Annotated[IdentityService, Depends(get_identity)]
+
+
+@router.get(
+    "/accounts/pending",
+    response_model=PendingAccountsOut,
+    summary="Pharmacist and company accounts waiting to be verified, oldest first",
+)
+async def pending_accounts(_: Operator, identity: Identity) -> PendingAccountsOut:
+    views = await identity.pending_role_reviews()
+    return PendingAccountsOut(
+        count=len(views),
+        accounts=[
+            PendingAccountOut(
+                id=v.id,
+                email=v.email,
+                role=v.role.value,
+                created_at=v.created_at,
+                role_review=v.role_review,
+            )
+            for v in views
+        ],
+    )
+
+
+@router.post(
+    "/accounts/{user_id}/review",
+    response_model=UserOut,
+    summary="Verify or reject a pharmacist or company account; the person is emailed",
+)
+async def review_account(
+    _: Operator,
+    user_id: UUID,
+    body: ReviewIn,
+    background: BackgroundTasks,
+    identity: Identity,
+    sender: Annotated[EmailSender | None, Depends(get_email_sender)],
+) -> UserOut:
+    try:
+        view, message = await identity.review_role(
+            user_id, approve=body.decision == "verified", note=body.note
+        )
+    except AccountNotFound:
+        raise HTTPException(status_code=404, detail="no such account") from None
+    except InvariantViolation as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    background.add_task(deliver, sender, message)
+    return user_out(view)

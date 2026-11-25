@@ -69,6 +69,8 @@ ROLE_ONLY = {
     ("GET", "/v1/company/gaps"): Role.COMPANY,
     ("GET", "/v1/company/radar"): Role.COMPANY,
     ("GET", "/v1/operator/quality"): Role.OPERATOR,
+    ("GET", "/v1/operator/accounts/pending"): Role.OPERATOR,
+    ("POST", "/v1/operator/accounts/{user_id}/review"): Role.OPERATOR,
     ("GET", "/v1/me/shelf"): Role.PHARMACIST,
     ("POST", "/v1/me/shelf"): Role.PHARMACIST,
     ("DELETE", "/v1/me/shelf/{register_number}"): Role.PHARMACIST,
@@ -184,9 +186,10 @@ async def test_a_patient_is_refused_on_role_routes(op: tuple[str, str], role: Ro
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=_app(login_for_ai=True)), base_url="http://test"
     ) as client:
-        anonymous = await client.request(method, path.replace("{register_number}", "1"))
-        patient = await client.request(
-            method, path.replace("{register_number}", "1"), headers=_token(Role.PATIENT)
+        url = path.replace("{register_number}", "1").replace(
+            "{user_id}", "00000000-0000-0000-0000-000000000000"
         )
+        anonymous = await client.request(method, url)
+        patient = await client.request(method, url, headers=_token(Role.PATIENT))
     assert anonymous.status_code in {401, 503}  # 503 only when a store runs before the check
     assert patient.status_code in {403, 503}

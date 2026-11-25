@@ -15,10 +15,10 @@ import hashlib
 import hmac
 import secrets
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from pharmavique.identity.application.messages import verification_email
+from pharmavique.identity.application.messages import role_review_email, verification_email
 from pharmavique.identity.application.ports import (
     AccessTokens,
     CodeRecord,
@@ -36,14 +36,18 @@ from pharmavique.identity.domain.user import (
     CODE_TTL_MINUTES,
     SELF_SERVICE_ROLES,
     TENANT_ROLES,
+    AccountNotFound,
     CodeLocked,
     EmailNotVerified,
     EmailTaken,
     InvalidCode,
     InvalidCredentials,
+    RoleReview,
     SessionRejected,
     User,
     check_password,
+    clean_review_note,
+    initial_role_review,
     normalize_email,
 )
 from pharmavique.shared_kernel.email import EmailMessage
@@ -65,6 +69,8 @@ class UserView:
     tenant_id: UUID | None
     email_verified: bool = True
     email_notifications: bool = True
+    role_review: RoleReview = RoleReview.NOT_NEEDED
+    created_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +91,14 @@ class Session:
 
 def _view(user: User) -> UserView:
     return UserView(
-        user.id, user.email, user.role, user.tenant_id, user.verified, user.email_notifications
+        user.id,
+        user.email,
+        user.role,
+        user.tenant_id,
+        user.verified,
+        user.email_notifications,
+        user.role_review,
+        user.created_at,
     )
 
 
@@ -207,6 +220,35 @@ class IdentityService:
     async def delete_account(self, user_id: UUID) -> None:
         await self._users.delete(user_id)
 
+    async def pending_role_reviews(self, limit: int = 100) -> list[UserView]:
+        """Pharmacist and company accounts waiting for an operator, oldest first."""
+        return [_view(u) for u in await self._users.pending_role_reviews(limit)]
+
+    async def review_role(
+        self, user_id: UUID, approve: bool, note: str | None
+    ) -> tuple[UserView, EmailMessage]:
+        """An operator verifies or rejects a pharmacist or company account; the person is told by
+        email. A rejected account keeps working, only without the verified badge (ADR-020)."""
+        user = await self._users.by_id(user_id)
+        if user is None:
+            raise AccountNotFound
+        if user.role not in TENANT_ROLES:
+            raise InvariantViolation("only pharmacist and company accounts are verified")
+        cleaned = clean_review_note(note)
+        review = RoleReview.VERIFIED if approve else RoleReview.REJECTED
+        now = self._clock.now()
+        await self._users.set_role_review(user.id, review, now, cleaned)
+        reviewed = replace(user, role_review=review, role_reviewed_at=now, role_review_note=cleaned)
+        return _view(reviewed), role_review_email(user.email, user.role, approve, cleaned)
+
+    async def review_role_by_email(
+        self, email: str, approve: bool, note: str | None
+    ) -> tuple[UserView, EmailMessage]:
+        user = await self._users.by_email(normalize_email(email))
+        if user is None:
+            raise AccountNotFound
+        return await self.review_role(user.id, approve, note)
+
     async def profile(self, user_id: UUID) -> UserView | None:
         user = await self._users.by_id(user_id)
         return _view(user) if user else None
@@ -246,6 +288,7 @@ class IdentityService:
             tenant_id=uuid4() if role in TENANT_ROLES else None,
             created_at=self._clock.now(),
             email_verified_at=self._clock.now() if verified else None,
+            role_review=initial_role_review(role),
         )
         if not await self._users.add(user):
             raise EmailTaken
