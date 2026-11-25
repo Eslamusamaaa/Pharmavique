@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicAuthError, deleteAccount, setEmailNotifications, signOut } from '@/api/auth';
 import { Group, LinkRow, SwitchRow } from '@/components/AccountParts';
-import { DisclaimerBar, Pill, PrimaryButton, T } from '@/components/ui';
+import { CheckCircleIcon } from '@/components/icons';
+import { DisclaimerBar, Pill, PrimaryButton, Row, T } from '@/components/ui';
 import { confirmAction } from '@/lib/confirm';
 import { useAccount } from '@/state/auth';
 import { roleInfo, useRole } from '@/state/role';
@@ -72,7 +73,16 @@ export default function Account() {
               <T size={17} weight={700} align="center" latin>
                 {account.email}
               </T>
-              <Pill label={ROLE_LABEL[account.role] ?? account.role} />
+              <Row gap={6}>
+                <Pill label={ROLE_LABEL[account.role] ?? account.role} />
+                {account.role_review === 'verified' ? (
+                  <Pill tone="ok" label="موثّق" icon={<CheckCircleIcon size={14} color={c.ok} weight="fill" />} />
+                ) : account.role_review === 'pending' ? (
+                  <Pill tone="wn" label="حسابك تحت المراجعة" />
+                ) : account.role_review === 'rejected' ? (
+                  <Pill tone="muted" label="ما تم توثيق الحساب" />
+                ) : null}
+              </Row>
             </View>
 
             <Group title="الإشعارات">
@@ -119,7 +129,7 @@ export default function Account() {
               <PrimaryButton label="غيّر الدور" outline onPress={() => router.push('/role')} />
             </View>
             <T size={13} color={c.ink2} align="center">
-              البحث والمساعد يشتغلون بدون حساب. الحساب للأدوية المحفوظة والتنبيهات.
+              البحث وصفحات الأدوية تشتغل بدون حساب. الحساب للمساعد والتصوير والأدوية المحفوظة والتنبيهات.
             </T>
           </>
         )}

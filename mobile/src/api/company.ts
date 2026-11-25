@@ -107,6 +107,14 @@ export type Quality = {
   notes: string[];
 };
 
+export type PendingAccount = { id: string; email: string; role: string; created_at: string | null };
+
+export const getPendingAccounts = (signal?: AbortSignal) =>
+  authed<{ count: number; accounts: PendingAccount[] }>('GET', '/v1/operator/accounts/pending', undefined, signal);
+
+export const reviewAccount = (id: string, decision: 'verified' | 'rejected', note?: string) =>
+  authed<unknown>('POST', `/v1/operator/accounts/${encodeURIComponent(id)}/review`, { decision, note: note ?? null });
+
 export const getQuality = (signal?: AbortSignal) => authed<Quality>('GET', '/v1/operator/quality', undefined, signal);
 
 export function arabicCompanyError(error: unknown): string {

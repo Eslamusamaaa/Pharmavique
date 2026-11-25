@@ -14,6 +14,7 @@ export type Account = {
   tenant_id: string | null;
   email_verified: boolean;
   email_notifications: boolean; // may we email them about their saved medicines
+  role_review?: 'not_needed' | 'pending' | 'verified' | 'rejected'; // pharmacist and company accounts
 };
 
 type SessionBody = { access_token: string; refresh_token: string; expires_in: number; user: Account };

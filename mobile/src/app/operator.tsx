@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { arabicCompanyError, getQuality, type Quality } from '@/api/company';
+import { PendingAccounts } from '@/components/PendingAccounts';
 import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
 import { useAccount } from '@/state/auth';
 import { radius, useTheme } from '@/theme';
@@ -101,6 +102,8 @@ export default function Operator() {
       {header}
       <DisclaimerBar />
       <ScrollView contentContainerStyle={styles.content}>
+        <PendingAccounts />
+
         <Card style={{ gap: 4 }}>
           <T weight={700}>
             {num(k.listed)} دواء مسجّل · {num(k.withdrawn)} مسحوب · الإجمالي {num(k.products)}
