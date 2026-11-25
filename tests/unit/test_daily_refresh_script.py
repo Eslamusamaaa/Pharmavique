@@ -5,6 +5,7 @@ holds.
 Only a step that really failed (nothing loaded) turns the run red.
 """
 
+import json
 import os
 import shutil
 import stat
@@ -78,3 +79,51 @@ def test_a_drug_crawl_that_loaded_nothing_is_a_failure(tmp_path: Path) -> None:
 
 def test_a_step_after_the_crawl_that_fails_is_a_failure(tmp_path: Path) -> None:
     assert run_script(tmp_path, update_code=0, other_code=1).returncode == 1
+
+
+def events(tmp_path: Path) -> list[dict[str, object]]:
+    (day,) = (tmp_path / "data" / "refresh").glob("20*")
+    lines = (day / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines]
+
+
+def test_every_step_writes_one_json_event(tmp_path: Path) -> None:
+    run_script(tmp_path, update_code=2)
+
+    steps = [e for e in events(tmp_path) if e["event"] == "step"]
+    assert [e["step"] for e in steps][:2] == ["drugs-update", "drugs-load"]
+    update = steps[0]
+    assert update["exit_code"] == 2
+    assert update["failed"] is False  # a partial crawl is not a failure
+    assert isinstance(update["minutes"], int)
+    assert str(update["time"]).endswith("Z")
+
+
+def test_a_failed_step_is_marked_failed_in_the_events_and_the_run_line_counts_it(
+    tmp_path: Path,
+) -> None:
+    run_script(tmp_path, update_code=0, other_code=1)
+
+    found = events(tmp_path)
+    failed = [e for e in found if e["event"] == "step" and e["failed"] is True]
+    assert failed
+    run = found[-1]
+    assert run["event"] == "run"
+    assert run["failed_steps"] == len(failed)  # the run line agrees with the steps
+    assert run["steps"] == "drugs"
+
+
+def test_the_events_never_hold_log_text(tmp_path: Path) -> None:
+    run_script(tmp_path, update_code=0)
+
+    for event in events(tmp_path):
+        assert set(event) <= {
+            "event",
+            "time",
+            "step",
+            "exit_code",
+            "minutes",
+            "failed",
+            "failed_steps",
+            "steps",
+        }

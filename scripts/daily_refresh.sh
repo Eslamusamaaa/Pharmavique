@@ -37,8 +37,16 @@ logs="data/refresh/$stamp"
 mkdir -p "$logs" "data/sfda"
 summary="$logs/summary.md"
 printf '# Daily refresh %s\n\n| step | result | time |\n|---|---|---|\n' "$stamp" > "$summary"
+events="$logs/events.jsonl"
+: > "$events"
 failed=0
 LAST_CODE=0
+
+# One JSON line per step and one for the run, for reading by a program. Only numbers, step names
+# and flags: never log text (a log can hold a page's content).
+event() { printf '%s
+' "$1" >> "$events"; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 has_step() { case ",$STEPS," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
 cli() { uv run --no-sync python -X utf8 -m pharmavique.bootstrap.cli "$@"; }
@@ -53,7 +61,9 @@ step() {
   code=$?
   minutes="$(( ($(date +%s) - started) / 60 ))"
   echo "| $name | exit $code | $minutes min |" >> "$summary"
-  case ",$ok," in *",$code,"*) ;; *) failed=$((failed + 1)) ;; esac
+  local bad=false
+  case ",$ok," in *",$code,"*) ;; *) failed=$((failed + 1)); bad=true ;; esac
+  event "{\"event\":\"step\",\"time\":\"$(now)\",\"step\":\"${name//\"/}\",\"exit_code\":$code,\"minutes\":$minutes,\"failed\":$bad}"
   LAST_CODE=$code
 }
 
@@ -204,6 +214,8 @@ fi
 find data/sfda -maxdepth 1 -type d -name 'update-*' -mtime +4 -exec rm -rf {} + 2>/dev/null
 find data/lists -maxdepth 2 -type d -name 'lists-20*' -mtime +4 -exec rm -rf {} + 2>/dev/null
 find data/lists -maxdepth 2 -type d -name 'know-20*' -mtime +4 -exec rm -rf {} + 2>/dev/null
+
+event "{\"event\":\"run\",\"time\":\"$(now)\",\"steps\":\"${STEPS//\"/}\",\"failed_steps\":$failed}"
 
 cat "$summary"
 [ "$failed" -gt 0 ] && exit 1

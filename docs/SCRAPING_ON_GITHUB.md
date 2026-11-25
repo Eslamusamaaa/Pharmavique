@@ -76,3 +76,13 @@ pooled, address), `PHARMAVIQUE_JWT_SECRET` (the same value as on Vercel: it sign
 - Neon compute is awake for the whole run: about two hours a day is about 15 of the 100 free CU-hours a month.
 - The Windows task `PharmaviqueDailyRefresh` writes to the local database; once this workflow has run
   correctly it is switched off so the two never drift apart.
+
+## Structured events (2026-11-25)
+
+Besides `summary.md`, each run writes `data/refresh/<date>/events.jsonl`: one JSON line per step
+(`event`, `time`, `step`, `exit_code`, `minutes`, `failed`) and a last `run` line (`steps`,
+`failed_steps`). It holds numbers, step names and flags only, never log text. It is uploaded with the
+other logs (artifact `refresh-logs`). A failed run still fails the job, so GitHub e-mails the owner:
+that is the only alert, by the owner's choice (Phase 0, item 2). The cause of the exit code 3 of
+2026-11-21 was a lost connection, and the script already waits and resumes the same run up to three
+times for that case (a block or a robots.txt refusal is never retried).
