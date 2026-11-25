@@ -119,7 +119,8 @@ trade names (`CatalogNames.trade_names`: 0.04 s locally) and reduces each distin
 random products. Then (same day) the daily refresh stores every product's look-alikes in
 `search.similar_name` (126 s for 9,186 products locally) and the API reads one row: 0.05 s for the first
 answer locally, the same answers as the index on 200 of 200 sampled products (rate limit and shared cache
-off while comparing). In production after the table is migrated and filled.
+off while comparing). In production (filled 2026-11-25, 1 minute on GitHub): 0.27 to 0.30 s for drugs never
+asked before, no fallback in the logs; the first request after 40 idle minutes took 3.3 s, the cold start.
 
 ## Not measured yet
 

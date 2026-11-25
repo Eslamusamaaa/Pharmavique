@@ -118,11 +118,10 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 
 ## 6. Pending actions that are the owner's
 
-0. **Fill the stored look-alike names in production (2026-11-25).** The code is ready (table
-   `search.similar_name`, migration `search_0002`, command `similar-names-rebuild`). Until it is filled, the
-   API falls back to building the name index (2.6 s on the first similar-names answer of each instance).
-   Steps: push; GitHub Actions, **Database migrate**, Run workflow; then **Daily refresh**, Run workflow with
-   steps `names` (about two minutes of work). From then on the nightly run refreshes it after the reindex.
+0. ~~Fill the stored look-alike names in production~~ done on 2026-11-25: **Database migrate** ran (it also
+   applied the pending `offers_0001..0003`, empty tables) and **Daily refresh** with steps `names` stored them
+   in 1 minute. Production answers similar names from `search.similar_name` (no fallback warnings in the
+   Vercel logs), 0.27 to 0.30 s. The nightly run refreshes the table after the reindex.
 00. ~~Push the local commits and refresh production (2026-11-24).~~ Pushed on 2026-11-25 (with the latency
    work below). Kept for the record: 14 commits of 2026-11-23 plus the fixes of
    2026-11-24 were only local, so GitHub shows a red cross on 9a99fab (CI failed: the architecture test did not
@@ -388,7 +387,10 @@ The owner found the app slow everywhere. Measured on production and fixed:
 - **Similar names.** The index read only names (`CatalogNames.trade_names`, 0.04 s) and reduces each brand once:
   3.1 s to 2.6 s on Vercel's first call. Then the daily refresh stores every product's look-alikes
   (`search.similar_name`, 126 s for 9,186 products locally) and the API reads one row: 0.05 s, the same answers
-  as the index on 200 of 200 sampled products. Production table not filled yet (section 6, item 0).
+  as the index on 200 of 200 sampled products. Filled in production on 2026-11-25: 0.27 to 0.30 s there.
+- **The nightly refresh is slow** (run of 2026-11-25, drugs and lists: 2 h 41 min): `drugs-update` 52 min,
+  **`drugs-load` 69 min** (loading the changes into Neon), `lists-crawl` 35 min (exit 2, partial, so the quick
+  check did not skip it). Not changed yet; `drugs-load` is the first place to look.
 - Not done: thumbnails of the product pictures (median 53 KB, 10% above 283 KB, largest 4.3 MB, shown at
   72 px); streaming the assistant's progress to the app; a provider with a larger free token limit.
 
