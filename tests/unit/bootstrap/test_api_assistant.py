@@ -13,6 +13,8 @@ from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.bootstrap import api_assistant
 from pharmavique.bootstrap.api import create_app
 
+pytestmark = pytest.mark.usefixtures("ai_open_to_guests")
+
 CITE = Citation("catalog:1-1", "بانادول · سجل الأدوية (SFDA)", "https://s/1", "catalog", None)
 
 

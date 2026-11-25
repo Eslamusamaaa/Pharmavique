@@ -17,6 +17,8 @@ from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.recognition.domain.scans import ExtractedLine, MatchCandidate, ScanKind
 from pharmavique.recognition.infrastructure.openai_vision import VisionError
 
+pytestmark = pytest.mark.usefixtures("ai_open_to_guests")
+
 CITE = Citation("catalog:1-1", "بانادول · سجل الأدوية (SFDA)", "https://s/1", "catalog", None)
 
 

@@ -5,7 +5,8 @@ Q-13 and Q-14 were approved with the Phase 3 plan).
 
 ## Context
 
-Search, drug pages and the assistant work without an account. Saved medicines, allergies, alerts, shelf
+Search, drug pages and the assistant work without an account (the assistant, scans and voice need one
+since ADR-020). Saved medicines, allergies, alerts, shelf
 lists and the company and operator views need to know who is calling, keep one person's data apart from
 another's, and let a person leave and delete everything. The data is sensitive (medicines, allergies),
 so the design collects the least it can.

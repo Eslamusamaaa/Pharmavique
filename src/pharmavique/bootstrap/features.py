@@ -24,6 +24,8 @@ class Features(BaseSettings):
 
     # Public page of data sources, trust grades and last updates (Phase 0, item 7).
     sources_page: bool = True
+    # The assistant, scans and voice need a signed-in account (Phase 0, item 1).
+    login_for_ai: bool = True
 
     def as_dict(self) -> dict[str, bool]:
         return {name: bool(getattr(self, name)) for name in type(self).model_fields}

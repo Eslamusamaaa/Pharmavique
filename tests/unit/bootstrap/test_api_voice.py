@@ -3,9 +3,12 @@
 from collections.abc import Sequence
 
 import httpx
+import pytest
 
 from pharmavique.bootstrap.api import create_app
 from pharmavique.voice.application.speak import Speak, Transcribe
+
+pytestmark = pytest.mark.usefixtures("ai_open_to_guests")
 
 
 class FakeSTT:

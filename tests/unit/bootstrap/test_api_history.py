@@ -425,6 +425,7 @@ async def test_using_my_medicines_needs_a_named_drug(
     assert response.status_code == 422
 
 
+@pytest.mark.usefixtures("ai_open_to_guests")
 async def test_an_anonymous_question_still_works_without_any_account_setup(
     assistant_client: tuple[httpx.AsyncClient, Runner],
 ) -> None:

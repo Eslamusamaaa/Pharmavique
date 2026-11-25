@@ -13,7 +13,7 @@ from pharmavique.assistant.application.ask import MAX_QUESTION, AskAssistant
 from pharmavique.assistant.application.ports import AssistantBusy
 from pharmavique.assistant.domain.answers import Answer, Level
 from pharmavique.assistant.domain.conversation import Turn
-from pharmavique.bootstrap.api_auth import optional_principal
+from pharmavique.bootstrap.api_auth import signed_in_for_ai
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.bootstrap.api_history import HistoryCheckOut, history_for_request
 from pharmavique.shared_kernel.principal import Principal
@@ -84,8 +84,8 @@ def get_assistant(request: Request) -> AskAssistant:
 async def ask(
     body: AskIn,
     request: Request,
+    principal: Annotated[Principal | None, Depends(signed_in_for_ai)],
     assistant: Annotated[AskAssistant, Depends(get_assistant)],
-    principal: Annotated[Principal | None, Depends(optional_principal)],
 ) -> AnswerOut | StreamingResponse:
     async def answer() -> AnswerOut:
         history = (

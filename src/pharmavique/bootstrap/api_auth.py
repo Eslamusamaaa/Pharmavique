@@ -1,8 +1,9 @@
 """Accounts: sign up, sign in, refresh, sign out, read and delete the account.
 
-Search, drug pages and the assistant stay open without an account. An account is for saved data
-(medicines, alerts, shelf lists) and for the company and operator views. Error answers are
-deliberately plain: a wrong email and a wrong password look the same.
+Search, drug pages, alternatives and pharmacies stay open without an account. An account is for
+saved data (medicines, alerts, shelf lists), for the company and operator views, and for the
+routes that run a model (assistant, scans, voice) while the `login_for_ai` feature is on. Error
+answers are deliberately plain: a wrong email and a wrong password look the same.
 """
 
 import logging
@@ -15,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
+from pharmavique.bootstrap.features import Features, get_features
 from pharmavique.bootstrap.unsubscribe import read_token
 from pharmavique.identity.application.service import IdentityService, Session, UserView
 from pharmavique.identity.contracts import TokenVerifier
@@ -131,6 +133,19 @@ async def optional_principal(
     if credentials is None:
         return None
     return await current_principal(request, credentials)
+
+
+async def signed_in_for_ai(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    features: Annotated[Features, Depends(get_features)],
+) -> Principal | None:
+    """For the routes that run a paid or rate-limited model (assistant, scans, voice): a
+    signed-in account while the `login_for_ai` feature is on (owner's decision, 2026-11-25),
+    otherwise the caller as `optional_principal` sees them."""
+    if features.login_for_ai:
+        return await current_principal(request, credentials)
+    return await optional_principal(request, credentials)
 
 
 def require_roles(*roles: Role) -> Callable[[Principal], Coroutine[Any, Any, Principal]]:

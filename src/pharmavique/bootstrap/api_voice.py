@@ -9,12 +9,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from pharmavique.bootstrap.api_auth import signed_in_for_ai
+from pharmavique.shared_kernel.principal import Principal
 from pharmavique.voice.application.extract import ExtractDrugName
 from pharmavique.voice.application.speak import MAX_AUDIO_BYTES, MAX_TEXT, Speak, Transcribe
 from pharmavique.voice.infrastructure.audio_cache import AudioStore
 from pharmavique.voice.infrastructure.groq_speech import SpeechError
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"])
+SignedIn = Annotated[Principal | None, Depends(signed_in_for_ai)]
 NOT_CONFIGURED = "voice is not configured: set PHARMAVIQUE_GROQ_API_KEY"
 
 
@@ -58,6 +61,7 @@ def get_speak(request: Request) -> Speak:
 
 @router.post("/transcribe", response_model=TranscriptOut, summary="Speech to text (Arabic)")
 async def transcribe(
+    _: SignedIn,
     audio: Annotated[UploadFile, File(description="the recorded question, up to 25 MB")],
     backend: Annotated[Transcribe, Depends(get_transcribe)],
     language: str = "ar",
@@ -81,7 +85,7 @@ async def transcribe(
     summary="Text to speech in the Saudi Arabic voice (MP3 or WAV, per provider)",
 )
 async def speak(
-    body: SpeakIn, request: Request, backend: Annotated[Speak, Depends(get_speak)]
+    _: SignedIn, body: SpeakIn, request: Request, backend: Annotated[Speak, Depends(get_speak)]
 ) -> Response:
     try:
         audio = await backend.run(body.text)
@@ -112,7 +116,7 @@ async def audio(key: str, request: Request) -> Response:
     response_model=DrugNameOut,
     summary="The drug name inside a spoken request, to search for",
 )
-async def drug_name(body: DrugNameIn, request: Request) -> DrugNameOut:
+async def drug_name(_: SignedIn, body: DrugNameIn, request: Request) -> DrugNameOut:
     extract: ExtractDrugName = request.app.state.extract_name
     try:
         spoken = await extract.run(body.text)

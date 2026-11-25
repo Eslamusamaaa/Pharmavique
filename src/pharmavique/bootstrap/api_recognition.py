@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
-from pharmavique.bootstrap.api_auth import optional_principal
+from pharmavique.bootstrap.api_auth import signed_in_for_ai
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.recognition.application.scan import MAX_IMAGE_BYTES, ScanImage
 from pharmavique.recognition.domain.scans import ScanKind, ScanResult
@@ -71,8 +71,8 @@ def get_scanner(request: Request) -> ScanImage:
 async def scan(
     request: Request,
     image: Annotated[UploadFile, File(description="a JPEG, PNG or WebP photo, up to 8 MB")],
+    principal: Annotated[Principal | None, Depends(signed_in_for_ai)],
     scanner: Annotated[ScanImage, Depends(get_scanner)],
-    principal: Annotated[Principal | None, Depends(optional_principal)],
     kind: ScanKind = ScanKind.BOX,
 ) -> ScanOut:
     if kind is ScanKind.SHELF:

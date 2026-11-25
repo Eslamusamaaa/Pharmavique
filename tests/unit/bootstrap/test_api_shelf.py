@@ -164,6 +164,7 @@ async def test_a_pharmacist_gets_the_boxes_to_review(on: tuple[httpx.AsyncClient
     assert reader.kinds == [ScanKind.SHELF]
 
 
+@pytest.mark.usefixtures("ai_open_to_guests")
 async def test_the_box_scan_stays_open_to_everyone_even_with_the_shelf_scan_off() -> None:
     client, _ = make(False)
     async with client:

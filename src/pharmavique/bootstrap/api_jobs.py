@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_assistant import AskIn
-from pharmavique.bootstrap.api_auth import optional_principal
+from pharmavique.bootstrap.api_auth import signed_in_for_ai
 from pharmavique.bootstrap.api_drugs import DISCLAIMER
 from pharmavique.bootstrap.api_recognition import require_shelf_access
 from pharmavique.bootstrap.job_handlers import ASSISTANT, SCAN
@@ -109,9 +109,9 @@ async def _submit(
 )
 async def submit_scan(
     request: Request,
+    principal: Annotated[Principal | None, Depends(signed_in_for_ai)],
     image: Annotated[UploadFile, File(description="a JPEG, PNG or WebP photo, up to 8 MB")],
     jobs: Jobs,
-    principal: Annotated[Principal | None, Depends(optional_principal)],
     kind: ScanKind = ScanKind.BOX,
 ) -> TicketOut:
     if kind is ScanKind.SHELF:
@@ -126,7 +126,12 @@ async def submit_scan(
 @router.post(
     "/assistant", response_model=TicketOut, status_code=202, summary="Ask in the background"
 )
-async def submit_question(request: Request, body: AskIn, jobs: Jobs) -> TicketOut:
+async def submit_question(
+    _: Annotated[Principal | None, Depends(signed_in_for_ai)],
+    request: Request,
+    body: AskIn,
+    jobs: Jobs,
+) -> TicketOut:
     if body.use_history:
         raise HTTPException(
             status_code=422, detail="your medicines cannot be used in a background job yet"

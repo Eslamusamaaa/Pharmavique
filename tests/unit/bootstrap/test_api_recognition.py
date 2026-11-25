@@ -1,10 +1,13 @@
 """POST /v1/recognition/scan with fakes: candidates per line, unclear dose, 503 without a key."""
 
 import httpx
+import pytest
 
 from pharmavique.bootstrap.api import create_app
 from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.recognition.domain.scans import ExtractedLine, MatchCandidate, ScanKind
+
+pytestmark = pytest.mark.usefixtures("ai_open_to_guests")
 
 
 class FakeReader:
