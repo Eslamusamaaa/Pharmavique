@@ -495,7 +495,7 @@ Expo Go app.
 
 ```bash
 cp .env.example .env                      # set the Postgres password and the provider keys you have
-uv sync                                   # Python dependencies
+uv sync --all-extras                      # Python dependencies (the crawler's browser is the `scraper` extra)
 docker compose up -d db redis             # PostgreSQL (pg_trgm, pgvector) and Redis
 uv run alembic upgrade heads              # every context's schema
 ```

@@ -17,6 +17,11 @@ from packaging.requirements import Requirement
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 
+# Optional extras (`[project.optional-dependencies]`): kept out of the API's install, so only the
+# modules listed here may import them, and the API never loads those modules.
+CRAWLER = "src/pharmavique/ingestion/infrastructure/connectors/sfda_web/playwright_fetcher.py"
+OPTIONAL = {"playwright": {CRAWLER}}
+
 
 def _normal(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
@@ -47,6 +52,13 @@ def _runtime_closure() -> set[str]:
 
 def _imported_top_level_modules() -> dict[str, Path]:
     found: dict[str, Path] = {}
+    for module, files in _imports().items():
+        found[module] = min(files)
+    return found
+
+
+def _imports() -> dict[str, set[Path]]:
+    found: dict[str, set[Path]] = {}
     for file in SRC.rglob("*.py"):
         for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Import):
@@ -56,7 +68,7 @@ def _imported_top_level_modules() -> dict[str, Path]:
             else:
                 continue
             for name in names:
-                found.setdefault(name.split(".")[0], file)
+                found.setdefault(name.split(".")[0], set()).add(file)
     return found
 
 
@@ -65,7 +77,7 @@ def test_every_third_party_import_in_product_code_is_a_runtime_dependency() -> N
     distributions = metadata.packages_distributions()
     missing: list[str] = []
     for module, file in sorted(_imported_top_level_modules().items()):
-        if module == "pharmavique" or module in sys.stdlib_module_names:
+        if module == "pharmavique" or module in sys.stdlib_module_names or module in OPTIONAL:
             continue
         providers = {_normal(name) for name in distributions.get(module, [])}
         if not providers:
@@ -76,3 +88,13 @@ def test_every_third_party_import_in_product_code_is_a_runtime_dependency() -> N
                 "which is not a runtime dependency)"
             )
     assert not missing, "add to [project].dependencies in pyproject.toml: " + "; ".join(missing)
+
+
+def test_an_optional_extra_is_imported_only_by_its_listed_modules() -> None:
+    imports = _imports()
+    for module, allowed in OPTIONAL.items():
+        used = {file.relative_to(ROOT).as_posix() for file in imports.get(module, set())}
+        assert used <= allowed, (
+            f"{module} is an optional extra, imported in {sorted(used - allowed)}"
+        )
+

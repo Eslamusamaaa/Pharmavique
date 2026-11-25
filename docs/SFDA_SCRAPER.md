@@ -5,7 +5,7 @@ Code: `src/pharmavique/ingestion/infrastructure/connectors/sfda_web/`. Data sour
 ## One-time setup
 
 ```bash
-uv sync
+uv sync --all-extras                 # Playwright is the optional `scraper` extra
 uv run playwright install chromium   # downloads the browser once (about 125 MB)
 ```
 

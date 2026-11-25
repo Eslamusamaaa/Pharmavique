@@ -23,6 +23,8 @@ $root = (Get-Location).Path
 $python = Join-Path $root ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) { $python = Join-Path $env:USERPROFILE ".venvs\pharmavique\Scripts\python.exe" }
 if (-not (Test-Path $python)) { $python = "python" }
+# Playwright is the optional `scraper` extra: a plain `uv sync` or `uv run` removes it again.
+if (Get-Command uv -ErrorAction SilentlyContinue) { uv sync --frozen --all-extras --quiet }
 
 $stamp = Get-Date -Format "yyyyMMdd"
 $logs = Join-Path $root "data\refresh\$stamp"

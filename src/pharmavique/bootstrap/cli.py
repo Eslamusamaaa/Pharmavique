@@ -18,7 +18,7 @@ import sys
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -91,9 +91,6 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_text import (
     ocr_empty_texts,
     ocr_image_texts,
 )
-from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
-    PlaywrightPageFetcher,
-)
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.polite_fetch import PoliteFetch
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.records import to_source_records
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
@@ -106,6 +103,22 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records imp
     StoredRecords,
 )
 from pharmavique.shared_kernel.currency import Currency
+
+if TYPE_CHECKING:
+    from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
+        PlaywrightPageFetcher,
+    )
+
+
+def _browser(**options: Any) -> "PlaywrightPageFetcher":
+    """The crawler's browser. Playwright is the optional `scraper` extra (about 120 MB), kept out
+    of the API's install so the Vercel function stays small; only the crawl commands load it."""
+    from pharmavique.ingestion.infrastructure.connectors.sfda_web.playwright_fetcher import (
+        PlaywrightPageFetcher,
+    )
+
+    return PlaywrightPageFetcher(**options)
+
 
 # Owner's decision (2026-11-17): SFDA prices are SAR. The pages do not state a currency, so the
 # basis is recorded as an assumption and shown as such. Change it here if SFDA documents otherwise.
@@ -346,7 +359,7 @@ async def _crawl(
         user_agent=args.user_agent,
     )
     clock = SystemClock()
-    async with PlaywrightPageFetcher(
+    async with _browser(
         user_agent=args.user_agent,
         throttle=Throttle(args.delay, args.jitter),
         clock=clock,
@@ -444,7 +457,7 @@ async def _sfda_lists(args: argparse.Namespace) -> int:
         base_url=args.base_url, max_pages=args.max_pages, user_agent=args.user_agent
     )
     code = EXIT_OK
-    async with PlaywrightPageFetcher(
+    async with _browser(
         user_agent=args.user_agent,
         throttle=Throttle(args.delay, args.jitter),
         clock=clock,
@@ -577,7 +590,7 @@ async def _sfda_list_details(args: argparse.Namespace) -> int:
     log = logging.getLogger("sfda.cli")
     robots = await _load_robots(args.base_url, args.user_agent)
     clock = SystemClock()
-    async with PlaywrightPageFetcher(
+    async with _browser(
         user_agent=args.user_agent,
         throttle=Throttle(args.delay, args.jitter),
         clock=clock,

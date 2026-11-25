@@ -65,7 +65,7 @@ jobs:
 
       - name: Install dependencies and Chromium
         run: |
-          uv sync --frozen
+          uv sync --frozen --extra scraper
           uv run playwright install --with-deps chromium
 
       # What the last runs read: the next run compares with the latest complete one (a drug missing

@@ -15,7 +15,6 @@ dependencies = [
     "redis>=5.0",
     "arq>=0.26",
     "httpx>=0.27",
-    "playwright>=1.65.2",
     "beautifulsoup4>=4.15.0",
     "pypdf>=7.1.1",
     "langgraph>=1.2.22",
@@ -24,6 +23,11 @@ dependencies = [
     "pyjwt>=2.8",
     "pillow>=13.0.0",
 ]
+
+[project.optional-dependencies]
+# The SFDA crawler's browser (about 120 MB with its driver). Kept out of the API's install: with it the
+# Vercel function was 327 MB, over the 250 MB standard size. `uv sync --extra scraper` where the crawl runs.
+scraper = ["playwright>=1.65.2"]
 
 [project.scripts]
 pharmavique = "pharmavique.bootstrap.cli:main"
