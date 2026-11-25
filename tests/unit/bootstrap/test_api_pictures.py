@@ -113,6 +113,10 @@ async def test_a_generated_card_or_unknown_product_has_no_picture() -> None:
 
     assert generated.status_code == 404
     assert unknown.status_code == 404
+    # A list shows one picture per row: a missing one is kept by the browser and the edge, so the
+    # same list opened again does not send a request (and a cold start) for every row without one.
+    assert generated.headers["cache-control"] == unknown.headers["cache-control"]
+    assert "max-age=86400" in unknown.headers["cache-control"]
 
 
 async def test_a_box_that_states_another_strength_is_not_shown_as_the_product() -> None:

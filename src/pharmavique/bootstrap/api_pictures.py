@@ -50,6 +50,14 @@ def get_pictures(request: Request) -> PictureLookup:
     return pictures
 
 
+_KEEP = {"Cache-Control": "public, max-age=86400"}  # pictures change at most once a day
+
+
+def _no_picture() -> HTTPException:
+    """A cacheable 404: a list asks for one picture per row, and most products have none."""
+    return HTTPException(status_code=404, detail="no picture for this product", headers=_KEEP)
+
+
 # the box or its shop page is another strength or variant of the brand
 _NOT_THIS_PRODUCT = {"strength_conflict", "page_conflict"}
 
@@ -66,23 +74,23 @@ async def product_picture(
     # A generated card is not the box: the app draws its own placeholder instead. Neither is a
     # box that states other strengths than the registry's: it is another product of the brand.
     if stored is None or stored.kind != "real" or stored.verification in _NOT_THIS_PRODUCT:
-        raise HTTPException(status_code=404, detail="no picture for this product")
+        raise _no_picture()
     settings = get_settings()
     if settings.picture_base_url:
         # The files live in a public bucket (a host such as Vercel has no media folder).
         key = picture_key(stored.file_path)
         if key is None:
-            raise HTTPException(status_code=404, detail="no picture for this product")
+            raise _no_picture()
         return RedirectResponse(
             f"{settings.picture_base_url.rstrip('/')}/{key}",
             status_code=307,
-            headers={"Cache-Control": "public, max-age=86400"},
+            headers=_KEEP,
         )
     file = resolve_picture_file(Path(settings.media_dir), stored.file_path)
     if file is None:
-        raise HTTPException(status_code=404, detail="no picture for this product")
+        raise _no_picture()
     return FileResponse(
         file,
         media_type=stored.content_type,
-        headers={"Cache-Control": "public, max-age=86400", "X-Picture-Status": stored.status or ""},
+        headers={**_KEEP, "X-Picture-Status": stored.status or ""},
     )
