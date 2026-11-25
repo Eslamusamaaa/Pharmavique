@@ -1,6 +1,6 @@
 // Confirm the email with the six-digit code that was sent to it. There is no session until then.
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRightIcon } from 'phosphor-react-native';
+import { ArrowRightIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

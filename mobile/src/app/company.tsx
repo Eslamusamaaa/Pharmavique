@@ -1,7 +1,7 @@
 // Company screen: who sells an ingredient (market map), thin and missing strengths and forms
 // (gaps), and what changed lately (radar). Registry rows only: there are no sales or demand figures.
 import { router } from 'expo-router';
-import { ArrowRightIcon } from 'phosphor-react-native';
+import { ArrowRightIcon } from '@/components/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

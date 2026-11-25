@@ -11,7 +11,7 @@ import {
   ScanIcon,
   UserCircleIcon,
   WarningIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

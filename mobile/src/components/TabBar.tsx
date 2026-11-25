@@ -1,7 +1,7 @@
 // Navigation from the wireframes (B1, B3): a bottom tab bar on a phone, a right-hand rail on a
 // computer (the same tabs, right to left).
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { HouseIcon, MagnifyingGlassIcon, PillIcon, ScanIcon, UserIcon } from 'phosphor-react-native';
+import { HouseIcon, MagnifyingGlassIcon, PillIcon, ScanIcon, UserIcon } from '@/components/icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

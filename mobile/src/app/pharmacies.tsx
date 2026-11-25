@@ -3,7 +3,7 @@
 // a list of licensed pharmacies in the nearest cities, never a claim about stock or opening hours.
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { ArrowRightIcon, MapPinIcon, PhoneIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, MapPinIcon, PhoneIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

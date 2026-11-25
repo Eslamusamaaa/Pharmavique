@@ -1,7 +1,7 @@
 // First launch: who is using Pharmavique. No account is created; the choice stays on this device.
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { BuildingsIcon, FirstAidKitIcon, UserIcon } from 'phosphor-react-native';
+import { BuildingsIcon, FirstAidKitIcon, UserIcon } from '@/components/icons';
 import type { ComponentType } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -3,7 +3,7 @@
 // medicines are shelved, never counts or stock.
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { ArrowRightIcon, CameraIcon, CheckSquareIcon, ImageIcon, SquareIcon, TrashIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, CameraIcon, CheckSquareIcon, ImageIcon, SquareIcon, TrashIcon } from '@/components/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

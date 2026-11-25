@@ -1,6 +1,6 @@
 // A drug compared with the medicines I take now (recorded interactions from outside sources).
 // It never says to stop or change anything; "nothing found" is never "safe".
-import { InfoIcon, WarningIcon } from 'phosphor-react-native';
+import { InfoIcon, WarningIcon } from '@/components/icons';
 import { View } from 'react-native';
 
 import type { HistoryCheck } from '@/api/me';

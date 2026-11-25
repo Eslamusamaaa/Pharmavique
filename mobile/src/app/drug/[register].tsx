@@ -15,7 +15,7 @@ import {
   ShareNetworkIcon,
   StorefrontIcon,
   WarningIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';

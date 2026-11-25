@@ -1,6 +1,6 @@
 // The product picture from the API, or a quiet placeholder when the drug has none.
 import { Image } from 'expo-image';
-import { PillIcon } from 'phosphor-react-native';
+import { PillIcon } from '@/components/icons';
 import { useState } from 'react';
 import { View } from 'react-native';
 

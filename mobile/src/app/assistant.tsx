@@ -16,7 +16,7 @@ import {
   StopIcon,
   WarningIcon,
   XIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';

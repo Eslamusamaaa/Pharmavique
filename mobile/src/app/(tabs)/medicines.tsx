@@ -2,7 +2,7 @@
 // Allergy and interaction flags match by active ingredient name; they are a prompt to ask the
 // pharmacist or doctor, never a clearance and never an instruction to stop or switch.
 import { router } from 'expo-router';
-import { WarningIcon } from 'phosphor-react-native';
+import { WarningIcon } from '@/components/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

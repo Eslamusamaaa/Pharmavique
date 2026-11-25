@@ -1,6 +1,6 @@
 // Two drugs side by side. The verdict is computed by the API's rules; this screen only shows it.
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRightIcon, EqualsIcon, WarningIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, EqualsIcon, WarningIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

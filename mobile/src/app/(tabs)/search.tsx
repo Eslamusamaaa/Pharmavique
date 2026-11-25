@@ -10,7 +10,7 @@ import {
   SortDescendingIcon,
   XCircleIcon,
   XIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { InfoIcon } from 'phosphor-react-native';
+import { InfoIcon } from '@/components/icons';
 
 import { cardShadow, DISCLAIMER, fonts, radius, useTheme, type Weight } from '@/theme';
 

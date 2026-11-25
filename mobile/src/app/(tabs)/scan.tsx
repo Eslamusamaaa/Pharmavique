@@ -14,7 +14,7 @@ import {
   PencilSimpleIcon,
   QuestionIcon,
   ShieldCheckIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

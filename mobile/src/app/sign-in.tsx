@@ -1,7 +1,7 @@
 // Sign in or create an account. Search and the assistant work without one; an account is for saved
 // medicines, alerts and the pharmacist and company views.
 import { router } from 'expo-router';
-import { ArrowRightIcon } from 'phosphor-react-native';
+import { ArrowRightIcon } from '@/components/icons';
 import { useRef, useState, type ComponentRef } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

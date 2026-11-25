@@ -1,7 +1,7 @@
 // Operator data-quality board: what is missing in the catalog and how the daily refresh is doing.
 // Read-only. A number that cannot be known is shown as unknown, never as zero.
 import { router } from 'expo-router';
-import { ArrowRightIcon, CheckCircleIcon, WarningIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, CheckCircleIcon, WarningIcon } from '@/components/icons';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -1,6 +1,6 @@
 // My allergies: chips to remove, and a box to add one by active ingredient. The match is by
 // ingredient name only, so it is a prompt to ask the pharmacist, never a clearance.
-import { XIcon } from 'phosphor-react-native';
+import { XIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 

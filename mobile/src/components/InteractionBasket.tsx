@@ -2,7 +2,7 @@
 // Informational only: a finding is a source's statement with its severity, never advice, and
 // "nothing found" is never "safe" (the pharmacist or doctor decides).
 import { router } from 'expo-router';
-import { ArrowRightIcon, MagnifyingGlassIcon, WarningIcon, XIcon } from 'phosphor-react-native';
+import { ArrowRightIcon, MagnifyingGlassIcon, WarningIcon, XIcon } from '@/components/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

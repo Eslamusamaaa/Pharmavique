@@ -1,5 +1,5 @@
 // Small building blocks of the account screen: a grouped card of rows, one tappable row, a switch row.
-import { CaretLeftIcon } from 'phosphor-react-native';
+import { CaretLeftIcon } from '@/components/icons';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 

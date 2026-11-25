@@ -1,6 +1,6 @@
 // Changes the registry made to MY medicines only (a price, a withdrawal, a return to the list).
 import { router } from 'expo-router';
-import { BellIcon } from 'phosphor-react-native';
+import { BellIcon } from '@/components/icons';
 import { Pressable, View } from 'react-native';
 
 import { displayName } from '@/api/client';

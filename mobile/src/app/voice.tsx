@@ -9,7 +9,7 @@ import {
   StopIcon,
   TranslateIcon,
   XIcon,
-} from 'phosphor-react-native';
+} from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

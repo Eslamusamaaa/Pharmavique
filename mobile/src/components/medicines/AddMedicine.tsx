@@ -1,5 +1,5 @@
 // Search a drug by name and add it to my medicines with one tap.
-import { MagnifyingGlassIcon, PlusIcon } from 'phosphor-react-native';
+import { MagnifyingGlassIcon, PlusIcon } from '@/components/icons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 

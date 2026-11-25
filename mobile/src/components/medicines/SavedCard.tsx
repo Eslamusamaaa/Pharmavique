@@ -1,6 +1,6 @@
 // One saved medicine: picture, name, allergy warnings, taken-now switch and remove.
 import { router } from 'expo-router';
-import { TrashIcon, WarningIcon } from 'phosphor-react-native';
+import { TrashIcon, WarningIcon } from '@/components/icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { displayName } from '@/api/client';
