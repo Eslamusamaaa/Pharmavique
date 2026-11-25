@@ -7,6 +7,8 @@ import pytest
 
 from pharmavique.bootstrap.api import create_app
 from pharmavique.catalog.contracts.queries import CardPage, ProductCard, TradeName
+from pharmavique.search.application.ports import ProductNames, StoredSimilarNames
+from pharmavique.search.application.similar_names import WINDOW, build_indexes
 from pharmavique.shared_kernel.market import Market
 
 
@@ -161,3 +163,57 @@ async def test_the_index_is_built_from_the_names_alone_when_they_can_be_read_alo
 
     assert "2" in {r["register_number"] for r in body["results"]}
     assert names.calls == 1
+
+
+class StoredNames:
+    """What the daily refresh stored, built with the same index the API would build."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        names = [ProductNames(c.register_number, c.trade_name_en, c.trade_name_ar) for c in CARDS]
+        english, arabic = build_indexes(names)
+        self.rows = {
+            n.register_number: StoredSimilarNames(
+                n.register_number,
+                english.similar_to(n.register_number, WINDOW),
+                arabic.similar_to(n.register_number, WINDOW),
+            )
+            for n in names
+        }
+
+    async def replace(self, market: Market, rows: Sequence[StoredSimilarNames]) -> None:
+        raise NotImplementedError
+
+    async def find(self, market: Market, register_number: str) -> StoredSimilarNames | None:
+        if self.fail:
+            raise RuntimeError("relation search.similar_name does not exist")
+        return self.rows.get(register_number)
+
+
+async def test_a_stored_answer_is_served_without_building_the_index() -> None:
+    expected_app = create_app(catalog=FakeCatalog())
+    app = create_app(catalog=NoExport())  # building the index would fail the request
+    app.state.similar_names = StoredNames()
+    async with (
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c,
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=expected_app), base_url="http://t"
+        ) as reference,
+    ):
+        for number in ("1", "4", "5"):
+            path = f"/v1/products/{number}/similar-names?include_weaker=true"
+            assert (await c.get(path)).json() == (await reference.get(path)).json(), number
+
+
+async def test_a_product_the_rebuild_has_not_seen_or_a_failing_store_falls_back_to_the_index() -> (
+    None
+):
+    for store in (StoredNames(fail=True), StoredNames()):
+        store.rows.pop("1", None)
+        app = create_app(catalog=FakeCatalog())
+        app.state.similar_names = store
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://t"
+        ) as c:
+            body = (await c.get("/v1/products/1/similar-names")).json()
+        assert "2" in {r["register_number"] for r in body["results"]}

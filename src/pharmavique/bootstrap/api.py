@@ -88,6 +88,7 @@ from pharmavique.recognition.application.scan import ScanImage
 from pharmavique.search.application.handlers import SearchProductsHandler
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.search.infrastructure.postgres import PostgresSearchIndex
+from pharmavique.search.infrastructure.similar_names import PostgresSimilarNameStore
 from pharmavique.shared_kernel.email import EmailSender
 from pharmavique.substitution.application.compare import CompareProductsHandler
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
@@ -153,6 +154,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             reader = SqlAlchemyProductReader(session_factory)
             catalog = ReadProductCardsHandler(reader, SqlAlchemyPriceChangeReader(session_factory))
             app.state.catalog_names = reader
+            app.state.similar_names = PostgresSimilarNameStore(session_factory)
             app.state.catalog = catalog
             app.state.details = catalog
             app.state.assistant = build_assistant(
@@ -268,6 +270,7 @@ def create_app(
     app.state.list_items = list_items
     app.state.lasa = None
     app.state.catalog_names = None
+    app.state.similar_names = None
     app.state.identity = identity
     app.state.email_sender = email_sender
     app.state.unsubscribe_secret = unsubscribe_secret

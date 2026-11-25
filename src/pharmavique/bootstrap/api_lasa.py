@@ -2,10 +2,13 @@
 
 It tells the reader that a differently named drug is spelled or sounds alike, so a label or a
 handwritten line deserves a second look. It says nothing about the drugs themselves, whether they
-treat the same thing, or which one to use. The name index is built from the catalog on first use.
+treat the same thing, or which one to use. The daily refresh stores every product's look-alikes
+(`similar-names-rebuild`); a product it has not seen yet (or a database without the table) falls
+back to the name index, built from the catalog on first use.
 """
 
 import asyncio
+import logging
 import time
 from typing import Annotated
 
@@ -20,14 +23,16 @@ from pharmavique.catalog.contracts.queries import (
     ProductCard,
     TradeName,
 )
+from pharmavique.search.application.ports import ProductNames, SimilarNameStore
+from pharmavique.search.application.similar_names import WINDOW, build_indexes
 from pharmavique.search.domain.lasa import LasaIndex, LasaMatch
 from pharmavique.shared_kernel.market import Market
-from pharmavique.shared_kernel.names import core_name
 
 router = APIRouter(prefix="/v1", tags=["lasa"])
 
+_log = logging.getLogger(__name__)
+
 PAGE = 5000
-WINDOW = 30  # how many look-alikes are ranked before the weaker ones are set aside
 MAX_AGE_SECONDS = 24 * 3600
 NOTE = (
     "These names are spelled or sound like this one. Double-check the name on a label or a "
@@ -68,21 +73,9 @@ async def _all_names(
 async def build_state(
     catalog: CatalogQueries, market: Market, names: CatalogNames | None = None
 ) -> LasaState:
-    english: list[tuple[str, str]] = []
-    arabic: list[tuple[str, str]] = []
-    brands: dict[str, str] = {}  # many products share a trade name: each is reduced once
-
-    def brand(name: str) -> str:
-        if name not in brands:
-            brands[name] = core_name(name)
-        return brands[name]
-
-    for name in await _all_names(catalog, names, market):
-        if name.en:
-            english.append((name.register_number, brand(name.en)))
-        if name.ar:
-            arabic.append((name.register_number, brand(name.ar)))
-    return LasaState(LasaIndex(english), LasaIndex(arabic))
+    found = await _all_names(catalog, names, market)
+    english, arabic = build_indexes(ProductNames(n.register_number, n.en, n.ar) for n in found)
+    return LasaState(english, arabic)
 
 
 class SimilarNameOut(BaseModel):
@@ -121,6 +114,24 @@ async def _state(request: Request, catalog: CatalogQueries, market: Market) -> L
             state = await build_state(catalog, market, names)
             request.app.state.lasa = state
         return state
+
+
+async def _look_alikes(
+    request: Request, catalog: CatalogQueries, market: Market, register_number: str
+) -> list[tuple[str, LasaMatch]]:
+    store: SimilarNameStore | None = getattr(request.app.state, "similar_names", None)
+    if store is not None:
+        try:
+            stored = await store.find(market, register_number)
+        except Exception:  # no table yet, or the database hiccuped: the index still answers
+            _log.warning("stored similar names unavailable; building the index", exc_info=True)
+            stored = None
+        if stored is not None:
+            return [("en", m) for m in stored.english] + [("ar", m) for m in stored.arabic]
+    state = await _state(request, catalog, market)
+    return [("en", m) for m in state.english.similar_to(register_number, WINDOW)] + [
+        ("ar", m) for m in state.arabic.similar_to(register_number, WINDOW)
+    ]
 
 
 def _merge(
@@ -177,11 +188,7 @@ async def similar_names(
         if not cards:
             raise HTTPException(status_code=404, detail="no such drug in the catalog")
         base = cards[0]
-        state = await _state(request, catalog, market)
-        found = [("en", m) for m in state.english.similar_to(register_number, WINDOW)] + [
-            ("ar", m) for m in state.arabic.similar_to(register_number, WINDOW)
-        ]
-        merged = _merge(found)
+        merged = _merge(await _look_alikes(request, catalog, market, register_number))
         ranked_all = sorted(merged.items(), key=lambda kv: (-kv[1][0].score, kv[0]))
         # On the real catalog about a quarter of the names had some match, which is too many to be
         # useful: only the strong ones (they sound alike, or are very close in spelling) show by
