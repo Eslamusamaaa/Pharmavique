@@ -597,7 +597,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | `JOB_BACKEND` | `inline` | `inline` runs jobs in the API process; `arq` hands them to `pharmavique worker` |
 | `JOB_MAX_CONCURRENCY`, `JOB_TIMEOUT_SECONDS`, `JOBS_PER_USER_PER_MINUTE`, `JOB_MAX_QUEUE_DEPTH` | `8`, `90`, `6`, `500` | Worker concurrency and timeout, submissions per caller, queue ceiling |
 | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | `10`, `20` | Database connections per API process |
-| `JWT_SECRET` | none | Signs access tokens, at least 32 random characters; without it the account endpoints answer 503 |
+| `JWT_SECRET` | none | Signs access tokens, at least 32 random characters; production refuses to start without it (or with a shorter one); elsewhere the account endpoints answer 503 |
 | `CORS_ORIGINS` | local app origins | Browser origins allowed to call the API |
 | `RATE_LIMIT_PER_MINUTE` | `300` | Requests per minute per client address; `0` turns it off |
 | `HEAVY_RATE_LIMIT_PER_MINUTE` | `30` | The same for the assistant, voice and scan endpoints |

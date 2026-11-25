@@ -1,5 +1,6 @@
 """Environment-driven configuration. Secrets come from the environment only, never from code."""
 
+import logging
 from functools import lru_cache
 from typing import Any, Literal
 
@@ -7,6 +8,8 @@ from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from pharmavique.foundation.db.url import to_asyncpg_url
+
+MIN_JWT_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -23,7 +26,8 @@ class Settings(BaseSettings):
     # Not used by the Phase 0 skeleton; wired in Phase 1. SecretStr keeps them out of repr/logs.
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
-    # Signs access tokens (at least 32 random characters). Without it accounts answer 503.
+    # Signs access tokens (at least 32 random characters). Production refuses to start without it;
+    # elsewhere accounts answer 503.
     jwt_secret: SecretStr | None = None
 
     # Browser origins allowed to call the API (the app's web build). JSON list in the environment,
@@ -180,6 +184,23 @@ class Settings(BaseSettings):
         if value is None:
             return None
         return SecretStr(to_asyncpg_url(value.get_secret_value()))
+
+
+def check_signing_secret(settings: Settings) -> None:
+    """In production the API must not start without a strong access-token secret (ADR-020); in
+    development and tests a missing or short one is only a warning (accounts answer 503 without it).
+    The secret itself is never written anywhere."""
+    secret = settings.jwt_secret.get_secret_value() if settings.jwt_secret is not None else ""
+    if len(secret) >= MIN_JWT_SECRET_LENGTH:
+        return
+    problem = (
+        "PHARMAVIQUE_JWT_SECRET is not set"
+        if not secret
+        else f"PHARMAVIQUE_JWT_SECRET is shorter than {MIN_JWT_SECRET_LENGTH} characters"
+    )
+    if settings.environment == "prod":
+        raise RuntimeError(f"{problem}: refusing to start in production")
+    logging.getLogger(__name__).warning("%s (allowed outside production)", problem)
 
 
 @lru_cache
