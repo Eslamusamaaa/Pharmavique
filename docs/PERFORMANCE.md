@@ -104,6 +104,7 @@ The build log no longer says "exceeds the standard size"; `__common` is 394 KB (
 | What | Before | After |
 |---|---|---|
 | First request to the new deployment (`/health`) | 8.2 s | 0.45 s |
+| First request after 15 minutes without traffic (a real cold start) | 8.2 s | 3.2 s (the next ones 0.29 to 0.49 s) |
 | First search on it | 2.0 s | 1.8 s (then 0.27 s) |
 | Eight simultaneous uncached searches | not measured | 0.50 to 0.63 s each |
 | Drug page requests, first time | 0.27 to 3.3 s | 0.43 to 0.75 s; similar names 3.1 s |
@@ -115,7 +116,10 @@ Still slow after that deployment: the first similar-names answer of each instanc
 9,186 products in full to build the name index. It now reads only the register number and the two
 trade names (`CatalogNames.trade_names`: 0.04 s locally) and reduces each distinct brand once (about
 45% of the names repeat). Building the index locally: 1.7 s to 0.5 s, with the same matches on 300
-random products. Not deployed yet.
+random products. Then (same day) the daily refresh stores every product's look-alikes in
+`search.similar_name` (126 s for 9,186 products locally) and the API reads one row: 0.05 s for the first
+answer locally, the same answers as the index on 200 of 200 sampled products (rate limit and shared cache
+off while comparing). In production after the table is migrated and filled.
 
 ## Not measured yet
 
