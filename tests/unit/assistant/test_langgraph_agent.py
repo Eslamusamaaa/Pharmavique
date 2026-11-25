@@ -127,8 +127,8 @@ async def test_the_runner_calls_tools_and_keeps_only_the_cited_records() -> None
         "shortage",
     ]
     tool_results = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
-    assert '"cite": 1' in tool_results[0].content
-    assert '"cite": 2' in tool_results[1].content
+    assert '"cite":1' in tool_results[0].content
+    assert '"cite":2' in tool_results[1].content
 
 
 async def test_the_system_prompt_carries_the_level_and_the_product() -> None:
@@ -426,7 +426,7 @@ async def test_a_web_result_is_cited_as_web_and_marked_as_not_verified() -> None
     assert [(c.kind, c.url) for c in run.citations] == [("web", "https://web.test/c")]
     result = next(m for m in model.seen[-1] if isinstance(m, ToolMessage)).content
     assert "not verified" in str(result)
-    assert '"cite": 1' in str(result)
+    assert '"cite":1' in str(result)
 
 
 async def test_a_question_gets_at_most_two_web_searches() -> None:
@@ -540,3 +540,11 @@ def test_several_records_in_one_bracket_are_each_cited() -> None:
     assert split_citation_groups("أشكال حقن [15-18]") == "أشكال حقن [15][16][17][18]"
     assert split_citation_groups("[2،3] و [4]") == "[2][3] و [4]"
     assert split_citation_groups("رقم [2024-11]") == "رقم [2024][11]"  # not a range: no expansion
+
+
+def test_a_tool_result_is_sent_to_the_model_without_spaces_or_empty_fields() -> None:
+    from pharmavique.assistant.infrastructure.langgraph_agent import _compact
+
+    text = _compact({"note": "n", "records": [{"cite": 1, "a": None, "b": "", "c": [], "d": 0}]})
+
+    assert text == '{"note":"n","records":[{"cite":1,"d":0}]}'

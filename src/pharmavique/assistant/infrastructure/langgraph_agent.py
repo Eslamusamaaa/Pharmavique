@@ -159,7 +159,11 @@ _REGISTER = re.compile(r"^[A-Za-z0-9-]{3,30}$")
 MAX_TOOL_CALLS = 8  # per question: enough for search, details, equivalents and documents
 MAX_QUERY = 200
 MAX_INTERACTION_PRODUCTS = 6
-MAX_DOCUMENT_TEXT = 1200  # characters of one passage given to the model
+# Every model call carries the whole conversation, tool results included, and Groq's free plan
+# allows 8,000 tokens a minute: six passages of 1,200 characters made one call 12,500 tokens, which
+# Groq refuses outright (2026-11-25), so the question went to a slow backup.
+MAX_DOCUMENTS = 4
+MAX_DOCUMENT_TEXT = 800  # characters of one passage given to the model
 MAX_WEB_SEARCHES = 2  # per question (ADR-017)
 MAX_WEB_QUERY = 120
 MAX_SITE_CHECKS = 2  # per question: the site is asked politely
@@ -228,7 +232,7 @@ class ToolBox:
             self.calls.append(ToolCall(name, False, _ms(started), 0))
             return json.dumps({"error": "this source is unavailable right now"})
         self.calls.append(ToolCall(name, True, _ms(started), len(records)))
-        output = json.dumps({"note": note, "records": records}, ensure_ascii=False)
+        output = _compact({"note": note, "records": records})
         self.evidence.append(output)
         return output
 
@@ -273,7 +277,7 @@ class ToolBox:
 
             async def work() -> list[dict[str, Any]]:
                 numbers = [_register(register_number)] if register_number.strip() else []
-                rows = await self._facts.documents(_query(query), numbers, 6)
+                rows = await self._facts.documents(_query(query), numbers, MAX_DOCUMENTS)
                 for row in rows:
                     row["text"] = str(row.get("text", ""))[:MAX_DOCUMENT_TEXT]
                 return self._cite(rows, "document")
@@ -387,6 +391,20 @@ class ToolBox:
             return await self._call("web_search", work, note=UNTRUSTED_WEB)
 
         return web_search
+
+
+def _compact(value: dict[str, Any]) -> str:
+    """The JSON a tool returns to the model, small: no spaces, no empty fields (every call repeats
+    it, and Groq's free plan counts tokens a minute)."""
+
+    def strip(item: Any) -> Any:
+        if isinstance(item, dict):
+            return {k: strip(v) for k, v in item.items() if v not in (None, "", [], {})}
+        if isinstance(item, list):
+            return [strip(v) for v in item]
+        return item
+
+    return json.dumps(strip(value), ensure_ascii=False, separators=(",", ":"))
 
 
 def _ms(started: float) -> int:
