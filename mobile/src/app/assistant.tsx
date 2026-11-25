@@ -45,7 +45,7 @@ import {
 import { askWithMyMedicines } from '@/api/me';
 import { HistoryCard } from '@/components/history-card';
 import { useAccount } from '@/state/auth';
-import { DisclaimerBar, Row, T } from '@/components/ui';
+import { DisclaimerBar, Row, T, TrustBadge } from '@/components/ui';
 import { roleInfo, useRole } from '@/state/role';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
@@ -472,6 +472,17 @@ function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; 
             </Pressable>
           ))}
         </View>
+      ) : null}
+      {answer.citations.length ? (
+        <Row gap={6} style={{ flexWrap: 'wrap' }}>
+          {Array.from(new Set(answer.citations.map((cite) => cite.trust_grade ?? 'unverified'))).map((grade) => (
+            <TrustBadge
+              key={grade}
+              grade={grade}
+              label={answer.citations.find((cite) => (cite.trust_grade ?? 'unverified') === grade)?.trust_label_ar}
+            />
+          ))}
+        </Row>
       ) : null}
       {answer.web && answer.grounded ? (
         <Row gap={4}>

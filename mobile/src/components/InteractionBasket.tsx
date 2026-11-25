@@ -17,7 +17,7 @@ import {
   type SearchHit,
 } from '@/api/client';
 import { DrugPicture } from '@/components/DrugPicture';
-import { Card, DisclaimerBar, Loading, Pill, Row, T } from '@/components/ui';
+import { Card, DisclaimerBar, Loading, Pill, Row, T, TrustBadge } from '@/components/ui';
 import { MAX_ITEMS, useSavedBasket, type BasketItem } from '@/state/basket';
 import { fonts, radius, useTheme } from '@/theme';
 
@@ -236,6 +236,7 @@ function FindingCard({ finding, name }: { finding: InteractionFinding; name: (re
     <Card style={{ gap: 8 }}>
       <Row style={{ justifyContent: 'space-between' }}>
         <Pill label={level.label} tone={level.tone} />
+        <TrustBadge grade={finding.trust_grade ?? 'unverified'} label={finding.trust_label_ar} />
       </Row>
       <T weight={700}>
         {name(finding.registers[0])} + {name(finding.registers[1])}

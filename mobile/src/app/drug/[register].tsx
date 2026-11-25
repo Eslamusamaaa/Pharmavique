@@ -39,7 +39,7 @@ import {
 import { arabicMeError, getAllergyCheck, getHistoryCheck, saveMedicine, type AllergyCheck, type HistoryCheck } from '@/api/me';
 import { HistoryCard } from '@/components/history-card';
 import { DrugPicture } from '@/components/DrugPicture';
-import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T } from '@/components/ui';
+import { Card, DisclaimerBar, H2, Loading, Message, Pill, Row, T, TrustBadge } from '@/components/ui';
 import { useAccount } from '@/state/auth';
 import { cardShadow, radius, useTheme } from '@/theme';
 
@@ -466,6 +466,12 @@ export default function DrugScreen() {
         {contra && contra.items.length > 0 ? (
           <View style={{ gap: 10 }}>
             <H2>حالات لا يُستخدم معها الدواء حسب نشرات الدواء</H2>
+            <Row gap={8} style={{ flexWrap: 'wrap' }}>
+              <TrustBadge grade={contra.items[0].trust_grade ?? 'unverified'} label={contra.items[0].trust_label_ar} />
+              <T size={12.5} color={c.ink2} style={{ flex: 1 }}>
+                من قاعدة MeDIC (نشرات أدوية أجنبية)، وما راجعها صيدلي. اسأل الصيدلي أو الطبيب.
+              </T>
+            </Row>
             <Row gap={8} style={{ flexWrap: 'wrap' }}>
               {Array.from(new Set(contra.items.map((i) => i.disease))).map((disease) => (
                 <Pill key={disease} tone="wn" label={disease} />

@@ -231,6 +231,9 @@ export function friendlyError(e: unknown): string {
 // ---- assistant, voice and scan --------------------------------------------------------------
 export type Level = 'patient' | 'pharmacist' | 'clinical';
 
+/** How far a piece of data can be trusted (ADR-020 trust grades, owner's decision 2026-11-25). */
+export type TrustGrade = 'official_sa' | 'official_foreign' | 'unverified';
+
 export type AssistantCitation = {
   number: number;
   source_id: string;
@@ -238,6 +241,8 @@ export type AssistantCitation = {
   url: string | null;
   kind: 'catalog' | 'document' | 'sfda_site' | 'web' | string;
   published: string | null;
+  trust_grade?: TrustGrade;
+  trust_label_ar?: string;
 };
 
 export type AssistantAnswer = {
@@ -402,6 +407,8 @@ export type InteractionFinding = {
   registers: [string, string];
   ingredients: [string, string];
   source: string | null;
+  trust_grade?: TrustGrade;
+  trust_label_ar?: string;
 };
 
 export type InteractionCheck = {
@@ -419,7 +426,14 @@ export function checkInteractions(registerNumbers: string[], signal?: AbortSigna
 
 export type Contraindications = {
   register_number: string;
-  items: { ingredient: string; disease: string; text: string; source: string }[]; // only conditions the label text itself names
+  items: {
+    ingredient: string;
+    disease: string;
+    text: string;
+    source: string;
+    trust_grade?: TrustGrade;
+    trust_label_ar?: string;
+  }[]; // only conditions the label text itself names
   hidden_unverified: number;
   complete: boolean; // always false: a missing record is never a clearance
   note: string;
@@ -427,4 +441,29 @@ export type Contraindications = {
 
 export function getContraindications(registerNumber: string, signal?: AbortSignal): Promise<Contraindications> {
   return getJson<Contraindications>(`/v1/interactions/contraindications/${encodeURIComponent(registerNumber)}`, signal);
+}
+
+export type SourceInfo = {
+  id: string;
+  name_ar: string;
+  name_en: string;
+  grade: TrustGrade;
+  grade_label_ar: string;
+  cadence_ar: string;
+  used_for_ar: string;
+  url: string | null;
+  records: number | null; // null: unknown, never zero
+  last_updated: string | null; // null: unknown
+};
+
+export type Sources = {
+  generated_at: string;
+  grades: { grade: TrustGrade; label_ar: string; label_en: string; meaning_ar: string }[];
+  sources: SourceInfo[];
+  disclaimer: string;
+};
+
+/** Every data source, its trust grade and when it was last updated (public). */
+export function getSources(signal?: AbortSignal): Promise<Sources> {
+  return getJson<Sources>('/v1/sources', signal);
 }

@@ -3,7 +3,8 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { InfoIcon } from '@/components/icons';
+import { router } from 'expo-router';
+import { CheckCircleIcon, InfoIcon, WarningIcon } from '@/components/icons';
 
 import { cardShadow, DISCLAIMER, fonts, radius, useTheme, type Weight } from '@/theme';
 
@@ -55,7 +56,39 @@ export function DisclaimerBar() {
       <T size={12.5} style={{ flex: 1, lineHeight: 20 }}>
         {DISCLAIMER}
       </T>
+      <Pressable onPress={() => router.push('/sources')} accessibilityRole="link" hitSlop={8}>
+        <T size={12.5} weight={700} color={c.pr}>
+          المصادر
+        </T>
+      </Pressable>
     </View>
+  );
+}
+
+const GRADE_TONE = { official_sa: 'ok', official_foreign: 'neutral', unverified: 'wn' } as const;
+const GRADE_LABEL = {
+  official_sa: 'رسمي سعودي',
+  official_foreign: 'مرجع رسمي أجنبي',
+  unverified: 'غير موثّق',
+} as const;
+
+/** The trust grade of a piece of data: always an icon and a word, never colour alone. */
+export function TrustBadge({ grade, label }: { grade: keyof typeof GRADE_TONE; label?: string }) {
+  const { c } = useTheme();
+  const tone = GRADE_TONE[grade] ?? 'wn';
+  const color = tone === 'ok' ? c.ok : tone === 'neutral' ? c.pr : c.wn;
+  return (
+    <Pill
+      tone={tone}
+      label={label ?? GRADE_LABEL[grade] ?? GRADE_LABEL.unverified}
+      icon={
+        tone === 'wn' ? (
+          <WarningIcon size={14} color={color} weight="fill" />
+        ) : (
+          <CheckCircleIcon size={14} color={color} weight="fill" />
+        )
+      }
+    />
   );
 }
 

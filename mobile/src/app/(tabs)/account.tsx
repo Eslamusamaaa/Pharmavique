@@ -108,6 +108,10 @@ export default function Account() {
               </Group>
             ) : null}
 
+            <Group title="عن البيانات">
+              <LinkRow label="آخر تحديث والمصادر" hint="مصدر كل معلومة ودرجة الثقة فيها" onPress={() => router.push('/sources')} last />
+            </Group>
+
             <Group title="الحساب">
               <LinkRow label="تسجيل الخروج" onPress={() => signOut()} />
               <LinkRow label="حذف الحساب" danger last onPress={confirmDelete} />
@@ -127,6 +131,7 @@ export default function Account() {
             <View style={{ alignSelf: 'stretch', gap: 12 }}>
               <PrimaryButton label="تسجيل الدخول أو إنشاء حساب" onPress={() => router.push('/sign-in')} />
               <PrimaryButton label="غيّر الدور" outline onPress={() => router.push('/role')} />
+              <PrimaryButton label="آخر تحديث والمصادر" outline onPress={() => router.push('/sources')} />
             </View>
             <T size={13} color={c.ink2} align="center">
               البحث وصفحات الأدوية تشتغل بدون حساب. الحساب للمساعد والتصوير والأدوية المحفوظة والتنبيهات.

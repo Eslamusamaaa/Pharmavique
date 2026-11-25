@@ -15,7 +15,7 @@ import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { extractDrugName } from '@/api/client';
-import { Row, T } from '@/components/ui';
+import { DisclaimerBar, Row, T } from '@/components/ui';
 import { useRecentActions } from '@/state/recents';
 import { useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
@@ -88,6 +88,7 @@ function VoiceSearchScreen() {
           بحث صوتي
         </T>
       </View>
+      <DisclaimerBar />
 
       <View style={styles.body}>
         <Pressable
