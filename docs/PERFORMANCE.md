@@ -50,6 +50,59 @@ Every request in these runs answered 200 (no errors, no 429).
   to `localhost` on Windows (the name resolves to IPv6 first). Use `127.0.0.1` in
   `PHARMAVIQUE_DATABASE_URL` and `PHARMAVIQUE_REDIS_URL` (the code already does this for Redis).
 
+## Production on Vercel, and the assistant (2026-11-25)
+
+The owner uses `https://pharmavique.vercel.app` (Vercel Hobby, fra1; Neon in Frankfurt; no Redis), so
+this round was measured there, from Egypt, with `curl` (TLS to fra1 is about 0.13 s of every request).
+
+### What was slow
+
+| What | Measured | Cause |
+|---|---|---|
+| First request to a fresh instance | 8.2 s (`/health`) | the function bundle was 327 MB, over Vercel's 250 MB standard size ("optimizing dependencies" in the build log), because `playwright` (about 117 MB with its driver) was a runtime dependency; then about 5 s of Python startup: 3.0 s of imports (LangChain, LangGraph and the OpenAI client 1.7 s of it) and 2.2 s of creating twelve HTTP clients that each loaded the certificate bundle (0.18 s each) |
+| Other requests to a fresh instance | 1 to 3.3 s (shortage, similar names, same ingredient) | the same cold start; these answers were not cached anywhere |
+| Warm requests | 0.21 to 0.32 s | fine: about 0.13 s of it is the connection |
+| Edge cache | 60 s | `Cache-Control: max-age=60` only |
+| Opening the app | a function call every time | the page shell was `no-store`, so it could wait for a cold start before anything showed |
+| Web scripts | 7.3 MB (1.4 MB compressed; Vercel compresses with brotli) | every one of the 9,263 phosphor icons was bundled: 3.3 MB of the 6 MB `__common` file |
+| Assistant | 29 s and 65 s on two of three questions; 4.8 s on the third | Groq's free plan allows 8,000 tokens a minute per model and one question takes 10,000 to 16,000 (every call repeats the 2,800-token prompt and all tool results), so the second or third call is refused and the question moves to Gemma on Cloudflare, which thought for 5 to 29 s a call. Six document passages made one call 12,500 tokens, which Groq refuses outright |
+
+### What changed
+
+- `playwright` is the optional `scraper` extra (`uv sync --all-extras`; the crawl workflows install it).
+- The language-model stack is imported on the first question, and the HTTP clients share one TLS
+  context. Local startup: about 5.2 s to 1.2 s. A test keeps those libraries out of the API's startup.
+- Public answers carry `s-maxage=600, stale-while-revalidate=86400`, and same-ingredient, shortage,
+  similar names, contraindications and compare go through the read cache too. The no-picture 404 is
+  kept for a day. The page shell is `max-age=0, must-revalidate, s-maxage=3600` (Vercel clears its
+  edge cache with every deployment).
+- Icons are imported one by one (`mobile/src/components/icons.ts`): web scripts 7.3 MB to 1.8 MB
+  (490 KB compressed).
+- Assistant: Groq's `gpt-oss-20b` (its own 8,000 tokens a minute) comes right after `gpt-oss-120b`;
+  Gemma runs with thinking off (a three-sentence answer 11.7 s to 2.5 s); tool results go to the model
+  as compact JSON, documents as four passages of 800 characters; the backup timeout is 25 s.
+
+### Assistant after the change (same six questions in a row, local API, real providers)
+
+| Question | Before | After |
+|---|---|---|
+| بديل أرخص لبنادول اكسترا | 29.1 s | 4.5 s |
+| what is augmentin 1g used for | 64.8 s | 8.2 s |
+| نقص اوزمبيك | 4.8 s | 11.3 s (Gemma, five calls) |
+| سعر كونكور 5 | (not run) | 4.3 s |
+| تداخل بروفين واسبرين | (not run) | 5.7 s |
+| بديل نيكسيوم 40 | (not run) | 9.5 s |
+
+All six answered with citations. Groq still runs out within a minute when questions follow each
+other; then Gemma answers in 1 to 8 s a call. A provider with a larger free token limit would remove
+most of the remaining wait (not set up: it needs a new key from the owner).
+
+### Not verified yet
+
+- The Vercel numbers after these changes: they need a deployment (push to `main`). Then measure the
+  cold start of `/health`, a search and a drug page again, and check the build log no longer says
+  "exceeds the standard size".
+
 ## Not measured yet
 
 - The assistant and the scan, which need model keys and cost money per call; use the jobs endpoints
