@@ -6,6 +6,7 @@ the image is read in memory and dropped. Jobs with a review state come with acco
 
 from pharmavique.recognition.application.ports import CandidateFinder, VisionReader
 from pharmavique.recognition.domain.scans import (
+    DEFAULT_MIN_SCORE,
     MAX_LINES,
     MAX_SHELF_LINES,
     UNCLEAR_DOSE,
@@ -13,6 +14,7 @@ from pharmavique.recognition.domain.scans import (
     LineResult,
     ScanKind,
     ScanResult,
+    assess,
 )
 from pharmavique.shared_kernel.text import normalize_text
 
@@ -22,9 +24,12 @@ CANDIDATES_PER_LINE = 3
 
 
 class ScanImage:
-    def __init__(self, reader: VisionReader, finder: CandidateFinder) -> None:
+    def __init__(
+        self, reader: VisionReader, finder: CandidateFinder, min_score: float = DEFAULT_MIN_SCORE
+    ) -> None:
         self._reader = reader
         self._finder = finder
+        self._min_score = min_score
 
     async def run(self, image: bytes, media_type: str, kind: ScanKind) -> ScanResult:
         if not image or len(image) > MAX_IMAGE_BYTES:
@@ -39,7 +44,8 @@ class ScanImage:
         for line in lines[:limit]:
             candidates = await self._finder.find(line.query(), CANDIDATES_PER_LINE)
             dose = UNCLEAR_DOSE if kind is ScanKind.PRESCRIPTION else None
-            results.append(LineResult(line, tuple(candidates), dose))
+            found = tuple(candidates)
+            results.append(LineResult(line, found, dose, confidence=assess(found, self._min_score)))
         return ScanResult(kind, tuple(results))
 
 

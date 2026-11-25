@@ -4,7 +4,7 @@ import logging
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from pharmavique.foundation.db.url import to_asyncpg_url
@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # pharmacist's confirmation and shows its match score. Its accuracy on real shelf photos is
     # unmeasured (Q-32, see docs/SCAN_EVALUATION.md); set to false to switch it off.
     shelf_scan_enabled: bool = True
+    # How well the best registry name must match a name read from a photo for the line to count as
+    # "confident"; below it the app asks the person to confirm or retake the photo. Untuned on real
+    # photos (docs/SCAN_EVALUATION.md); 0 to 1.
+    scan_min_score: float = Field(default=0.9, ge=0.0, le=1.0)
 
     # Email (verification codes, notification digests). "console" prints messages instead of
     # sending them and is for development only; "smtp" sends through any provider that offers SMTP.

@@ -4,10 +4,13 @@ import pytest
 
 from pharmavique.recognition.application.scan import MAX_IMAGE_BYTES, ScanImage
 from pharmavique.recognition.domain.scans import (
+    DEFAULT_MIN_SCORE,
     UNCLEAR_DOSE,
     ExtractedLine,
+    LineConfidence,
     MatchCandidate,
     ScanKind,
+    assess,
 )
 
 
@@ -125,3 +128,59 @@ async def test_the_same_name_with_another_strength_is_another_box() -> None:
     )
     result = await ScanImage(reader, FakeFinder()).run(PNG, "image/png", ScanKind.SHELF)
     assert len(result.lines) == 2
+
+
+# ---- confidence: ask the person instead of guessing --------------------------------------------
+
+
+def candidate(score: float) -> MatchCandidate:
+    return MatchCandidate("1-1", "بانادول", "PANADOL", score)
+
+
+def test_no_candidate_is_never_confident() -> None:
+    assert assess((), 0.0) is LineConfidence.UNCERTAIN
+
+
+def test_a_name_that_matches_almost_exactly_is_confident() -> None:
+    assert assess((candidate(0.95), candidate(0.5)), 0.9) is LineConfidence.CONFIDENT
+
+
+def test_a_weak_name_match_is_uncertain() -> None:
+    assert assess((candidate(0.7),), 0.9) is LineConfidence.UNCERTAIN
+
+
+def test_the_threshold_itself_counts_as_confident() -> None:
+    assert assess((candidate(0.9),), 0.9) is LineConfidence.CONFIDENT
+
+
+async def test_each_line_says_whether_the_name_was_matched_with_confidence() -> None:
+    class Finder:
+        async def find(self, query: str, limit: int) -> list[MatchCandidate]:
+            return [candidate(0.97 if "Panadol" in query else 0.4)]
+
+    reader = FakeReader(
+        [
+            ExtractedLine("Panadol", "Panadol", None, None),
+            ExtractedLine("Zorvex", "Zorvex", None, None),
+        ]
+    )
+
+    result = await ScanImage(reader, Finder(), min_score=0.9).run(PNG, "image/png", ScanKind.BOX)
+
+    assert [r.confidence for r in result.lines] == [
+        LineConfidence.CONFIDENT,
+        LineConfidence.UNCERTAIN,
+    ]
+    assert all(r.needs_review for r in result.lines)  # confident or not, a person confirms
+
+
+async def test_without_a_threshold_given_the_default_is_used() -> None:
+    class Finder:
+        async def find(self, query: str, limit: int) -> list[MatchCandidate]:
+            return [candidate(DEFAULT_MIN_SCORE - 0.01)]
+
+    result = await ScanImage(FakeReader([ExtractedLine("x", "Panadol", None, None)]), Finder()).run(
+        PNG, "image/png", ScanKind.BOX
+    )
+
+    assert result.lines[0].confidence is LineConfidence.UNCERTAIN

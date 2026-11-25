@@ -33,3 +33,19 @@ def test_cloudflare_is_configured_only_with_both_a_token_and_an_account(
     assert settings.cloudflare_base_url == (
         "https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1"
     )
+
+
+def test_the_scan_confidence_threshold_defaults_to_the_domain_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PHARMAVIQUE_SCAN_MIN_SCORE", raising=False)
+    assert Settings(_env_file=None).scan_min_score == 0.9
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.5"])
+def test_a_scan_threshold_outside_zero_to_one_is_refused(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("PHARMAVIQUE_SCAN_MIN_SCORE", value)
+    with pytest.raises(ValueError, match="scan_min_score"):
+        Settings(_env_file=None)

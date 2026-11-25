@@ -33,6 +33,9 @@ class LineOut(BaseModel):
     form: str | None
     dose: str | None  # "غير واضح" on prescriptions: the pharmacist confirms; never a read value
     needs_review: bool
+    # "uncertain": the name was not matched with confidence; the app shows the closest names and a
+    # retake option instead of guessing (a person confirms every line either way)
+    confidence: str
     candidates: list[CandidateOut]
 
 
@@ -103,6 +106,7 @@ def scan_out(result: ScanResult) -> ScanOut:
                 form=r.line.form,
                 dose=r.dose,
                 needs_review=r.needs_review,
+                confidence=r.confidence.value,
                 candidates=[
                     CandidateOut(
                         register_number=c.register_number,

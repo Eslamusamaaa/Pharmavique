@@ -40,6 +40,7 @@ async def test_a_prescription_photo_returns_lines_to_review() -> None:
     (line,) = body["lines"]
     assert line["dose"] == "غير واضح"
     assert line["needs_review"] is True
+    assert line["confidence"] == "uncertain"  # 0.812 is below the default threshold
     assert line["candidates"][0] == {
         "register_number": "1-1",
         "trade_name_ar": "بانادول اكسترا",

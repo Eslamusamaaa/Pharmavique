@@ -265,7 +265,11 @@ def build_scanner(
         )
     if not readers:
         return None
-    return ScanImage(FallbackVisionReader(readers), SearchCandidateFinder(search, catalog))
+    return ScanImage(
+        FallbackVisionReader(readers),
+        SearchCandidateFinder(search, catalog),
+        min_score=settings.scan_min_score,
+    )
 
 
 def build_assistant(
