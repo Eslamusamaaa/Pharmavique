@@ -63,3 +63,4 @@ Thumbs.db
 
 # Real photos used to measure the scans stay on this machine (they can show people).
 /data/eval/
+/data/loadtest/
