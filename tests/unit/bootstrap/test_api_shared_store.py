@@ -211,3 +211,16 @@ async def test_the_voice_link_store_survives_an_outage_on_one_instance() -> None
     key = await audio.put(b"x", "audio/wav")
 
     assert await audio.take(key) == (b"x", "audio/wav")
+
+
+async def test_a_public_answer_may_stay_at_the_edge_and_be_refreshed_in_the_background() -> None:
+    # On Vercel there is no shared store: the CDN is the cache, and it keeps the answer for ten
+    # minutes, then serves the old copy while it fetches a new one (no cold start in between).
+    client, _ = await make_app(None)
+    async with client:
+        response = await client.get("/v1/search", params={"q": "panadol"})
+
+    cache_control = response.headers["cache-control"]
+    assert "max-age=60" in cache_control
+    assert "s-maxage=600" in cache_control
+    assert "stale-while-revalidate=86400" in cache_control
