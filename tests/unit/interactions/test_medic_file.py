@@ -3,6 +3,8 @@
 import zipfile
 from pathlib import Path
 
+import pytest
+
 from pharmavique.interactions.infrastructure.medic import read_contraindications
 
 HEAD = [
@@ -79,3 +81,22 @@ def test_the_same_ingredient_and_disease_is_kept_once_and_unfinished_rows_are_sk
     assert [(r.ingredient, r.disease, r.text) for r in records] == [
         ("metolazone", "anuria", "Text one.")
     ]
+
+
+def test_a_sheet_that_declares_entities_is_refused(tmp_path: Path) -> None:
+    """An entity declaration is how an XML bomb is built: a downloaded file must not be able to use
+    one, even though our own download is trusted today (bandit B314)."""
+    sheet = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE worksheet [<!ENTITY a "aaaaaaaaaa">]>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        '<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>&a;</t></is></c></row></sheetData>'
+        "</worksheet>"
+    )
+    file = tmp_path / "bomb.xlsx"
+    with zipfile.ZipFile(file, "w") as archive:
+        archive.writestr("[Content_Types].xml", CONTENT_TYPES)
+        archive.writestr("xl/worksheets/sheet1.xml", sheet)
+
+    with pytest.raises(ValueError, match=r"[Ee]ntit"):
+        read_contraindications(file)

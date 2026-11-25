@@ -7,9 +7,10 @@ reads it: no spreadsheet package is needed.
 """
 
 import re
-import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
+
+from defusedxml import ElementTree as SafeET
 
 from pharmavique.interactions.domain.names import base_key
 from pharmavique.interactions.domain.records import ContraindicationRecord
@@ -22,8 +23,9 @@ _COLUMN = re.compile(r"[A-Z]+")
 def _rows(path: Path) -> list[dict[str, str]]:
     """Every row of the first sheet as {header: text}."""
     with zipfile.ZipFile(path) as archive:
-        # our own download of a public release file, not user input
-        sheet = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))  # noqa: S314
+        # our own download of a public release file, but parsed as if it were not: entity
+        # declarations (how an XML bomb is built) are refused
+        sheet = SafeET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
     table: list[dict[str, str]] = []
     for row in sheet.iter(f"{_MAIN}row"):
         cells: dict[str, str] = {}

@@ -22,6 +22,8 @@ dependencies = [
     "python-multipart>=0.0.34",
     "pyjwt>=2.8",
     "pillow>=13.0.0",
+    "defusedxml>=0.7.1",
+    "sentry-sdk[fastapi]>=2.20,<3",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +43,12 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "import-linter>=2.0",
+    "pip-audit>=2.10.1",
+    "bandit>=1.9.4",
+    "types-defusedxml>=0.7.0.20260504",
+]
+load = [
+    "locust>=2.47.0",
 ]
 
 [build-system]
@@ -74,6 +82,17 @@ ignore = ["N818"]
 "**/migrations/versions/*.py" = ["N999"]
 "migrations/env.py" = ["INP001"]
 
+# ---------------------------------------------------------------- bandit (CI: `bandit -c pyproject.toml -r src scripts -ll`)
+# Only findings of medium severity or higher fail the build; the low ones (asserts, `except: continue`,
+# the `random` module) are the same checks as ruff's S rules, which CI already enforces with a reasoned
+# `noqa` on each site.
+[tool.bandit]
+# B608 (SQL built from a string) is ruff's S608, enforced in CI: every f-string query here only
+# interpolates constants (schema, table and column names written in the code), never user input, and
+# carries a `noqa: S608`. Skipping it here avoids a second, unreadable marker on the same lines.
+skips = ["B608"]
+exclude_dirs = ["tests", "scripts/tools"]
+
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
 python_version = "3.12"
@@ -84,6 +103,11 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 check_untyped_defs = true
 no_implicit_optional = true
+
+# Locust is only installed for load tests (`--group load`), not in CI's type check.
+[[tool.mypy.overrides]]
+module = ["locust", "locust.*"]
+ignore_missing_imports = true
 
 # Strict where the brief requires it: domain and application, plus the published language.
 [[tool.mypy.overrides]]

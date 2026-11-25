@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # a new vulnerability can be published for a dependency that did not change: look weekly
+  schedule:
+    - cron: "41 5 * * 1"
 
 permissions:
   contents: read
@@ -35,3 +38,31 @@ jobs:
 
       - name: Tests
         run: uv run pytest -m "not integration" --cov --cov-report=term-missing
+
+  # Security gates (owner's decision, 2026-11-25): any finding stops the build. Fix it, or write the
+  # exception down with its reason (`[tool.bandit]` in pyproject.toml, `.gitleaksignore`).
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # the secret scan reads the whole history
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Code scan (bandit, medium severity and above)
+        run: uv run bandit -c pyproject.toml -r src scripts -ll -q
+
+      - name: Known vulnerabilities in the locked dependencies (pip-audit)
+        run: |
+          uv export --frozen --no-hashes --all-extras --no-emit-project -o requirements-audit.txt
+          uv run pip-audit -r requirements-audit.txt --no-deps --disable-pip
+
+      - name: Secrets in the code and its history (gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.28.0             git /repo --no-banner --redact --log-opts="--all"
