@@ -131,15 +131,21 @@ class LasaIndex:
         self._normalized: dict[str, str] = {}
         self._keys: dict[str, str] = {}
         self._trigrams: dict[str, frozenset[str]] = {}
+        # about half the products share their brand with another strength or pack: each brand is
+        # normalized once
+        seen: dict[str, tuple[str, str, frozenset[str], bool]] = {}
         for register_number, brand in brands:
-            text = normalize_text(brand)
+            if brand not in seen:
+                text = normalize_text(brand)
+                seen[brand] = (text, phonetic_key(text), trigrams(text), _is_arabic(text))
+            text, key, grams, arabic = seen[brand]
             if not text:
                 continue
             self._brand[register_number] = brand
             self._normalized[register_number] = text
-            self._keys[register_number] = phonetic_key(text)
-            self._trigrams[register_number] = trigrams(text)
-            self._script_groups[_is_arabic(text)].append(register_number)
+            self._keys[register_number] = key
+            self._trigrams[register_number] = grams
+            self._script_groups[arabic].append(register_number)
 
     def __len__(self) -> int:
         return len(self._brand)
