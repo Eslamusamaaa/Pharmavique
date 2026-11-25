@@ -7,6 +7,7 @@ machine and fails at start-up there (Pillow did: `ModuleNotFoundError: No module
 
 import ast
 import re
+import subprocess
 import sys
 import tomllib
 from importlib import metadata
@@ -98,3 +99,16 @@ def test_an_optional_extra_is_imported_only_by_its_listed_modules() -> None:
             f"{module} is an optional extra, imported in {sorted(used - allowed)}"
         )
 
+
+def test_the_api_starts_without_the_heavy_libraries() -> None:
+    """A cold start on Vercel imports the API: the crawler's browser and the language-model stack
+    (about 1.7 s) load on the first question, never at startup."""
+    heavy = ["playwright", "langchain_openai", "langchain_core", "langgraph", "openai", "bs4"]
+    code = (
+        "import sys; import pharmavique.bootstrap.api; "
+        f"print(','.join(m for m in {heavy!r} if m in sys.modules))"
+    )
+    loaded = subprocess.run(  # noqa: S603 (our own interpreter and code)
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True, cwd=ROOT
+    ).stdout.strip()
+    assert loaded == "", f"imported at API startup: {loaded}"

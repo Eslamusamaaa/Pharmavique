@@ -2,19 +2,27 @@
 
 Every builder returns None when its key is missing, so the API still starts and only that feature
 answers 503. Keys never leave this module except in the provider's own Authorization header.
+
+LangChain, LangGraph and the OpenAI client take about 1.7 s to import, most of a cold start on
+Vercel. They are imported on the first question (`_LazyAgentRunner`, `_LazyNameExtractor`), never
+at startup, so a search or a drug page on a fresh instance does not wait for them.
 """
 
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.assistant.application.ask import AskAssistant
-from pharmavique.assistant.application.ports import AssistantObserver
-from pharmavique.assistant.infrastructure.cloudflare_chat import CloudflareChatOpenAI
-from pharmavique.assistant.infrastructure.fallback_model import FallbackChatModel
-from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
+from pharmavique.assistant.application.ports import (
+    AgentRun,
+    AgentRunner,
+    AssistantObserver,
+    SfdaSiteLookup,
+)
+from pharmavique.assistant.domain.answers import Level
+from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
-from pharmavique.assistant.infrastructure.sfda_site import SfdaSiteSearch
 from pharmavique.assistant.infrastructure.web_search import TavilyWebSearch
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
@@ -40,12 +48,14 @@ from pharmavique.recognition.infrastructure.openai_vision import (
 )
 from pharmavique.search.contracts.queries import ProductSearch
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
-from pharmavique.voice.application.ports import SpeechToText, TextToSpeech
+from pharmavique.voice.application.ports import DrugNameExtractor, SpeechToText, TextToSpeech
 from pharmavique.voice.application.speak import Speak, Transcribe
 from pharmavique.voice.infrastructure.cloudflare_speech import CloudflareSpeechToText
 from pharmavique.voice.infrastructure.elevenlabs_speech import ElevenLabsTextToSpeech
 from pharmavique.voice.infrastructure.groq_speech import GroqSpeechToText, GroqTextToSpeech
-from pharmavique.voice.infrastructure.llm_name import LlmDrugNameExtractor
+
+if TYPE_CHECKING:
+    from pharmavique.voice.infrastructure.llm_name import LlmDrugNameExtractor
 
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -80,6 +90,18 @@ def build_embedder(settings: Settings) -> FallbackEmbedder | None:
     return FallbackEmbedder(embedders) if embedders else None
 
 
+def has_chat_model(settings: Settings) -> bool:
+    """Whether `build_chat_model` would build a model, without importing LangChain."""
+    first = (
+        settings.groq_api_key if settings.llm_provider == "groq" else settings.openrouter_api_key
+    )
+    return (
+        first is not None
+        or settings.cloudflare_base_url is not None
+        or (settings.openrouter_api_key is not None and bool(settings.llm_backup_models))
+    )
+
+
 def build_chat_model(settings: Settings) -> Any | None:
     """A LangChain chat model with tool calling, over an OpenAI-compatible endpoint.
 
@@ -88,6 +110,9 @@ def build_chat_model(settings: Settings) -> Any | None:
     8,000 tokens a minute, about one answer, so the backups carry the rest.
     """
     from langchain_openai import ChatOpenAI  # imported here: only the API process needs it
+
+    from pharmavique.assistant.infrastructure.cloudflare_chat import CloudflareChatOpenAI
+    from pharmavique.assistant.infrastructure.fallback_model import FallbackChatModel
 
     if settings.llm_provider == "groq":
         key, base_url = settings.groq_api_key, GROQ_BASE_URL
@@ -139,10 +164,24 @@ def build_chat_model(settings: Settings) -> Any | None:
     return FallbackChatModel(*models)
 
 
-def build_name_extractor(settings: Settings) -> LlmDrugNameExtractor | None:
+class _LazyNameExtractor:
+    """Implements `DrugNameExtractor`: the model is built (and LangChain imported) on first use."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._inner: LlmDrugNameExtractor | None = None
+
+    async def extract(self, text: str) -> str | None:
+        if self._inner is None:
+            from pharmavique.voice.infrastructure.llm_name import LlmDrugNameExtractor
+
+            self._inner = LlmDrugNameExtractor(build_chat_model(self._settings))
+        return await self._inner.extract(text)
+
+
+def build_name_extractor(settings: Settings) -> DrugNameExtractor | None:
     """The model that picks the drug name out of a spoken request; None without a key."""
-    model = build_chat_model(settings)
-    return None if model is None else LlmDrugNameExtractor(model)
+    return _LazyNameExtractor(settings) if has_chat_model(settings) else None
 
 
 def build_tts(settings: Settings) -> list[TextToSpeech]:
@@ -223,8 +262,7 @@ def build_assistant(
     equivalence: EquivalenceQueries,
     observer: AssistantObserver | None = None,
 ) -> AskAssistant | None:
-    model = build_chat_model(settings)
-    if model is None:
+    if not has_chat_model(settings):
         return None
     passages = RetrievePassages(PostgresPassageSearch(session_factory), build_embedder(settings))
     interactions = CheckInteractions(PostgresInteractionStore(session_factory))
@@ -250,9 +288,35 @@ def build_assistant(
         if settings.tavily_api_key is not None
         else None
     )
-    site = SfdaSiteSearch() if settings.sfda_site_check else None
-    return AskAssistant(
-        LangGraphAgentRunner(model, facts, web=web, site=site),
-        detector=detector,
-        observer=observer,
-    )
+
+    def runner() -> AgentRunner:
+        from pharmavique.assistant.infrastructure.langgraph_agent import LangGraphAgentRunner
+        from pharmavique.assistant.infrastructure.sfda_site import SfdaSiteSearch
+
+        site: SfdaSiteLookup | None = SfdaSiteSearch() if settings.sfda_site_check else None
+        return LangGraphAgentRunner(build_chat_model(settings), facts, web=web, site=site)
+
+    return AskAssistant(_LazyAgentRunner(runner), detector=detector, observer=observer)
+
+
+class _LazyAgentRunner:
+    """Implements `AgentRunner`: the LangGraph runner is built on the first question."""
+
+    def __init__(self, build: Callable[[], AgentRunner]) -> None:
+        self._build = build
+        self._inner: AgentRunner | None = None
+
+    async def run(
+        self,
+        question: str,
+        level: Level,
+        register_number: str | None,
+        *,
+        spoken: bool = False,
+        history: Sequence[Turn] = (),
+    ) -> AgentRun:
+        if self._inner is None:
+            self._inner = self._build()
+        return await self._inner.run(
+            question, level, register_number, spoken=spoken, history=history
+        )
