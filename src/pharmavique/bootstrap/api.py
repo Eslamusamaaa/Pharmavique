@@ -35,6 +35,7 @@ from pharmavique.bootstrap import (
     api_shelf,
     api_shortage,
     api_voice,
+    features,
     health,
     observability,
 )
@@ -331,6 +332,7 @@ def create_app(
             allow_headers=["*"],
         )
     app.include_router(health.router)
+    app.include_router(features.router)
     app.include_router(observability.router)
     app.include_router(api_auth.router)
     app.include_router(api_drugs.router)

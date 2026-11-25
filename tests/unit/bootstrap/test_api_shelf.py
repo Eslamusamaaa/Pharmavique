@@ -130,7 +130,7 @@ async def test_the_features_endpoint_says_whether_the_shelf_scan_is_on() -> None
         client, _ = make(enabled)
         async with client:
             body = (await client.get("/v1/features")).json()
-        assert body == {"shelf_scan": enabled}
+        assert body["shelf_scan"] is enabled
 
 
 async def test_a_switched_off_shelf_scan_refuses_everyone() -> None:

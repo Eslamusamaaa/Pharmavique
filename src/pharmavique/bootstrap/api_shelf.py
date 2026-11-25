@@ -1,4 +1,4 @@
-"""A pharmacist's shelf list, and which optional features this server has switched on.
+"""A pharmacist's shelf list (which optional features are on: `bootstrap.features`).
 
 The shelf scan only proposes boxes; a medicine joins the list when the pharmacist confirms it. The
 list says which medicines they shelve: no counts, nothing about stock. For pharmacist accounts only.
@@ -33,10 +33,6 @@ def get_shelf(request: Request) -> ShelfService:
 Shelf = Annotated[ShelfService, Depends(get_shelf)]
 
 
-class FeaturesOut(BaseModel):
-    shelf_scan: bool  # the pharmacist's shelf scan is switched on
-
-
 class ConfirmIn(BaseModel):
     register_numbers: list[str] = Field(min_length=1, max_length=MAX_CONFIRM)
 
@@ -61,11 +57,6 @@ class ShelfOut(BaseModel):
         "nothing about stock."
     )
     disclaimer: str = DISCLAIMER
-
-
-@router.get("/v1/features", response_model=FeaturesOut, summary="Optional features of this server")
-async def features(request: Request) -> FeaturesOut:
-    return FeaturesOut(shelf_scan=bool(request.app.state.shelf_scan_enabled))
 
 
 @router.get("/v1/me/shelf", response_model=ShelfOut, summary="My shelf list (pharmacists)")
