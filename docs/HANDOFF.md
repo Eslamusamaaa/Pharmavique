@@ -85,6 +85,7 @@ Arabia first, Egypt as a pluggable adapter. Modular monolith, DDD, onion archite
 
 ```powershell
 docker compose up -d db redis
+docker compose --profile mail up -d mailpit   # optional: local mail catcher, mail at http://127.0.0.1:8025
 uv sync --all-extras                          # playwright (the crawler) is the optional `scraper` extra
 uv run alembic upgrade heads                  # note: heads (one per context; search is at search_0002)
 uv run uvicorn pharmavique.bootstrap.api:create_app --factory --port 8000

@@ -36,6 +36,17 @@ services:
       timeout: 3s
       retries: 10
 
+  # Local mail catcher for development: it accepts every message and keeps it, so no email ever
+  # leaves the machine. Start it with `docker compose --profile mail up -d mailpit`, point the API
+  # at it (see .env.example) and read the mail at http://127.0.0.1:8025.
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    profiles: ["mail"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
   # The product pictures are not in git: this data-only image copies them into the `mediadata`
   # volume and exits (docker/media/Dockerfile, scripts/build_media_image.sh).
   media:

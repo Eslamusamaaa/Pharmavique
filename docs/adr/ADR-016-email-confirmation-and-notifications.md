@@ -60,3 +60,13 @@ visible only inside the app, so a withdrawn medicine could be missed.
   code 400, right code 200, a digest for a real product's price change, nothing sent on a second run,
   unsubscribe, deletion. That run found and fixed two faults: the console sender crashed printing
   Arabic on a Windows console, and an unexpected sender error surfaced as a server error.
+
+## Update 2026-11-25: local mail catcher
+
+Development can send real SMTP into Mailpit (`docker compose --profile mail up -d mailpit`, SMTP on
+127.0.0.1:1025, mail read at http://127.0.0.1:8025; `.env.example` has the four settings). Nothing leaves
+the machine. `tests/integration/test_mail_catcher.py` sends the verification email and an Arabic email
+with an unsubscribe header through the real adapter and reads them back; it is skipped when the catcher
+is not running. The confirm, resend, lock-out and expiry rules are covered by `tests/unit/identity` and
+`tests/unit/bootstrap/test_api_auth.py`.
+
