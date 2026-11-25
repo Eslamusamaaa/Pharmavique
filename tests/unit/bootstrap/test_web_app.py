@@ -59,7 +59,7 @@ def test_a_missing_file_with_an_extension_is_a_404_not_the_shell(site: Path) -> 
     assert web.get("/icon-nobody-made.png").status_code == 404
 
 
-def test_the_app_shell_is_never_cached_and_never_answered_with_304(site: Path) -> None:
+def test_the_app_shell_is_never_kept_by_a_browser_and_never_answered_with_304(site: Path) -> None:
     # Vercel gives every file the same modification date, so an ETag (date + size) of a new
     # index.html can equal the old one. A browser then got "304 not modified", kept the old page
     # and asked for scripts that no longer exist: a blank screen after every deployment.
@@ -70,7 +70,12 @@ def test_the_app_shell_is_never_cached_and_never_answered_with_304(site: Path) -
     for address in ("/", "/drug/1-1", "/manifest.webmanifest"):
         answer = web.get(address, headers={"If-None-Match": etag})
         assert answer.status_code == 200, address
-        assert answer.headers["cache-control"] == "no-store", address
+        cache_control = answer.headers["cache-control"]
+        # the browser asks again every time; only the edge keeps it, and Vercel clears its edge
+        # cache with every deployment, so opening the app does not wait for a cold start
+        assert "max-age=0" in cache_control, address
+        assert "must-revalidate" in cache_control, address
+        assert "s-maxage=3600" in cache_control, address
         # no validator at all: the host's edge compares a request's If-None-Match with the ETag
         # of a response and answers 304 itself, whatever the application returned
         assert "etag" not in answer.headers, address

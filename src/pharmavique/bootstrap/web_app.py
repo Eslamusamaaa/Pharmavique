@@ -16,9 +16,13 @@ from starlette.types import Scope
 
 # The export names every script, font and picture after its content, so those never change under
 # one address and can be kept for a year. Everything else (the page shell, the manifest, the home
-# screen icons) can change under the same address and is never cached.
+# screen icons) can change under the same address: a browser never keeps it, but the edge of a host
+# may for an hour. On Vercel every request the edge cannot answer runs the Python function, which
+# may be a cold start of seconds before the app shows; Vercel clears its edge cache with every
+# deployment, so the shell there never outlives the scripts it names.
 _HASHED_FOLDERS = ("_expo/static/", "assets/")
 _IMMUTABLE = "public, max-age=31536000, immutable"
+_SHELL = "public, max-age=0, must-revalidate, s-maxage=3600"
 _CONDITIONAL = (b"if-none-match", b"if-modified-since")
 
 
@@ -48,7 +52,7 @@ class SinglePageStaticFiles(StaticFiles):
         if hashed:
             response.headers["Cache-Control"] = _IMMUTABLE
         else:
-            response.headers["Cache-Control"] = "no-store"
+            response.headers["Cache-Control"] = _SHELL
             # No validators: a host's edge compares If-None-Match with the ETag of a response
             # and answers 304 on its own, even when the application sent the full file.
             for validator in ("etag", "last-modified"):
