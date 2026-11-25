@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     # The assistant's language model (needs tool calling).
     llm_provider: Literal["groq", "openrouter"] = "groq"
     llm_model: str = "openai/gpt-oss-120b"
+    # Groq's second model, tried right after the first. Groq's free plan allows 8,000 tokens a
+    # minute per model (the response headers say so for both) and one question takes 10,000 to
+    # 16,000, so the first model is often rate limited; this one has its own 8,000 and answers in
+    # about a second a call, where the Cloudflare backup took 5 to 29 s a call (measured
+    # 2026-11-25). Empty: none.
+    groq_backup_model: str = "openai/gpt-oss-20b"
     # The assistant's backup on Cloudflare Workers AI, used when the first model is rate limited or
     # slow. Measured on four real questions (2026-11-22): Gemma 4 answered all four correctly with
     # citations (31 to 42 s each); gpt-oss-120b there answered one of four (the rest came back

@@ -25,10 +25,18 @@ def test_without_a_key_there_is_no_model(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_groq_alone_is_a_plain_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    model = build_chat_model(settings(monkeypatch, {"GROQ_API_KEY": "g"}))
+    model = build_chat_model(settings(monkeypatch, {"GROQ_API_KEY": "g", "GROQ_BACKUP_MODEL": ""}))
 
     assert model is not None
     assert not isinstance(model, FallbackChatModel)
+
+
+def test_groq_s_second_model_backs_up_the_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    # each Groq model has its own 8,000 tokens a minute, and answers in about a second a call
+    model = build_chat_model(settings(monkeypatch, {"GROQ_API_KEY": "g"}))
+
+    assert isinstance(model, FallbackChatModel)
+    assert model.model_names == ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 
 
 def test_cloudflare_becomes_the_backup_of_groq(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,11 +123,12 @@ def test_every_free_model_with_a_key_joins_the_chain(monkeypatch: pytest.MonkeyP
     assert isinstance(model, FallbackChatModel)
     assert model.model_names == [
         "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
         "@cf/google/gemma-4-26b-a4b-it",
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "google/gemma-4-31b-it:free",
     ]
-    assert all(name.endswith(":free") for name in model.model_names[2:])
+    assert all(name.endswith(":free") for name in model.model_names[3:])
 
 
 def test_the_embedder_has_openrouter_as_its_backup(monkeypatch: pytest.MonkeyPatch) -> None:

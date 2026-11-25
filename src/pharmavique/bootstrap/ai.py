@@ -130,6 +130,18 @@ def build_chat_model(settings: Settings) -> Any | None:
                 max_retries=0,  # hand over to the backup at once
             )
         )
+        backup = settings.groq_backup_model
+        if settings.llm_provider == "groq" and backup and backup != settings.llm_model:
+            models.append(
+                ChatOpenAI(
+                    model=backup,
+                    base_url=base_url,
+                    api_key=key,
+                    temperature=0,
+                    timeout=60,
+                    max_retries=0,
+                )
+            )
     cloudflare_url = settings.cloudflare_base_url
     if cloudflare_url is not None:
         models.append(
