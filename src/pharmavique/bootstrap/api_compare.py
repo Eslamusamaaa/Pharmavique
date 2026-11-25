@@ -7,7 +7,7 @@ recommends choosing one drug over the other.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_drugs import (
@@ -20,6 +20,7 @@ from pharmavique.bootstrap.api_drugs import (
     get_details,
     get_equivalence,
 )
+from pharmavique.bootstrap.cached_response import cached_json
 from pharmavique.catalog.contracts.queries import CatalogDetails, ProductDetails
 from pharmavique.shared_kernel.market import Market
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
@@ -99,25 +100,29 @@ def _differences(a: CompareSideOut, b: CompareSideOut) -> list[str]:
     summary="Two drugs side by side, with the computed equivalence verdict",
 )
 async def compare(
+    request: Request,
     a: Annotated[str, Query(min_length=1, max_length=40, description="register number")],
     b: Annotated[str, Query(min_length=1, max_length=40, description="register number")],
     details_backend: Annotated[CatalogDetails, Depends(get_details)],
     equivalence: Annotated[EquivalenceQueries, Depends(get_equivalence)],
     market: Market = Market.SA,
-) -> CompareOut:
-    if a == b:
-        raise HTTPException(status_code=400, detail="choose two different drugs")
-    first = await details_backend.get_details(market, a)
-    second = await details_backend.get_details(market, b)
-    if first is None or second is None:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    verdict = equivalence.compare(_facts(first), [_facts(second)])[0]
-    left, right = _side(first), _side(second)
-    return CompareOut(
-        a=left,
-        b=right,
-        verdict=verdict.verdict,
-        strength=verdict.strength,
-        form_family=verdict.form_family,
-        differences=_differences(left, right),
-    )
+) -> Response:
+    async def compute() -> CompareOut:
+        if a == b:
+            raise HTTPException(status_code=400, detail="choose two different drugs")
+        first = await details_backend.get_details(market, a)
+        second = await details_backend.get_details(market, b)
+        if first is None or second is None:
+            raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        verdict = equivalence.compare(_facts(first), [_facts(second)])[0]
+        left, right = _side(first), _side(second)
+        return CompareOut(
+            a=left,
+            b=right,
+            verdict=verdict.verdict,
+            strength=verdict.strength,
+            form_family=verdict.form_family,
+            differences=_differences(left, right),
+        )
+
+    return await cached_json(request, "compare", [a, b, market.value], compute)

@@ -465,17 +465,23 @@ async def same_ingredient_results(
     summary="Products with the same active ingredients, cheapest first, with a computed verdict",
 )
 async def same_ingredient(
+    request: Request,
     register_number: str,
     details_backend: Annotated[CatalogDetails, Depends(get_details)],
     equivalence: Annotated[EquivalenceQueries, Depends(get_equivalence)],
     market: Market = Market.SA,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
-) -> SameIngredientListOut:
-    results = await same_ingredient_results(
-        details_backend, equivalence, market, register_number, limit
-    )
-    if results is None:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    return SameIngredientListOut(
-        register_number=register_number, count=len(results), results=results
+) -> Response:
+    async def compute() -> SameIngredientListOut:
+        results = await same_ingredient_results(
+            details_backend, equivalence, market, register_number, limit
+        )
+        if results is None:
+            raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        return SameIngredientListOut(
+            register_number=register_number, count=len(results), results=results
+        )
+
+    return await cached_json(
+        request, "same-ingredient", [register_number, market.value, str(limit)], compute
     )

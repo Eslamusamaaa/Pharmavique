@@ -9,10 +9,11 @@ import asyncio
 import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_drugs import DISCLAIMER, get_catalog
+from pharmavique.bootstrap.cached_response import cached_json
 from pharmavique.catalog.contracts.queries import CatalogQueries, ProductCard
 from pharmavique.search.domain.lasa import LasaIndex, LasaMatch
 from pharmavique.shared_kernel.market import Market
@@ -143,33 +144,43 @@ async def similar_names(
     include_weaker: Annotated[
         bool, Query(description="also list matches that are only spelled alike")
     ] = False,
-) -> SimilarNamesOut:
-    cards = await catalog.get_cards(market, [register_number])
-    if not cards:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    base = cards[0]
-    state = await _state(request, catalog, market)
-    found = [("en", m) for m in state.english.similar_to(register_number, WINDOW)] + [
-        ("ar", m) for m in state.arabic.similar_to(register_number, WINDOW)
-    ]
-    merged = _merge(found)
-    ranked_all = sorted(merged.items(), key=lambda kv: (-kv[1][0].score, kv[0]))
-    # On the real catalog about a quarter of the names had some match, which is too many to be
-    # useful: only the strong ones (they sound alike, or are very close in spelling) show by
-    # default.
-    strong = [kv for kv in ranked_all if kv[1][0].level == "high"]
-    ranked = (ranked_all if include_weaker else strong)[:limit]
-    hidden = 0 if include_weaker else len(ranked_all) - len(strong)
-    others = {c.register_number: c for c in await catalog.get_cards(market, [n for n, _ in ranked])}
-    results = [
-        _out(others[number], base, match, scripts, reasons)
-        for number, (match, scripts, reasons) in ranked
-        if number in others
-    ]
-    return SimilarNamesOut(
-        register_number=register_number,
-        count=len(results),
-        results=results,
-        shown_level="all" if include_weaker else "high",
-        hidden_weaker=hidden,
+) -> Response:
+    async def compute() -> SimilarNamesOut:
+        cards = await catalog.get_cards(market, [register_number])
+        if not cards:
+            raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        base = cards[0]
+        state = await _state(request, catalog, market)
+        found = [("en", m) for m in state.english.similar_to(register_number, WINDOW)] + [
+            ("ar", m) for m in state.arabic.similar_to(register_number, WINDOW)
+        ]
+        merged = _merge(found)
+        ranked_all = sorted(merged.items(), key=lambda kv: (-kv[1][0].score, kv[0]))
+        # On the real catalog about a quarter of the names had some match, which is too many to be
+        # useful: only the strong ones (they sound alike, or are very close in spelling) show by
+        # default.
+        strong = [kv for kv in ranked_all if kv[1][0].level == "high"]
+        ranked = (ranked_all if include_weaker else strong)[:limit]
+        hidden = 0 if include_weaker else len(ranked_all) - len(strong)
+        others = {
+            c.register_number: c for c in await catalog.get_cards(market, [n for n, _ in ranked])
+        }
+        results = [
+            _out(others[number], base, match, scripts, reasons)
+            for number, (match, scripts, reasons) in ranked
+            if number in others
+        ]
+        return SimilarNamesOut(
+            register_number=register_number,
+            count=len(results),
+            results=results,
+            shown_level="all" if include_weaker else "high",
+            hidden_weaker=hidden,
+        )
+
+    return await cached_json(
+        request,
+        "similar-names",
+        [register_number, market.value, str(limit), str(include_weaker)],
+        compute,
     )

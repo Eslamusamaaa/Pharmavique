@@ -7,9 +7,10 @@ always false). The pharmacist or doctor decides.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from pharmavique.bootstrap.cached_response import cached_json
 from pharmavique.catalog.contracts.queries import CatalogQueries
 from pharmavique.interactions.contracts.queries import (
     ContraindicationChecks,
@@ -154,39 +155,45 @@ async def contraindications(
     request: Request,
     checks: Annotated[ContraindicationChecks, Depends(get_contraindications)],
     catalog: Annotated[CatalogQueries, Depends(get_catalog)],
-) -> ContraindicationsOut:
-    cards = await catalog.get_cards(Market.SA, [register_number])
-    if not cards:
-        raise HTTPException(status_code=404, detail="no product with this register number")
-    card = cards[0]
-    # The route tells a cream or an eye drop from a tablet: label contraindications are about the
-    # tablet or injection and are not shown for local use.
-    details_backend = getattr(request.app.state, "details", None)
-    details = (
-        await details_backend.get_details(Market.SA, card.register_number)
-        if details_backend is not None
-        else None
-    )
-    report = await checks.run(
-        [
-            ProductIngredients(
-                card.register_number,
-                card.trade_name_en or card.trade_name_ar or card.register_number,
-                card.ingredient_names,
-                details.route_en if details else None,
-                card.dosage_form_en,
-            )
-        ]
-    )
-    return ContraindicationsOut(
-        register_number=card.register_number,
-        items=[
-            ContraindicationOut(
-                ingredient=item.ingredient, disease=item.disease, text=item.text, source=item.source
-            )
-            for item in report.items
-        ],
-        hidden_unverified=report.hidden_unverified,
-        complete=report.complete,
-        note=NOTE_AR,
-    )
+) -> Response:
+    async def compute() -> ContraindicationsOut:
+        cards = await catalog.get_cards(Market.SA, [register_number])
+        if not cards:
+            raise HTTPException(status_code=404, detail="no product with this register number")
+        card = cards[0]
+        # The route tells a cream or an eye drop from a tablet: label contraindications are about
+        # the tablet or injection and are not shown for local use.
+        details_backend = getattr(request.app.state, "details", None)
+        details = (
+            await details_backend.get_details(Market.SA, card.register_number)
+            if details_backend is not None
+            else None
+        )
+        report = await checks.run(
+            [
+                ProductIngredients(
+                    card.register_number,
+                    card.trade_name_en or card.trade_name_ar or card.register_number,
+                    card.ingredient_names,
+                    details.route_en if details else None,
+                    card.dosage_form_en,
+                )
+            ]
+        )
+        return ContraindicationsOut(
+            register_number=card.register_number,
+            items=[
+                ContraindicationOut(
+                    ingredient=item.ingredient,
+                    disease=item.disease,
+                    text=item.text,
+                    source=item.source,
+                )
+                for item in report.items
+            ],
+            hidden_unverified=report.hidden_unverified,
+            complete=report.complete,
+            note=NOTE_AR,
+        )
+
+    return await cached_json(request, "contraindications", [register_number], compute)

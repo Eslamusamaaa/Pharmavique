@@ -7,7 +7,7 @@ and what our rules computed. It never says "switch": the pharmacist or doctor de
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from pharmavique.bootstrap.api_drugs import (
@@ -17,6 +17,7 @@ from pharmavique.bootstrap.api_drugs import (
     get_equivalence,
     same_ingredient_results,
 )
+from pharmavique.bootstrap.cached_response import cached_json
 from pharmavique.catalog.contracts.queries import CatalogDetails, CatalogListItems, ListItem
 from pharmavique.shared_kernel.market import Market
 from pharmavique.substitution.contracts.queries import EquivalenceQueries
@@ -123,51 +124,55 @@ def _status(items: list[ShortageItemOut]) -> str:
     summary="Is this drug on SFDA's shortage list, and which products share its ingredients",
 )
 async def shortage(
+    request: Request,
     register_number: str,
     details_backend: Annotated[CatalogDetails, Depends(get_details)],
     equivalence: Annotated[EquivalenceQueries, Depends(get_equivalence)],
     list_items: Annotated[CatalogListItems, Depends(get_list_items)],
     market: Market = Market.SA,
-) -> ShortageOut:
-    if await details_backend.get_details(market, register_number) is None:
-        raise HTTPException(status_code=404, detail="no such drug in the catalog")
-    # Only a row that names this product (generic name AND trade name) counts. A row that names
-    # just the ingredient says nothing about which brands are short, and showing it would mark
-    # every product with that ingredient as short.
-    items = _unique(
-        [
-            _item(i)
-            for i in await list_items.list_items(market, register_number, (CURRENT, RESOLVED))
-            if i.confidence == "matched"
-        ]
-    )
-    status = _status(items)
-    substitutes: list[SubstituteOut] = []
-    if status == "listed_in_shortage":
-        found = await same_ingredient_results(
-            details_backend, equivalence, market, register_number, MAX_SUBSTITUTES
+) -> Response:
+    async def compute() -> ShortageOut:
+        if await details_backend.get_details(market, register_number) is None:
+            raise HTTPException(status_code=404, detail="no such drug in the catalog")
+        # Only a row that names this product (generic name AND trade name) counts. A row that names
+        # just the ingredient says nothing about which brands are short, and showing it would mark
+        # every product with that ingredient as short.
+        items = _unique(
+            [
+                _item(i)
+                for i in await list_items.list_items(market, register_number, (CURRENT, RESOLVED))
+                if i.confidence == "matched"
+            ]
         )
-        for other in found or []:
-            theirs = await list_items.list_items(market, other.register_number, (CURRENT,))
-            substitutes.append(
-                SubstituteOut(
-                    **other.model_dump(),
-                    also_on_shortage_list=any(
-                        dict(t.facets).get("availability") != "resolved"
-                        and t.confidence == "matched"
-                        for t in theirs
-                    ),
-                )
+        status = _status(items)
+        substitutes: list[SubstituteOut] = []
+        if status == "listed_in_shortage":
+            found = await same_ingredient_results(
+                details_backend, equivalence, market, register_number, MAX_SUBSTITUTES
             )
-    note = {
-        "listed_in_shortage": NOTE_LISTED,
-        "resolved": NOTE_RESOLVED,
-        "not_listed": NOTE_NONE,
-    }[status]
-    return ShortageOut(
-        register_number=register_number,
-        status=status,
-        items=items,
-        substitutes=substitutes,
-        note=note,
-    )
+            for other in found or []:
+                theirs = await list_items.list_items(market, other.register_number, (CURRENT,))
+                substitutes.append(
+                    SubstituteOut(
+                        **other.model_dump(),
+                        also_on_shortage_list=any(
+                            dict(t.facets).get("availability") != "resolved"
+                            and t.confidence == "matched"
+                            for t in theirs
+                        ),
+                    )
+                )
+        note = {
+            "listed_in_shortage": NOTE_LISTED,
+            "resolved": NOTE_RESOLVED,
+            "not_listed": NOTE_NONE,
+        }[status]
+        return ShortageOut(
+            register_number=register_number,
+            status=status,
+            items=items,
+            substitutes=substitutes,
+            note=note,
+        )
+
+    return await cached_json(request, "shortage", [register_number, market.value], compute)
