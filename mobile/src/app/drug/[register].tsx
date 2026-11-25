@@ -436,6 +436,9 @@ export default function DrugScreen() {
         {similar && similar.results.length > 0 ? (
           <View style={{ gap: 10 }}>
             <H2>أسماء متشابهة، تأكد من الاسم</H2>
+            <T size={13} color={c.ink2}>
+              هالأسماء تشبه اسم دوائك في الكتابة أو النطق، ننبهك احتياطًا عشان ما يصير خلط بينهم.
+            </T>
             {similar.results.map((r) => (
               <Pressable
                 key={r.register_number}
@@ -455,10 +458,11 @@ export default function DrugScreen() {
                 </Card>
               </Pressable>
             ))}
-            <T size={12.5} color={c.ink2}>
-              هذي الأسماء متشابهة في الكتابة أو النطق. تأكد من اسم الدواء على العلبة أو الروشتة. القائمة محسوبة من الأسماء فقط وللحين ما راجعها صيدلي.
-              {similar.hidden_weaker ? ` فيه ${similar.hidden_weaker} أسماء ثانية أقل تشابهًا غير معروضة.` : ''}
-            </T>
+            {similar.hidden_weaker ? (
+              <T size={12.5} color={c.ink2}>
+                {`فيه ${similar.hidden_weaker} أسماء ثانية أقل تشابهًا غير معروضة.`}
+              </T>
+            ) : null}
           </View>
         ) : null}
 
