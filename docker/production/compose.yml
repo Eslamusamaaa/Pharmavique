@@ -1,0 +1,79 @@
+# Self-hosted production stack, ready for a move off Vercel + Neon (docs/RUNBOOK.md, "Moving to
+# Docker"). Today production runs on Vercel + Neon; this file is not used by it.
+#
+#   cp docker/production/.env.example docker/production/.env   # fill it in
+#   docker compose -f docker/production/compose.yml --env-file docker/production/.env up -d --build
+#
+# Postgres itself is outside this file (a managed Postgres, or Neon's direct address): PgBouncer
+# pools the API's connections to it. Only the API port is published, and only on localhost, for a
+# reverse proxy (Caddy, nginx) that terminates TLS in front of it.
+name: pharmavique-prod
+
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: docker/production/Dockerfile
+  image: pharmavique-api:${PHARMAVIQUE_IMAGE_TAG:-latest}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    PHARMAVIQUE_ENVIRONMENT: prod
+    # through PgBouncer; `migrate` uses the direct address instead
+    PHARMAVIQUE_DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@pgbouncer:6432/${DB_NAME}
+    PHARMAVIQUE_REDIS_URL: redis://redis:6379/0
+    PHARMAVIQUE_JOB_BACKEND: arq
+  depends_on:
+    pgbouncer:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  pgbouncer:
+    build: ../pgbouncer
+    restart: unless-stopped
+    environment:
+      DB_HOST: ${DB_HOST:?set DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:?set DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      DB_NAME: ${DB_NAME:?set DB_NAME}
+      SERVER_TLS_SSLMODE: ${DB_SSLMODE:-require}
+      DEFAULT_POOL_SIZE: ${PGBOUNCER_POOL_SIZE:-20}
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # One-off: `docker compose ... run --rm migrate`. DDL goes to the direct address, not PgBouncer.
+  migrate:
+    <<: *app
+    profiles: ["migrate"]
+    restart: "no"
+    environment:
+      PHARMAVIQUE_ENVIRONMENT: prod
+      PHARMAVIQUE_DATABASE_URL: ${MIGRATE_DATABASE_URL:?set MIGRATE_DATABASE_URL to the direct address}
+    depends_on: {}
+    command: ["alembic", "upgrade", "heads"]
+
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  worker:
+    <<: *app
+    command: ["pharmavique", "worker"]
+    healthcheck:
+      disable: true
+
+volumes:
+  redisdata:

@@ -1,0 +1,20 @@
+# Keep the build context small and free of secrets: the images only need the Python sources,
+# the lock file and the migrations.
+.git
+.github
+.venv
+.env
+.env.*
+!.env.example
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+data
+mobile
+pharmavique-wireframes
+eval
+tests
+docs
+*.png
+claude-code-prompt.md
