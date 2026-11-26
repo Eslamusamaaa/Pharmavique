@@ -49,6 +49,7 @@ class FakeRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         self.calls += 1
         await asyncio.sleep(self._delay)

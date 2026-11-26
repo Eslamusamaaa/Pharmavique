@@ -345,6 +345,7 @@ class Runner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         self.seen.append((question, register_number, len(history)))
         return AgentRun("المادة الفعالة هي الأسبرين.", (), ())

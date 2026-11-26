@@ -46,8 +46,10 @@ class AgentRunner(Protocol):
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
-        """`history`: earlier turns of this conversation, already cleaned."""
+        """`history`: earlier turns of this conversation, already cleaned. `guidance`: the
+        instruction for this kind of question, from the triage (added to the system prompt)."""
         ...
 
 
@@ -106,9 +108,8 @@ class InjectionDetector(Protocol):
 class AssistantEvent:
     """What is recorded about one question. Never the question or the answer text (health data)."""
 
-    outcome: (
-        str  # answered, web, general, emergency, injection, rule_refusal, ungrounded, empty, error
-    )
+    # answered, web, general, emergency, red_flag, injection, rule_refusal, ungrounded, empty, error
+    outcome: str
     level: str
     spoken: bool
     tool_calls: tuple[str, ...]

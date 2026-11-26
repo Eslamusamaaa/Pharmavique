@@ -25,6 +25,7 @@ from pharmavique.assistant.domain.conversation import Turn
 from pharmavique.assistant.infrastructure.prompt_guard import GroqPromptGuard
 from pharmavique.assistant.infrastructure.web_search import TavilyWebSearch
 from pharmavique.bootstrap.assistant_facts import ContractDrugFacts
+from pharmavique.bootstrap.features import get_features
 from pharmavique.bootstrap.recognition_candidates import SearchCandidateFinder
 from pharmavique.bootstrap.settings import Settings
 from pharmavique.catalog.application.queries import ReadProductCardsHandler
@@ -336,7 +337,12 @@ def build_assistant(
         site: SfdaSiteLookup | None = SfdaSiteSearch() if settings.sfda_site_check else None
         return LangGraphAgentRunner(build_chat_model(settings), facts, web=web, site=site)
 
-    return AskAssistant(_LazyAgentRunner(runner), detector=detector, observer=observer)
+    return AskAssistant(
+        _LazyAgentRunner(runner),
+        detector=detector,
+        observer=observer,
+        triage=get_features().triage,
+    )
 
 
 class _LazyAgentRunner:
@@ -354,9 +360,10 @@ class _LazyAgentRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         if self._inner is None:
             self._inner = self._build()
         return await self._inner.run(
-            question, level, register_number, spoken=spoken, history=history
+            question, level, register_number, spoken=spoken, history=history, guidance=guidance
         )

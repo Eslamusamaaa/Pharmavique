@@ -49,6 +49,7 @@ class Runner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         if self.busy:
             raise AssistantBusy

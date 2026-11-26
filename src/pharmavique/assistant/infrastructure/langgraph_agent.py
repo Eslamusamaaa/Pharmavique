@@ -490,6 +490,7 @@ class LangGraphAgentRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         citations = _Citations()
         box = ToolBox(self._facts, citations, self._web, self._site)
@@ -502,6 +503,7 @@ class LangGraphAgentRunner:
                 spoken=spoken,
                 web=self._web is not None,
                 site=self._site is not None,
+                guidance=guidance,
             )
         )
 

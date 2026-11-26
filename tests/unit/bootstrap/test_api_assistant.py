@@ -31,6 +31,7 @@ class FakeRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         self.levels.append(level)
         return self.run_result
@@ -123,6 +124,7 @@ class SlowRunner(FakeRunner):
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         await asyncio.sleep(self.delay)
         if self.fail is not None:

@@ -44,6 +44,7 @@ class FakeRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         self.seen.append((question, level, register_number))
         return self.result
@@ -194,6 +195,7 @@ async def test_the_spoken_choice_reaches_the_runner() -> None:
             *,
             spoken: bool = False,
             history: Sequence[Turn] = (),
+            guidance: str = "",
         ) -> AgentRun:
             self.spoken.append(spoken)
             return self.result
@@ -327,6 +329,7 @@ async def test_the_cleaned_history_reaches_the_runner() -> None:
             *,
             spoken: bool = False,
             history: Sequence[Turn] = (),
+            guidance: str = "",
         ) -> AgentRun:
             seen.append(history)
             return self.result

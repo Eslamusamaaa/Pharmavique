@@ -152,12 +152,16 @@ def system_prompt(
     spoken: bool = False,
     web: bool = False,
     site: bool = False,
+    guidance: str = "",
 ) -> str:
     context = (
         f"The user is looking at the product with register number {register_number}."
         if register_number
         else ""
     )
+    if guidance:
+        # the triage's instruction for this kind of question (ADR-024), last so it is read last
+        context = f"{context}\n\n{guidance}".strip()
     level_text = _LEVELS[level] + (SPOKEN if spoken else "")
     prompt = SYSTEM_PROMPT.format(level=level_text, context=context)
     extra = (WEB if web else "") + (SITE if site else "")

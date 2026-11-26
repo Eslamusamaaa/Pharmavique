@@ -39,6 +39,7 @@ class FakeRunner:
         *,
         spoken: bool = False,
         history: Sequence[Turn] = (),
+        guidance: str = "",
     ) -> AgentRun:
         self.levels.append(level)
         self.histories.append([(t.role, t.text) for t in history])

@@ -1,12 +1,16 @@
 """Ask the assistant a question. Every guardrail runs here, around the model, in this order:
 
 1. emergency in the question -> "call 997" (no model call)
+1b. triage (ADR-024): a red flag the person reports -> urgent-care reply (no model call); any
+    other kind of question gives the model an instruction for that kind and its dialect
 2. manipulation attempt (rules, then the learned detector) -> fixed reply (no model call)
 3. the model and its tools
 4. empty answer -> "found nothing"
 5. personal dose / stop / switch instruction -> replaced
 6. a number or register number no tool returned -> its sentence removed; the whole answer
    withheld only when too little is left (no hallucinated facts)
+7. by kind of question: no "it is safe" clearances (interactions, safety, treatment requests);
+   a treatment request always ends with the urgent-signs note (headache) and "consult first"
 Each question is recorded for observability, without its text.
 """
 
@@ -42,6 +46,13 @@ from pharmavique.assistant.domain.guardrails import (
     ungrounded_facts,
     without_ungrounded_sentences,
 )
+from pharmavique.assistant.domain.triage import (
+    RED_FLAG_REPLY,
+    Intent,
+    Triage,
+    classify,
+    finish,
+)
 
 MAX_QUESTION = 1000
 
@@ -53,10 +64,13 @@ class AskAssistant:
         *,
         detector: InjectionDetector | None = None,
         observer: AssistantObserver | None = None,
+        triage: bool = True,
     ) -> None:
+        """`triage`: the PHARMAVIQUE_FEATURE_TRIAGE switch (ADR-024)."""
         self._runner = runner
         self._detector = detector
         self._observer = observer
+        self._triage = triage
 
     async def ask(
         self,
@@ -76,9 +90,17 @@ class AskAssistant:
         run = AgentRun("", (), ())
         missing: list[str] = []
         try:
-            answer, run, missing = await self._answer(
-                question, level, register_number, spoken, prepare_history(history)
+            turns = prepare_history(history)
+            triage = (
+                classify(question, tuple(t.text for t in turns if t.role == "user"))
+                if self._triage
+                else None
             )
+            answer, run, missing = await self._answer(
+                question, level, register_number, spoken, turns, triage
+            )
+            if triage is not None and answer.outcome in ("answered", "web", "general"):
+                answer = replace(answer, text=finish(triage, answer.text))
         except Exception:
             self._record("error", level, spoken, run, started, len(question), 0)
             raise
@@ -92,6 +114,7 @@ class AskAssistant:
         register_number: str | None,
         spoken: bool,
         history: tuple[Turn, ...],
+        triage: Triage | None = None,
     ) -> tuple[Answer, AgentRun, list[str]]:
         empty = AgentRun("", (), ())
         if is_emergency(question):
@@ -102,6 +125,12 @@ class AskAssistant:
                 empty,
                 [],
             )
+        if triage is not None and triage.intent is Intent.RED_FLAG:
+            return (
+                Answer(RED_FLAG_REPLY, (), level, grounded=False, urgent=True, outcome="red_flag"),
+                empty,
+                [],
+            )
         if looks_like_injection(question) or await self._detected(question):
             return (
                 Answer(INJECTION_REPLY, (), level, grounded=False, outcome="injection"),
@@ -109,7 +138,12 @@ class AskAssistant:
                 [],
             )
         run = await self._runner.run(
-            question, level, register_number, spoken=spoken, history=history
+            question,
+            level,
+            register_number,
+            spoken=spoken,
+            history=history,
+            guidance=triage.guidance if triage is not None else "",
         )
         text = tidy_numbers(run.text.strip())  # "31. 65 ريال" is 31.65, shown and checked as one
         # A page from the open web is unverified (ADR-017): it is cited, but it is not the registry.

@@ -28,6 +28,9 @@ class Features(BaseSettings):
     login_for_ai: bool = True
     # Signed-in assistant conversations are saved, listed, searched and shared (Phase 1, ADR-022).
     chat_history: bool = True
+    # The assistant sorts each question before the model (red flags, treatment requests,
+    # interactions, safety, information) and applies that kind's rules (audit 2026-11, ADR-024).
+    triage: bool = True
 
     def as_dict(self) -> dict[str, bool]:
         return {name: bool(getattr(self, name)) for name in type(self).model_fields}
