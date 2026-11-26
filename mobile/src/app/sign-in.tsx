@@ -145,6 +145,21 @@ export default function SignIn() {
           )}
         </Pressable>
 
+        {mode === 'in' ? (
+          <Pressable
+            onPress={() => {
+              Keyboard.dismiss();
+              router.replace({ pathname: '/forgot-password', params: { email: email.trim() } });
+            }}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+            accessibilityRole="link"
+          >
+            <T size={14} weight={600} color={c.pr} align="center">
+              نسيت كلمة المرور؟
+            </T>
+          </Pressable>
+        ) : null}
+
         <Pressable
           onPress={() => {
             Keyboard.dismiss();

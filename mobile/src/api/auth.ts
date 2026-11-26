@@ -125,6 +125,17 @@ export async function resendCode(email: string): Promise<void> {
   await post('/v1/auth/resend-code', { email });
 }
 
+/** Email a code to choose a new password. The answer is always the same, so it never says whether an account exists. */
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await post('/v1/auth/forgot-password', { email: email.trim() });
+  if (response.status === 503) throw new AuthError('unavailable');
+}
+
+/** The emailed code sets the new password, ends the old sessions and signs in. */
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<Account> {
+  return adopt(await post('/v1/auth/reset-password', { email: email.trim(), code: code.trim(), new_password: newPassword }));
+}
+
 /** Switch notification emails on or off for the signed-in account. */
 export async function setEmailNotifications(enabled: boolean): Promise<void> {
   const token = await accessToken();

@@ -47,6 +47,7 @@ export default function RootLayout() {
         <Stack.Screen name="role" options={page} />
         <Stack.Screen name="sign-in" options={page} />
         <Stack.Screen name="verify-email" options={page} />
+        <Stack.Screen name="forgot-password" options={page} />
         <Stack.Screen name="drug/[register]" options={page} />
         <Stack.Screen name="compare" options={page} />
         <Stack.Screen name="assistant" options={page} />

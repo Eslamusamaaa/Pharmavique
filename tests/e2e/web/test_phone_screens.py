@@ -257,3 +257,20 @@ def test_a_dead_share_link_says_the_conversation_is_gone(first_visit: Any) -> No
     assert "/role" not in first_visit.url  # not sent to the role screen first
     first_visit.get_by_text(DISCLAIMER, exact=False).filter(visible=True).first.wait_for()
     assert_fits_the_screen(first_visit)
+
+
+def test_the_forgot_password_screen_opens_from_sign_in_and_fits_the_phone(page: Any) -> None:
+    """Reading only: the link is there, the screen asks for the email and nothing is sent."""
+    page.goto("/sign-in")
+
+    page.get_by_text("نسيت كلمة المرور؟").filter(visible=True).click()
+
+    intro = page.get_by_text("اكتب إيميل حسابك").filter(visible=True)
+    intro.wait_for()
+    email = page.get_by_placeholder("الإيميل").filter(visible=True)
+    email.wait_for()
+    page.get_by_role("button", name="أرسل الرمز").filter(visible=True).wait_for()
+    size = email.evaluate("el => parseFloat(getComputedStyle(el).fontSize)")
+    assert size >= 16, f"email box font is {size} px, so an iPhone would zoom into it"
+    assert_right_to_left(page, intro)
+    assert_fits_the_screen(page)
