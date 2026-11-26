@@ -121,7 +121,22 @@ PY
   cp "$logs/attention.md" data/refresh/ATTENTION.md
 
   if [ "$code" -eq 0 ] || [ "$code" -eq 2 ]; then
-    step drugs-load 0 sfda-load --run-id "$run" --from-records
+    # Only the drugs that changed since the run last loaded: a full load reads every stored drug back
+    # from Neon (about 9,200) and Neon bills that transfer. Fridays load everything, which repairs any
+    # drift (a load that failed half way, a database restored from an older copy).
+    load=(sfda-load --run-id "$run" --from-records)
+    loaded_id=""
+    if [ -f data/sfda/loaded.json ]; then
+      loaded_id="$(sed -n 's/.*"run_id": *"\([^"]*\)".*/\1/p' data/sfda/loaded.json)"
+    fi
+    if [ -n "$loaded_id" ] && [ "$loaded_id" != "$run" ] && [ -f "data/sfda/$loaded_id/records.jsonl" ]        && [ "${FULL_LOAD:-$(date -u +%u)}" != "5" ]; then
+      load+=(--changed-since "$loaded_id")
+    fi
+    step drugs-load 0 "${load[@]}"
+    if [ "$LAST_CODE" -eq 0 ]; then
+      printf '{"run_id": "%s"}
+' "$run" > data/sfda/loaded.json
+    fi
     # a drug missing from two complete runs in a row is withdrawn (never after a partial run, never
     # more than 50 at once; exit 2 means a safeguard held and nothing was withdrawn)
     if [ "$baseline_id" != "$run" ]; then

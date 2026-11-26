@@ -21,6 +21,7 @@ pytestmark = pytest.mark.skipif(BASH is None, reason="needs bash")
 
 # a stand-in for `uv run --no-sync python -X utf8 -m pharmavique.bootstrap.cli <command> ...`
 FAKE_UV = """#!/usr/bin/env bash
+echo "$@"
 command="$8"
 case "$command" in
   sfda-update) exit "${FAKE_UPDATE_CODE:-0}" ;;
@@ -32,7 +33,7 @@ esac
 
 
 def run_script(
-    tmp_path: Path, update_code: int, other_code: int = 0
+    tmp_path: Path, update_code: int, other_code: int = 0, extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
     (tmp_path / "scripts").mkdir()
     script = tmp_path / "scripts" / "daily_refresh.sh"
@@ -48,6 +49,7 @@ def run_script(
         "STEPS": "drugs",
         "FAKE_UPDATE_CODE": str(update_code),
         "FAKE_OTHER_CODE": str(other_code),
+        **(extra_env or {}),
     }
     assert BASH is not None
     return subprocess.run(  # noqa: S603
@@ -127,3 +129,56 @@ def test_the_events_never_hold_log_text(tmp_path: Path) -> None:
             "failed_steps",
             "steps",
         }
+
+
+def loaded_before(tmp_path: Path, run_id: str = "update-20261101") -> None:
+    sfda = tmp_path / "data" / "sfda"
+    (sfda / run_id).mkdir(parents=True)
+    (sfda / run_id / "records.jsonl").write_text("{}" + chr(10), encoding="utf-8")
+    (sfda / "loaded.json").write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+
+
+def load_log(tmp_path: Path) -> str:
+    (day,) = (tmp_path / "data" / "refresh").glob("20*")
+    return (day / "drugs-load.log").read_text(encoding="utf-8")
+
+
+def test_the_load_takes_only_what_changed_since_the_run_last_loaded(tmp_path: Path) -> None:
+    loaded_before(tmp_path)
+
+    run_script(tmp_path, update_code=0, extra_env={"FULL_LOAD": "1"})
+
+    assert "--changed-since update-20261101" in load_log(tmp_path)
+
+
+def test_fridays_load_everything(tmp_path: Path) -> None:
+    loaded_before(tmp_path)
+
+    run_script(tmp_path, update_code=0, extra_env={"FULL_LOAD": "5"})
+
+    assert "--changed-since" not in load_log(tmp_path)
+
+
+def test_without_a_loaded_run_on_this_machine_everything_is_loaded(tmp_path: Path) -> None:
+    run_script(tmp_path, update_code=0, extra_env={"FULL_LOAD": "1"})
+
+    assert "--changed-since" not in load_log(tmp_path)
+
+
+def test_a_successful_load_remembers_its_run(tmp_path: Path) -> None:
+    loaded_before(tmp_path)
+
+    run_script(tmp_path, update_code=0, extra_env={"FULL_LOAD": "1"})
+
+    loaded = json.loads((tmp_path / "data" / "sfda" / "loaded.json").read_text(encoding="utf-8"))
+    assert loaded["run_id"].startswith("update-20")
+    assert loaded["run_id"] != "update-20261101"
+
+
+def test_a_failed_load_keeps_the_earlier_run(tmp_path: Path) -> None:
+    loaded_before(tmp_path)
+
+    run_script(tmp_path, update_code=0, other_code=1, extra_env={"FULL_LOAD": "1"})
+
+    loaded = json.loads((tmp_path / "data" / "sfda" / "loaded.json").read_text(encoding="utf-8"))
+    assert loaded["run_id"] == "update-20261101"

@@ -86,3 +86,19 @@ other logs (artifact `refresh-logs`). A failed run still fails the job, so GitHu
 that is the only alert, by the owner's choice (Phase 0, item 2). The cause of the exit code 3 of
 2026-11-21 was a lost connection, and the script already waits and resumes the same run up to three
 times for that case (a block or a robots.txt refusal is never retried).
+
+## Neon transfer (2026-11-26)
+
+Neon's free plan allows 5 GB of public network transfer a month (data that leaves the database).
+By 2026-11-26 the project had used 4.2 GB, almost all of it from this workflow:
+
+- **The copy before every run** dumped four schemas, `knowledge` included (about 50 MB compressed,
+  much more on the wire), before both daily runs and every manual one. It now runs only before the
+  run that loads drugs and leaves out `knowledge`, whose refresh only adds rows.
+- **The drug load read every stored drug back** (9,213) to compare, although a few dozen had
+  changed (`unchanged=9158` in the log). It now loads only the drugs whose record differs from the
+  run last loaded (`sfda-load --changed-since`, compared between two local files), and everything
+  on Fridays to repair any drift. `data/sfda/loaded.json` remembers the last loaded run.
+
+The duplicate report of the migrate workflow (2026-11-25) found no extra copies in any table: the
+refresh replaces rows, it does not append them.
