@@ -108,9 +108,9 @@ warn_redundant_casts = true
 check_untyped_defs = true
 no_implicit_optional = true
 
-# Locust is only installed for load tests (`--group load`), not in CI's type check.
+# Locust (`--group load`) and Playwright (`--extra scraper`) are not in CI's type check.
 [[tool.mypy.overrides]]
-module = ["locust", "locust.*"]
+module = ["locust", "locust.*", "playwright", "playwright.*"]
 ignore_missing_imports = true
 
 # Strict where the brief requires it: domain and application, plus the published language.
@@ -145,6 +145,7 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra --strict-markers -p pv_isolation"
 markers = [
     "integration: needs Postgres/Redis (docker compose up -d db redis)",
+    "e2e: phone-size browser tests of the website (set PHARMAVIQUE_E2E_URL, tests/e2e/web)",
 ]
 
 [tool.coverage.run]

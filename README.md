@@ -759,6 +759,17 @@ cd mobile && npx tsc --noEmit    # the app's types
   `docker compose up -d db redis` and are part of "done".
 - CI also runs `ruff check .` over the whole repository (scripts included), not only `src` and `tests`.
 - Tests come before adapters, and every bug fix starts with a failing test.
+- Phone-size browser tests of the website ([`tests/e2e/web`](tests/e2e/web)): every test runs on WebKit
+  at an iPhone size and on Chromium at an Android size. They check that the screens are laid out from
+  the right, nothing is wider than the screen, search opens a drug page with its disclaimer and trust
+  grade, guests are asked to sign in for the assistant, scan and voice, the tabs and buttons are
+  announced to screen readers, and the search box does not zoom the iPhone. They only read, so they may
+  point at the live site. Skipped unless an address is given:
+
+  ```bash
+  uv run --extra scraper playwright install webkit chromium        # once
+  PHARMAVIQUE_E2E_URL=http://127.0.0.1:8000 uv run --extra scraper pytest tests/e2e/web
+  ```
 - Every port has a fake adapter, so AI behaviour (tool calls, citations, guardrails, fallbacks) is tested
   with scripted models and mock HTTP transports, without network access or keys.
 
