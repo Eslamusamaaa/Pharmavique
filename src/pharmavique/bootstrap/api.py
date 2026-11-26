@@ -354,6 +354,8 @@ def create_app(
             allow_origins=origins,
             allow_methods=["GET", "POST"],
             allow_headers=["*"],
+            # a failed question that was saved: the app shows "try again" in its conversation
+            expose_headers=["X-Conversation-Id"],
         )
     app.include_router(health.router)
     app.include_router(features.router)
