@@ -10,6 +10,8 @@ phone / computer ──▶ Vercel (FastAPI as one Python function + the exported
                               └──▶ Neon (Postgres 18, pgvector, pg_trgm)
 ```
 
+When something goes wrong (outage, rollback, restore): `docs/RUNBOOK.md`.
+
 ## What is where
 
 | Part | Where | Notes |

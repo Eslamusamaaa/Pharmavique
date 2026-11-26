@@ -683,6 +683,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET, POST | `/v1/me/shelf`, DELETE `/v1/me/shelf/{n}` | A pharmacist's shelf list: the medicines they confirmed after a shelf scan (pharmacists only) |
 | GET | `/v1/operator/quality` | Data-quality counts, official-list linking, refresh status (operator role) |
 | GET | `/health` | Liveness |
+| GET | `/ready` | Readiness: database and shared store reachable (200 or 503) |
 | GET | `/metrics` | Prometheus metrics |
 | GET | `/v1/search?q=&limit=&include_withdrawn=` | Find drugs by name, ingredient or register number |
 | GET | `/v1/products/{register_number}` | Product card |
@@ -820,6 +821,7 @@ migrations/           Alembic environment
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
 | [Scan evaluation](docs/SCAN_EVALUATION.md) | How the box, prescription and shelf scans were measured, and how to measure real photos |
+| [Runbook](docs/RUNBOOK.md) | Outages, health checks, Vercel rollback, Neon restore and its drill, moving to Docker |
 | [Hand-off](docs/HANDOFF.md) | Where the project stands, how to run it, what is done and what is next: start here when taking over |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
 | [SFDA scraper](docs/SFDA_SCRAPER.md) | Crawler behaviour and site quirks |
