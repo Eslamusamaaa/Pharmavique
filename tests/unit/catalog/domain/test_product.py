@@ -154,17 +154,55 @@ def test_price_and_details_changing_together_emit_both_events_in_a_fixed_order()
     assert [type(e) for e in events] == [ProductDetailsChanged, PriceChanged]
 
 
-def test_a_removed_price_is_reported_but_does_not_create_a_price_point() -> None:
+def test_a_missing_price_keeps_the_known_price_and_emits_nothing() -> None:
+    # audit 2026-11 (B1.1): a renamed or missing "Price" label used to erase the price and send
+    # a "price changed" alert; a value the source stops stating is never erased by a load
     product = registered()
 
     events = product.apply(data(price=None), prov("run-2", LATER), LATER)
 
-    assert len(events) == 1
-    event = events[0]
-    assert isinstance(event, PriceChanged)
-    assert event.new_price is None
-    assert product.data.price is None
+    assert events == []
+    assert product.data.price == price("9.5")
     assert len(product.price_history) == 1
+    assert product.last_seen_at == LATER
+
+
+def test_a_missing_detail_keeps_the_known_one() -> None:
+    product = registered(
+        route=LocalizedText("Oral use", "فموي"),
+        legal_status=CodedValue.of("OTC", LEGAL_STATUS),
+        atc_codes=(),
+    )
+
+    events = product.apply(
+        data(route=None, legal_status=None, trade_name=LocalizedText("ACME-ONE 5MG TAB", None)),
+        prov("run-2", LATER),
+        LATER,
+    )
+
+    assert events == []
+    assert product.data.route == LocalizedText("Oral use", "فموي")
+    assert product.data.legal_status == CodedValue.of("OTC", LEGAL_STATUS)
+    assert product.data.trade_name == LocalizedText("ACME-ONE 5MG TAB", "اكمي ون")
+
+
+def test_a_missing_detail_beside_a_real_change_keeps_the_known_one() -> None:
+    product = registered(route=LocalizedText("Oral use", None))
+
+    events = product.apply(data(route=None, price=price("12")), prov("run-2", LATER), LATER)
+
+    assert [type(e) for e in events] == [PriceChanged]
+    assert product.data.route == LocalizedText("Oral use", None)
+    assert product.data.price == price("12")
+
+
+def test_filling_from_known_data_names_what_was_kept() -> None:
+    known = data(route=LocalizedText("Oral use", None))
+
+    filled, kept = data(route=None, price=None).filled_from(known)
+
+    assert filled == known
+    assert kept == ("route", "price")
 
 
 def test_events_carry_the_time_they_happened() -> None:

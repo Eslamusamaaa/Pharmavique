@@ -3,9 +3,10 @@
 Pure domain code. Every operation returns the events it caused; nothing here does I/O.
 """
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pharmavique.catalog.domain.events import (
     PriceChanged,
@@ -70,6 +71,21 @@ class ProductData:
             if f.name != "price" and getattr(self, f.name) != getattr(other, f.name)
         )
 
+    def filled_from(self, known: "ProductData") -> tuple["ProductData", tuple[str, ...]]:
+        """This data with every value it does not state taken from `known`, and the names of the
+        fields that were filled. A load never erases a value the source stopped stating: a renamed
+        or missing label on the page reads as "not stated", not as "removed" (audit 2026-11,
+        B1.1). Withdrawing a whole product is a separate, guarded step (`withdraw`)."""
+        changes: dict[str, Any] = {}
+        for f in fields(self):
+            new, old = getattr(self, f.name), getattr(known, f.name)
+            filled = _fill(new, old)
+            if filled is not new:
+                changes[f.name] = filled
+        if not changes:
+            return self, ()
+        return replace(self, **changes), tuple(changes)
+
 
 @dataclass(slots=True)
 class Product:
@@ -101,8 +117,10 @@ class Product:
         return product, [event]
 
     def apply(self, data: ProductData, provenance: Provenance, now: datetime) -> list[DomainEvent]:
-        """Bring the product up to date with a snapshot. Applying the same data again is a no-op."""
+        """Bring the product up to date with a snapshot. Applying the same data again is a no-op.
+        Values the snapshot does not state keep their known value (`ProductData.filled_from`)."""
         self.last_seen_at = now
+        data, _ = data.filled_from(self.data)
         events: list[DomainEvent] = []
 
         if self.listing_status is ListingStatus.WITHDRAWN:
@@ -140,3 +158,24 @@ class Product:
         self.provenance = provenance
         self.version += 1
         return [ProductWithdrawn(occurred_at=now, product_id=self.id)]
+
+
+def _fill(new: object, old: object) -> object:
+    """`new`, or `old` where `new` states nothing (None, an empty tuple, an empty part of a
+    two-language text or a package). Returns `new` itself when nothing is filled."""
+    if old is None or new == old:
+        return new
+    if new is None or new == ():
+        return old
+    if isinstance(new, LocalizedText) and isinstance(old, LocalizedText):
+        if (new.en is None and old.en) or (new.ar is None and old.ar):
+            return LocalizedText(new.en or old.en, new.ar or old.ar)
+        return new
+    if isinstance(new, Package) and isinstance(old, Package):
+        parts: dict[str, Any] = {
+            f.name: getattr(old, f.name)
+            for f in fields(new)
+            if getattr(new, f.name) is None and getattr(old, f.name) is not None
+        }
+        return replace(new, **parts) if parts else new
+    return new
