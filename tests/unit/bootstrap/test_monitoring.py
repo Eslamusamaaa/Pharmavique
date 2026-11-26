@@ -4,9 +4,9 @@ never carries what a person typed or sent (health data is sensitive, CLAUDE.md).
 from typing import Any
 
 import pytest
-from pharmavique.bootstrap.monitoring import init_monitoring, scrub_event
 from pydantic import SecretStr
 
+from pharmavique.bootstrap.monitoring import init_monitoring, scrub_event
 from pharmavique.bootstrap.settings import Settings
 
 

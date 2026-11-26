@@ -71,6 +71,10 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ASYNC", "S", "RUF", "C4", 
 # N818: domain-language exception names (InvariantViolation, SourceBlocked) read better without "Error"
 ignore = ["N818"]
 
+# The same import order here and in CI, whether or not the package is installed in the environment.
+[tool.ruff.lint.isort]
+known-first-party = ["pharmavique"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
 # Arabic and Latin look-alike characters are the point of these tests
