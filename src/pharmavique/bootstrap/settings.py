@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # The address people reach the API at, used for links in emails (the unsubscribe link).
     public_url: str = ""
 
+    # Error and latency monitoring (Sentry); off without a DSN. Share of requests timed, 0 to 1.
+    sentry_dsn: SecretStr | None = None
+    sentry_traces_sample_rate: float = Field(default=0.05, ge=0.0, le=1.0)
+
     # Folder with the stored product pictures (images/...); only files inside it are served.
     media_dir: str = "data/media"
     # Public address of a bucket that holds the same pictures (`products/SA/...`); when set, the
@@ -174,6 +178,7 @@ class Settings(BaseSettings):
         "cloudflare_api_token",
         "cloudflare_account_id",
         "smtp_password",
+        "sentry_dsn",
         mode="before",
     )
     @classmethod

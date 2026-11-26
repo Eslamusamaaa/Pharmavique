@@ -49,6 +49,7 @@ from pharmavique.bootstrap.ai import (
 from pharmavique.bootstrap.api_pictures import PictureLookup
 from pharmavique.bootstrap.identity_wiring import build_email_sender, build_identity
 from pharmavique.bootstrap.job_handlers import build_handlers
+from pharmavique.bootstrap.monitoring import init_monitoring
 from pharmavique.bootstrap.rate_limit import RateLimitMiddleware
 from pharmavique.bootstrap.settings import check_signing_secret, get_settings
 from pharmavique.bootstrap.sources_status import SourceStatusReader, SqlAlchemySourceStatusReader
@@ -302,6 +303,7 @@ def create_app(
         use_shared_store(app, store, get_settings().cache_ttl_seconds)
     settings = get_settings()
     check_signing_secret(settings)
+    init_monitoring(settings)
     app.state.shelf_scan_enabled = (
         settings.shelf_scan_enabled if shelf_scan_enabled is None else shelf_scan_enabled
     )
