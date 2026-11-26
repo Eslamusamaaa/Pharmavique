@@ -107,6 +107,14 @@ The drill proves the steps above work before they are needed. It writes nothing 
   direct address: `PHARMAVIQUE_DATABASE_URL=<direct address> uv run alembic downgrade <context>@-1`.
   Check that no newer code depends on it first (roll the deployment back before the schema).
 
+### Password reset needs the identity migration first
+
+Choosing a new password with an emailed code (ADR-023) adds a column to `identity.email_codes`
+(`identity_0004`). Run **Database migrate** *before* the deployment that has it: the old code keeps
+working on the new column, but the new code writes it, so deploying first makes sign-up fail until the
+migration runs. To undo: roll the deployment back, then `alembic downgrade identity@-1` (reset codes are
+dropped, sign-up codes kept).
+
 ### Saved conversations need their schema
 
 The assistant's saved conversations (ADR-022) live in the `assistant` schema. After a deployment that

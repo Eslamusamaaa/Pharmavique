@@ -150,7 +150,7 @@ three subscribers: watchlist alerts, the analytics radar and cache invalidation.
 ## 7. What is next
 
 README section 19 is the ordered list. In short: real-phone fixes; real photos and `scan_eval.py`;
-shortage and safety-notice alerts (the list loader emits no events); class allergies, password reset,
+shortage and safety-notice alerts (the list loader emits no events); class allergies,
 change of email; exact pharmacy locations (Q-39); the app using the jobs endpoints; deployment for many
 users (load balancer, PgBouncer, replica, managed Redis, CDN, object storage); Egypt as a CSV adapter.
 

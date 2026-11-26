@@ -677,6 +677,7 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/me/history/check/{n}` | A drug against the medicines I take now: recorded interactions, duplicate ingredients, my allergies (never advice) |
 | GET | `/v1/me/history/interactions` | Recorded interactions among the medicines I take now |
 | POST | `/v1/auth/verify-email`, `/v1/auth/resend-code` | Confirm the email with the emailed code (this opens the first session); ask for a new code (always the same answer) |
+| POST | `/v1/auth/forgot-password`, `/v1/auth/reset-password` | Email a code to choose a new password (always the same answer); the code and the new password end every old session and sign in (ADR-023) |
 | PUT | `/v1/auth/me/notifications` | Switch notification emails on or off |
 | GET, POST | `/v1/auth/unsubscribe?token=` | The link in a notification email: asks first, then switches email notifications off |
 | GET | `/v1/features` | Which optional features this server has switched on |
@@ -840,6 +841,7 @@ migrations/           Alembic environment
 | [Scan evaluation](docs/SCAN_EVALUATION.md) | How the box, prescription and shelf scans were measured, and how to measure real photos |
 | [Phase 0 report](docs/PHASE_0_REPORT.md) | The nine trust-foundation items: what was done, what the tests found, what is left |
 | [ADR-022](docs/adr/ADR-022-saved-assistant-conversations.md) | Saved assistant conversations, share links, and the encryption decision |
+| [ADR-023](docs/adr/ADR-023-password-reset-with-an-emailed-code.md) | Choosing a new password with an emailed code |
 | [Runbook](docs/RUNBOOK.md) | Outages, health checks, Vercel rollback, Neon restore and its drill, moving to Docker |
 | [Hand-off](docs/HANDOFF.md) | Where the project stands, how to run it, what is done and what is next: start here when taking over |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
@@ -864,7 +866,7 @@ the shared cache, queue and load test. What is next, in the order that matters:
 3. **Real photos** (Q-32): label a set of real shelf, box and prescription photos and measure the scans
    with `scripts/scan_eval.py`; have a pharmacist review a sample of the similar-name warnings (Q-26).
 4. **Alerts for new shortages and safety notices** (the list loader needs to emit events), class allergies,
-   password reset and changing the email address.
+   and changing the email address.
 5. **Exact pharmacy locations** from the national address service (Q-39), if the owner wants distance to
    a pharmacy and not only to its city.
 6. **The app uses the jobs endpoints** for scans and assistant questions, and a company account tied to
