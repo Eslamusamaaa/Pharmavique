@@ -65,4 +65,4 @@ jobs:
 
       - name: Secrets in the code and its history (gitleaks)
         run: |
-          docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.28.0             git /repo --no-banner --redact --log-opts="--all"
+          docker run --rm -v "$PWD:/repo:ro" zricethezav/gitleaks:v8.28.0             git /repo --no-banner --redact --verbose --log-opts="--all"
