@@ -95,6 +95,12 @@ class ConversationStore(Protocol):
         ...
 
 
+class TitleWriter(Protocol):
+    async def title(self, question: str, answer: str) -> str | None:
+        """A few words naming the conversation, or None when no title could be written."""
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class PendingQuestion:
     """A question saved before the model answers, with what the model may see of the past."""
@@ -190,6 +196,19 @@ class ConversationService:
         changed = replace(conversation, title=cleaned, title_source=TitleSource.MODEL)
         await self._store.update(user_id, changed)
         return changed
+
+    async def write_title(
+        self, user_id: UUID, conversation_id: UUID, writer: TitleWriter | None
+    ) -> Conversation:
+        """Ask the model for a title once the first answer is saved. Does nothing when a title was
+        already written or the person renamed the conversation."""
+        conversation = await self._own(user_id, conversation_id)
+        if writer is None or conversation.title_source is not TitleSource.QUESTION:
+            return conversation
+        first = await self.first_question(user_id, conversation_id)
+        if first is None:
+            return conversation
+        return await self.model_title(user_id, conversation_id, await writer.title(*first))
 
     async def first_question(self, user_id: UUID, conversation_id: UUID) -> tuple[str, str] | None:
         """The first question and its answer, for the model that writes the title."""

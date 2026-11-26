@@ -194,6 +194,27 @@ class _LazyNameExtractor:
         return await self._inner.extract(text)
 
 
+class _LazyTitleWriter:
+    """Implements `TitleWriter`: the chat model is built (and LangChain imported) on first use."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._inner: Any | None = None
+
+    async def title(self, question: str, answer: str) -> str | None:
+        if self._inner is None:
+            from pharmavique.assistant.infrastructure.title_writer import ModelTitleWriter
+
+            self._inner = ModelTitleWriter(build_chat_model(self._settings))
+        result: str | None = await self._inner.title(question, answer)
+        return result
+
+
+def build_title_writer(settings: Settings) -> _LazyTitleWriter | None:
+    """The model that names a saved conversation (ADR-022); None without a key."""
+    return _LazyTitleWriter(settings) if has_chat_model(settings) else None
+
+
 def build_name_extractor(settings: Settings) -> DrugNameExtractor | None:
     """The model that picks the drug name out of a spoken request; None without a key."""
     return _LazyNameExtractor(settings) if has_chat_model(settings) else None

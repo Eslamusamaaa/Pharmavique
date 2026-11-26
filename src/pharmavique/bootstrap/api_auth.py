@@ -360,5 +360,8 @@ async def delete_me(
     watchlist = request.app.state.watchlist  # saved medicines, allergies and alerts go with it
     if watchlist is not None:
         await watchlist.forget(principal.user_id)
+    conversations = request.app.state.conversations  # and the saved conversations
+    if conversations is not None:
+        await conversations.forget(principal.user_id)
     await service.delete_account(principal.user_id)
     return Response(status_code=204)

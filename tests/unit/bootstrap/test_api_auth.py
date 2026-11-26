@@ -11,6 +11,9 @@ import httpx
 import pytest
 from fastapi import Depends
 
+from pharmavique.assistant.application.history import ConversationService
+from pharmavique.assistant.domain.answers import Level
+from pharmavique.assistant.infrastructure.memory_history import MemoryConversationStore
 from pharmavique.bootstrap.api import create_app
 from pharmavique.bootstrap.api_auth import require_roles
 from pharmavique.bootstrap.unsubscribe import make_token
@@ -330,6 +333,29 @@ async def test_deleting_the_account_removes_it(client: httpx.AsyncClient, outbox
     assert (await client.get("/v1/auth/me", headers=bearer(token))).status_code == 401
     login = await client.post("/v1/auth/login", json={"email": "ana@example.com", "password": GOOD})
     assert login.status_code == 401
+
+
+async def test_deleting_the_account_deletes_its_saved_conversations(
+    outbox: Outbox, service: IdentityService
+) -> None:
+    conversations = ConversationService(MemoryConversationStore(), SystemClock())
+    app = create_app(
+        identity=service,
+        token_verifier=TOKENS,
+        email_sender=outbox,
+        rate_limit_per_minute=0,
+        conversations=conversations,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        token = (await sign_up(client, outbox)).json()["access_token"]
+        user = UUID((await client.get("/v1/auth/me", headers=bearer(token))).json()["id"])
+        await conversations.begin(user, None, Level.PATIENT, "سؤال")
+
+        assert (await client.delete("/v1/auth/me", headers=bearer(token))).status_code == 204
+
+    assert (await conversations.conversations(user, Level.PATIENT))[1] == 0
 
 
 async def test_a_role_guard_lets_only_that_role_in(

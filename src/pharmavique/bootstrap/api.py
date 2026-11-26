@@ -18,13 +18,14 @@ from pharmavique.analytics.infrastructure.catalog_source import CatalogMarketSou
 from pharmavique.analytics.infrastructure.postgres import PostgresAnalyticsStore
 from pharmavique.analytics.infrastructure.refresh_files import FileRefreshHistory
 from pharmavique.assistant.application.ask import AskAssistant
-from pharmavique.assistant.application.history import ConversationService
+from pharmavique.assistant.application.history import ConversationService, TitleWriter
 from pharmavique.assistant.infrastructure.postgres_history import PostgresConversationStore
 from pharmavique.bootstrap import (
     api_assistant,
     api_auth,
     api_company,
     api_compare,
+    api_conversations,
     api_drugs,
     api_history,
     api_interactions,
@@ -47,6 +48,7 @@ from pharmavique.bootstrap.ai import (
     build_assistant,
     build_name_extractor,
     build_scanner,
+    build_title_writer,
     build_voice,
 )
 from pharmavique.bootstrap.api_pictures import PictureLookup
@@ -211,6 +213,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.conversations = ConversationService(
                 PostgresConversationStore(session_factory), SystemClock()
             )
+            if app.state.title_writer is None:
+                app.state.title_writer = build_title_writer(settings)
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
             )
@@ -261,6 +265,7 @@ def create_app(
     heavy_rate_limit_per_minute: int | None = None,
     trusted_proxy_hops: int | None = None,
     conversations: ConversationService | None = None,
+    title_writer: TitleWriter | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -300,6 +305,7 @@ def create_app(
     app.state.refresh_history = refresh_history
     app.state.interactions = interactions
     app.state.conversations = conversations
+    app.state.title_writer = title_writer
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
     app.state.metrics = observability.Metrics()
@@ -365,6 +371,8 @@ def create_app(
     app.include_router(api_shortage.router)
     app.include_router(api_interactions.router)
     app.include_router(api_assistant.router)
+    app.include_router(api_conversations.router)
+    app.include_router(api_conversations.shared_router)
     app.include_router(api_voice.router)
     app.include_router(api_recognition.router)
     app.include_router(api_shelf.router)

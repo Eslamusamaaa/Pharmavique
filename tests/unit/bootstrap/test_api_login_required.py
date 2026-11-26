@@ -23,6 +23,8 @@ from pharmavique.shared_kernel.principal import Principal, Role
 PUBLIC = {
     ("GET", "/health"),
     ("GET", "/ready"),
+    # A shared conversation: anyone with its link (owner's decision, 2026-11-26).
+    ("GET", "/v1/shared/{token}"),
     # Request counts and timings only, no personal data (also the rate-limit tests' probe).
     ("GET", "/metrics"),
     ("GET", "/v1/features"),
