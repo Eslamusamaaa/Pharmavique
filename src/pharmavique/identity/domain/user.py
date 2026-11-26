@@ -43,6 +43,13 @@ class EmailNotVerified(DomainError):
     """The password is right but the email address has not been confirmed yet."""
 
 
+class CodePurpose(StrEnum):
+    """What an emailed code is for: one kind never works for the other."""
+
+    VERIFY = "verify"  # confirm the address after signing up
+    RESET = "reset"  # choose a new password (forgot password)
+
+
 class InvalidCode(DomainError):
     """The verification code is wrong, expired or already used. Says nothing about which."""
 

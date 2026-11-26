@@ -178,6 +178,16 @@ class ResendIn(BaseModel):
     email: str = Field(max_length=254)
 
 
+class ForgotIn(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class ResetIn(BaseModel):
+    email: str = Field(max_length=254)
+    code: str = Field(min_length=4, max_length=12)
+    new_password: str = Field(max_length=256)
+
+
 class NotificationsIn(BaseModel):
     email: bool
 
@@ -247,6 +257,39 @@ async def resend_code(
         await deliver(sender, message)
     # the same answer whether or not a code was sent: it must not reveal who has an account
     return {"detail": "if this account needs a code, a new one was sent"}
+
+
+@router.post("/forgot-password", status_code=202, summary="Email a code to choose a new password")
+async def forgot_password(
+    body: ForgotIn,
+    service: Annotated[IdentityService, Depends(get_identity)],
+    sender: Annotated[EmailSender | None, Depends(get_email_sender)],
+) -> dict[str, str]:
+    message = await service.forgot_password(body.email)
+    if message is not None:
+        await deliver(sender, message)
+    # the same answer whether or not a code was sent: it must not reveal who has an account
+    return {"detail": "if this email has an account, a code was sent to it"}
+
+
+@router.post(
+    "/reset-password",
+    response_model=SessionOut,
+    summary="Choose a new password with the emailed code; signs in and ends other sessions",
+)
+async def reset_password(
+    body: ResetIn, service: Annotated[IdentityService, Depends(get_identity)]
+) -> SessionOut:
+    try:
+        return _session(await service.reset_password(body.email, body.code, body.new_password))
+    except CodeLocked:
+        raise HTTPException(
+            status_code=429, detail="too many wrong codes, ask for a new one"
+        ) from None
+    except InvalidCode:
+        raise HTTPException(status_code=400, detail="the code is wrong or has expired") from None
+    except InvariantViolation as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
 
 
 _PAGE = (

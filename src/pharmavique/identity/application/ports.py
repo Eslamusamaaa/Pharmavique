@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from pharmavique.identity.domain.user import RoleReview, User
+from pharmavique.identity.domain.user import CodePurpose, RoleReview, User
 from pharmavique.shared_kernel.principal import Principal
 
 
@@ -23,6 +23,8 @@ class UserRepository(Protocol):
         ...
 
     async def mark_verified(self, user_id: UUID, at: datetime) -> None: ...
+
+    async def set_password(self, user_id: UUID, password_hash: str) -> None: ...
 
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool: ...
 
@@ -66,15 +68,18 @@ class CodeRecord:
     expires_at: datetime
     created_at: datetime
     attempts: int = 0
+    purpose: CodePurpose = CodePurpose.VERIFY
 
 
 class CodeStore(Protocol):
     async def add(self, record: CodeRecord) -> None:
-        """Store a new code and retire the user's earlier ones."""
+        """Store a new code and retire the user's earlier ones of the same purpose."""
         ...
 
-    async def latest(self, user_id: UUID) -> CodeRecord | None:
-        """The user's newest code that has not been used."""
+    async def latest(
+        self, user_id: UUID, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> CodeRecord | None:
+        """The user's newest code of this purpose that has not been used."""
         ...
 
     async def add_attempt(self, code_id: UUID) -> int:
@@ -86,7 +91,7 @@ class CodeStore(Protocol):
         ...
 
     async def count_since(self, user_id: UUID, since: datetime) -> int:
-        """How many codes were sent to the user since then."""
+        """How many codes of any purpose were sent to the user since then."""
         ...
 
 

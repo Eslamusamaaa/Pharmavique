@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
-from pharmavique.identity.domain.user import RoleReview, User, initial_role_review
+from pharmavique.identity.domain.user import CodePurpose, RoleReview, User, initial_role_review
 from pharmavique.identity.infrastructure.postgres import (
     PostgresCodeStore,
     PostgresSessionStore,
@@ -168,6 +168,116 @@ async def test_codes_go_with_their_user(
 
     assert await codes.latest(account.id) is None
     assert await codes.count_since(account.id, NOW - timedelta(days=1)) == 0
+
+
+async def test_a_reset_code_and_a_sign_up_code_live_side_by_side(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users, codes = PostgresUserRepository(session_factory), PostgresCodeStore(session_factory)
+    account = user()
+    await users.add(account)
+    verify = CodeRecord(uuid4(), account.id, "a" * 64, NOW + timedelta(minutes=10), NOW)
+    reset = CodeRecord(
+        uuid4(),
+        account.id,
+        "b" * 64,
+        NOW + timedelta(minutes=11),
+        NOW + timedelta(minutes=1),
+        purpose=CodePurpose.RESET,
+    )
+
+    await codes.add(verify)
+    await codes.add(reset)
+
+    assert await codes.latest(account.id) == verify  # the reset did not retire the sign-up code
+    assert await codes.latest(account.id, CodePurpose.RESET) == reset
+    newer = replace(reset, id=uuid4(), code_hash="c" * 64, created_at=NOW + timedelta(minutes=2))
+    await codes.add(newer)
+    assert await codes.latest(account.id, CodePurpose.RESET) == newer  # replaces only its own kind
+    assert await codes.latest(account.id) == verify
+    assert await codes.count_since(account.id, NOW) == 3  # the hourly cap counts every kind
+
+
+async def test_choosing_a_new_password_changes_only_the_hash(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    users = PostgresUserRepository(session_factory)
+    account = user()
+    await users.add(account)
+    other = user("bob@example.com")
+    await users.add(other)
+
+    new_hash = "scrypt$new"
+    await users.set_password(account.id, new_hash)
+
+    stored, untouched = await users.by_id(account.id), await users.by_id(other.id)
+    assert stored is not None
+    assert untouched is not None
+    assert stored.password_hash == new_hash
+    assert stored.email == account.email
+    assert untouched.password_hash == other.password_hash
+
+
+async def test_codes_sent_before_the_purpose_column_become_sign_up_codes(
+    migrated_url: URL,
+    make_alembic_config: object,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    config = make_alembic_config(migrated_url)  # type: ignore[operator]
+    users = PostgresUserRepository(session_factory)
+    account = user()
+    await users.add(account)
+    await asyncio.to_thread(command.downgrade, config, "identity_0003")
+    async with session_factory() as session, session.begin():
+        await session.execute(
+            text(
+                "INSERT INTO identity.email_codes (id, user_id, code_hash, expires_at, created_at) "
+                "VALUES (:id, :u, :h, :e, :c)"
+            ),
+            {
+                "id": uuid4(),
+                "u": account.id,
+                "h": "d" * 64,
+                "e": NOW + timedelta(minutes=10),
+                "c": NOW,
+            },
+        )
+    await asyncio.to_thread(command.upgrade, config, "identity@head")
+
+    found = await PostgresCodeStore(session_factory).latest(account.id)
+
+    assert found is not None
+    assert found.code_hash == "d" * 64
+    assert found.purpose is CodePurpose.VERIFY
+
+
+async def test_going_back_drops_the_reset_codes_and_keeps_the_sign_up_ones(
+    migrated_url: URL,
+    make_alembic_config: object,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    config = make_alembic_config(migrated_url)  # type: ignore[operator]
+    users, codes = PostgresUserRepository(session_factory), PostgresCodeStore(session_factory)
+    account = user()
+    await users.add(account)
+    await codes.add(CodeRecord(uuid4(), account.id, "a" * 64, NOW + timedelta(minutes=10), NOW))
+    await codes.add(
+        CodeRecord(
+            uuid4(),
+            account.id,
+            "b" * 64,
+            NOW + timedelta(minutes=10),
+            NOW,
+            purpose=CodePurpose.RESET,
+        )
+    )
+
+    await asyncio.to_thread(command.downgrade, config, "identity_0003")
+    async with session_factory() as session:
+        left = (await session.execute(text("SELECT code_hash FROM identity.email_codes"))).all()
+
+    assert [row.code_hash for row in left] == ["a" * 64]
+    await asyncio.to_thread(command.upgrade, config, "identity@head")
 
 
 async def test_the_directory_gives_addresses_only_for_confirmed_accounts(

@@ -31,6 +31,8 @@ PUBLIC = {
     ("POST", "/v1/auth/register"),
     ("POST", "/v1/auth/verify-email"),
     ("POST", "/v1/auth/resend-code"),
+    ("POST", "/v1/auth/forgot-password"),
+    ("POST", "/v1/auth/reset-password"),
     ("GET", "/v1/auth/unsubscribe"),
     ("POST", "/v1/auth/unsubscribe"),
     ("POST", "/v1/auth/login"),

@@ -19,6 +19,19 @@ def verification_email(to: str, code: str, minutes: int) -> EmailMessage:
     return EmailMessage(to=to, subject=f"{code} رمز التأكيد · Pharmavique code", text=text)
 
 
+def reset_email(to: str, code: str, minutes: int) -> EmailMessage:
+    """The code to choose a new password (forgot password)."""
+    text = (
+        f"رمز تغيير كلمة المرور في فارماڤيك: {code}\n"
+        f"الرمز صالح لمدة {minutes} دقائق. إذا ما أنت اللي طلبته تجاهل هذه الرسالة، وكلمة مرورك "
+        "تبقى مثل ما هي.\n\n"
+        f"Your Pharmavique password reset code: {code}\n"
+        f"It is valid for {minutes} minutes. If you did not ask for it, ignore this email: your "
+        "password stays as it is.\n"
+    )
+    return EmailMessage(to=to, subject=f"{code} رمز تغيير كلمة المرور · Password reset", text=text)
+
+
 def role_review_email(to: str, role: Role, approved: bool, note: str | None) -> EmailMessage:
     """An operator verified or rejected a pharmacist or company account (ADR-020)."""
     ar, en = _ROLE_AR.get(role, "مهني"), _ROLE_EN.get(role, "professional")

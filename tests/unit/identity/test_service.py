@@ -16,6 +16,7 @@ from pharmavique.identity.domain.user import (
     CODE_TTL_MINUTES,
     AccountNotFound,
     CodeLocked,
+    CodePurpose,
     EmailNotVerified,
     EmailTaken,
     InvalidCode,
@@ -62,6 +63,11 @@ class FakeUsers:
         for email, user in self.by.items():
             if user.id == user_id:
                 self.by[email] = replace(user, email_verified_at=at)
+
+    async def set_password(self, user_id: UUID, password_hash: str) -> None:
+        for email, user in self.by.items():
+            if user.id == user_id:
+                self.by[email] = replace(user, password_hash=password_hash)
 
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool:
         for email, user in self.by.items():
@@ -130,11 +136,21 @@ class FakeCodes:
         self.consumed: set[object] = set()
 
     async def add(self, record: CodeRecord) -> None:
-        self.consumed |= {r.id for r in self.records if r.user_id == record.user_id}
+        self.consumed |= {
+            r.id
+            for r in self.records
+            if r.user_id == record.user_id and r.purpose == record.purpose
+        }
         self.records.append(record)
 
-    async def latest(self, user_id: UUID) -> CodeRecord | None:
-        mine = [r for r in self.records if r.user_id == user_id and r.id not in self.consumed]
+    async def latest(
+        self, user_id: UUID, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> CodeRecord | None:
+        mine = [
+            r
+            for r in self.records
+            if r.user_id == user_id and r.purpose == purpose and r.id not in self.consumed
+        ]
         return mine[-1] if mine else None
 
     async def add_attempt(self, code_id: object) -> int:
@@ -494,6 +510,218 @@ async def test_a_confirmed_account_is_not_sent_codes() -> None:
     await sign_up(svc, "ana@example.com")
     clock.current = NOW + timedelta(minutes=5)
     assert await svc.resend_code("ana@example.com") is None
+
+
+# ---- forgot password --------------------------------------------------------------------------
+async def forgot_code(svc: IdentityService, email: str = "ana@example.com") -> str:
+    message = await svc.forgot_password(email)
+    assert message is not None
+    assert message.to == email
+    return code_in(message.text)
+
+
+async def test_a_confirmed_account_gets_a_code_to_choose_a_new_password() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+
+    message = await svc.forgot_password("  Ana@Example.COM ")
+
+    assert message is not None
+    assert message.to == "ana@example.com"
+    assert re.fullmatch(r"\d{6}", code_in(message.text))
+    assert str(CODE_TTL_MINUTES) in message.text
+    assert "ana@example.com" not in message.text  # nothing personal inside the body
+
+
+async def test_the_new_password_works_and_the_old_one_does_not() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+
+    session = await svc.reset_password("ana@example.com", code, "a brand new password")
+
+    assert session.user.email == "ana@example.com"
+    assert (await svc.login("ana@example.com", "a brand new password")).user.id == session.user.id
+    with pytest.raises(InvalidCredentials):
+        await svc.login("ana@example.com", GOOD)
+
+
+async def test_choosing_a_new_password_ends_every_earlier_session() -> None:
+    svc, _, sessions, clock = service()
+    first = await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+    assert len(sessions.records) == 1
+
+    reset = await svc.reset_password("ana@example.com", code, "a brand new password")
+
+    assert len(sessions.records) == 1  # only the one the reset opened
+    with pytest.raises(SessionRejected):
+        await svc.refresh(first.refresh_token)
+    assert reset.refresh_token != first.refresh_token
+
+
+async def test_a_reset_code_works_once() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+    await svc.reset_password("ana@example.com", code, "a brand new password")
+
+    with pytest.raises(InvalidCode):
+        await svc.reset_password("ana@example.com", code, "another new password")
+
+
+async def test_a_wrong_reset_code_is_refused_and_counted() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+    wrong = "000000" if code != "000000" else "111111"
+
+    with pytest.raises(InvalidCode):
+        await svc.reset_password("ana@example.com", wrong, "a brand new password")
+
+    assert CODES[id(svc)].records[-1].attempts == 1
+    await svc.reset_password("ana@example.com", code, "a brand new password")  # still usable
+
+
+async def test_too_many_wrong_reset_codes_lock_it_even_for_the_right_one() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+    wrong = "000000" if code != "000000" else "111111"
+
+    for _ in range(CODE_MAX_ATTEMPTS - 1):
+        with pytest.raises(InvalidCode):
+            await svc.reset_password("ana@example.com", wrong, "a brand new password")
+    with pytest.raises(CodeLocked):
+        await svc.reset_password("ana@example.com", wrong, "a brand new password")
+    with pytest.raises(CodeLocked):
+        await svc.reset_password("ana@example.com", code, "a brand new password")
+
+
+async def test_an_expired_reset_code_is_refused() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+    clock.current += timedelta(minutes=CODE_TTL_MINUTES + 1)
+
+    with pytest.raises(InvalidCode):
+        await svc.reset_password("ana@example.com", code, "a brand new password")
+
+
+async def test_a_weak_new_password_is_refused_without_using_up_the_code() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+
+    with pytest.raises(InvariantViolation):
+        await svc.reset_password("ana@example.com", code, "short")
+    with pytest.raises(InvariantViolation):
+        await svc.reset_password("ana@example.com", code, "ana@example.com")
+
+    await svc.reset_password("ana@example.com", code, "a brand new password")  # the code is intact
+
+
+async def test_a_sign_up_code_cannot_reset_a_password() -> None:
+    svc, *_ = service()
+    signup_code = await register_for_code(svc)
+
+    with pytest.raises(InvalidCode):
+        await svc.reset_password("ana@example.com", signup_code, "a brand new password")
+
+
+async def test_a_reset_code_cannot_confirm_an_address() -> None:
+    svc, _, _, clock = service()
+    await svc.register("ana@example.com", GOOD, Role.PATIENT)
+    clock.current = NOW + timedelta(seconds=CODE_RESEND_SECONDS + 1)
+    code = await forgot_code(svc)
+
+    with pytest.raises(InvalidCode):
+        await svc.verify_email("ana@example.com", code)
+
+
+async def test_asking_for_a_reset_does_not_retire_the_sign_up_code() -> None:
+    svc, _, _, clock = service()
+    signup_code = await register_for_code(svc)
+    clock.current = NOW + timedelta(seconds=CODE_RESEND_SECONDS + 1)
+    await forgot_code(svc)
+
+    session = await svc.verify_email("ana@example.com", signup_code)
+
+    assert session.user.email_verified is True
+
+
+async def test_a_reset_code_also_confirms_the_address_it_was_sent_to() -> None:
+    svc, users, _, clock = service()
+    await svc.register("ana@example.com", GOOD, Role.PATIENT)  # never confirmed
+    clock.current = NOW + timedelta(seconds=CODE_RESEND_SECONDS + 1)
+    code = await forgot_code(svc)
+
+    session = await svc.reset_password("ana@example.com", code, "a brand new password")
+
+    assert session.user.email_verified is True
+    assert users.by["ana@example.com"].email_verified_at == clock.current
+
+
+async def test_a_new_reset_code_replaces_the_old_one_after_the_wait() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    old = await forgot_code(svc)
+    clock.current += timedelta(seconds=CODE_RESEND_SECONDS + 1)
+    fresh = await forgot_code(svc)
+
+    if fresh != old:
+        with pytest.raises(InvalidCode):
+            await svc.reset_password("ana@example.com", old, "a brand new password")
+    await svc.reset_password("ana@example.com", fresh, "a brand new password")
+
+
+async def test_asking_for_a_reset_again_too_soon_sends_nothing() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    await forgot_code(svc)
+
+    assert await svc.forgot_password("ana@example.com") is None
+
+
+async def test_at_most_a_few_codes_an_hour_counting_resets() -> None:
+    svc, _, _, clock = service()
+    await register_for_code(svc)
+    sent = 1
+    for _ in range(CODE_MAX_PER_HOUR + 2):
+        clock.current += timedelta(seconds=CODE_RESEND_SECONDS + 1)
+        if await svc.forgot_password("ana@example.com") is not None:
+            sent += 1
+    assert sent == CODE_MAX_PER_HOUR
+
+
+@pytest.mark.parametrize("email", ["nobody@example.com", "not-an-email"])
+async def test_a_reset_for_an_unknown_address_sends_nothing_and_says_nothing(email: str) -> None:
+    svc, *_ = service()
+    assert await svc.forgot_password(email) is None
+    with pytest.raises(InvalidCode):
+        await svc.reset_password(email, "123456", "a brand new password")
+
+
+async def test_only_a_keyed_hash_of_the_reset_code_is_stored() -> None:
+    svc, _, _, clock = service()
+    await sign_up(svc, "ana@example.com")
+    clock.current = NOW + timedelta(minutes=5)
+    code = await forgot_code(svc)
+
+    resets = [r for r in CODES[id(svc)].records if r.purpose is CodePurpose.RESET]
+    assert len(resets) == 1
+    assert code not in resets[0].code_hash
+    assert len(resets[0].code_hash) == 64
 
 
 async def test_email_notifications_can_be_switched_off_and_on() -> None:

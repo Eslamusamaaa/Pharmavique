@@ -20,7 +20,7 @@ from pharmavique.bootstrap.unsubscribe import make_token
 from pharmavique.foundation.clock import SystemClock
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.application.service import IdentityService
-from pharmavique.identity.domain.user import RoleReview, User
+from pharmavique.identity.domain.user import CodePurpose, RoleReview, User
 from pharmavique.identity.infrastructure.tokens import JwtAccessTokens
 from pharmavique.shared_kernel.email import EmailError, EmailMessage
 from pharmavique.shared_kernel.principal import Principal, Role
@@ -53,6 +53,11 @@ class Users:
             if user.id == user_id:
                 self.by[email] = replace(user, email_verified_at=at)
 
+    async def set_password(self, user_id: UUID, password_hash: str) -> None:
+        for email, user in self.by.items():
+            if user.id == user_id:
+                self.by[email] = replace(user, password_hash=password_hash)
+
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool:
         for email, user in self.by.items():
             if user.id == user_id:
@@ -80,11 +85,21 @@ class Codes:
         self.consumed: set[object] = set()
 
     async def add(self, record: CodeRecord) -> None:
-        self.consumed |= {r.id for r in self.records if r.user_id == record.user_id}
+        self.consumed |= {
+            r.id
+            for r in self.records
+            if r.user_id == record.user_id and r.purpose == record.purpose
+        }
         self.records.append(record)
 
-    async def latest(self, user_id: UUID) -> CodeRecord | None:
-        mine = [r for r in self.records if r.user_id == user_id and r.id not in self.consumed]
+    async def latest(
+        self, user_id: UUID, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> CodeRecord | None:
+        mine = [
+            r
+            for r in self.records
+            if r.user_id == user_id and r.purpose == purpose and r.id not in self.consumed
+        ]
         return mine[-1] if mine else None
 
     async def add_attempt(self, code_id: object) -> int:
@@ -459,6 +474,169 @@ async def test_a_failing_mail_server_does_not_break_sign_up(
 
     assert response.status_code == 201  # the person can ask for a new code later
     assert outbox.sent == []
+
+
+# ---- forgot password ---------------------------------------------------------------------------
+FRESH = "a brand new password"
+
+
+async def test_forgot_password_gives_the_same_answer_for_any_address(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    sent_before = len(outbox.sent)
+
+    known = await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+    sent_for_known = len(outbox.sent) - sent_before
+    unknown = await client.post("/v1/auth/forgot-password", json={"email": "nobody@example.com"})
+    garbage = await client.post("/v1/auth/forgot-password", json={"email": "not-an-email"})
+
+    assert known.status_code == unknown.status_code == garbage.status_code == 202
+    assert known.json() == unknown.json() == garbage.json()
+    assert sent_for_known == 1  # only the real account got an email
+    assert len(outbox.sent) == sent_before + 1
+
+
+async def test_the_emailed_code_chooses_a_new_password_and_signs_in(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+    assert "رمز تغيير كلمة المرور" in outbox.sent[-1].subject
+
+    reset = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": outbox.last_code(), "new_password": FRESH},
+    )
+    new_login = await client.post(
+        "/v1/auth/login", json={"email": "ana@example.com", "password": FRESH}
+    )
+    old_login = await client.post(
+        "/v1/auth/login", json={"email": "ana@example.com", "password": GOOD}
+    )
+
+    assert reset.status_code == 200
+    assert reset.json()["user"]["email"] == "ana@example.com"
+    assert "password" not in reset.text
+    assert (
+        await client.get("/v1/auth/me", headers=bearer(reset.json()["access_token"]))
+    ).is_success
+    assert new_login.status_code == 200
+    assert old_login.status_code == 401
+
+
+async def test_choosing_a_new_password_ends_the_old_sessions(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    first = (await sign_up(client, outbox)).json()
+    await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+
+    await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": outbox.last_code(), "new_password": FRESH},
+    )
+    stale = await client.post("/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+
+    assert stale.status_code == 401
+
+
+async def test_a_wrong_reset_code_is_a_400_and_the_right_one_still_works(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+    right = outbox.last_code()
+    wrong = "000000" if right != "000000" else "111111"
+
+    bad = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": wrong, "new_password": FRESH},
+    )
+    good = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": right, "new_password": FRESH},
+    )
+
+    assert bad.status_code == 400
+    assert good.status_code == 200
+
+
+async def test_too_many_wrong_reset_codes_are_a_429(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+    wrong = "000000" if outbox.last_code() != "000000" else "111111"
+
+    statuses = [
+        (
+            await client.post(
+                "/v1/auth/reset-password",
+                json={"email": "ana@example.com", "code": wrong, "new_password": FRESH},
+            )
+        ).status_code
+        for _ in range(6)
+    ]
+
+    assert statuses[:4] == [400, 400, 400, 400]
+    assert set(statuses[4:]) == {429}
+
+
+async def test_a_weak_new_password_is_a_422_and_the_code_survives(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+    code = outbox.last_code()
+
+    weak = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": code, "new_password": "short"},
+    )
+    good = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "ana@example.com", "code": code, "new_password": FRESH},
+    )
+
+    assert weak.status_code == 422
+    assert good.status_code == 200
+
+
+async def test_a_sign_up_code_cannot_reset_a_password_over_the_api(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await register(client)
+
+    response = await client.post(
+        "/v1/auth/reset-password",
+        json={
+            "email": "ana@example.com",
+            "code": outbox.last_code(),  # the sign-up code
+            "new_password": FRESH,
+        },
+    )
+
+    assert response.status_code == 400
+
+
+async def test_resetting_for_an_unknown_address_is_a_400(client: httpx.AsyncClient) -> None:
+    response = await client.post(
+        "/v1/auth/reset-password",
+        json={"email": "nobody@example.com", "code": "123456", "new_password": FRESH},
+    )
+
+    assert response.status_code == 400
+
+
+async def test_a_failing_mail_server_does_not_break_forgot_password(
+    client: httpx.AsyncClient, outbox: Outbox
+) -> None:
+    await sign_up(client, outbox)
+    outbox.fail = True
+
+    response = await client.post("/v1/auth/forgot-password", json={"email": "ana@example.com"})
+
+    assert response.status_code == 202  # the answer is the same; they can ask again later
 
 
 async def test_email_notifications_can_be_switched_off(

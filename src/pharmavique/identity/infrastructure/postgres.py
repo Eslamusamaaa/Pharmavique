@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from pharmavique.identity.application.ports import CodeRecord, RefreshRecord
 from pharmavique.identity.contracts import Contact
-from pharmavique.identity.domain.user import RoleReview, User
+from pharmavique.identity.domain.user import CodePurpose, RoleReview, User
 from pharmavique.shared_kernel.principal import Role
 
 _INSERT = text(
@@ -98,6 +98,13 @@ class PostgresUserRepository:
                 {"id": user_id, "at": at},
             )
 
+    async def set_password(self, user_id: UUID, password_hash: str) -> None:
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                text("UPDATE identity.users SET password_hash = :h WHERE id = :id"),
+                {"id": user_id, "h": password_hash},
+            )
+
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool:
         async with self._session_factory() as session, session.begin():
             result = await session.execute(
@@ -156,15 +163,15 @@ class PostgresCodeStore:
             await session.execute(
                 text(
                     "UPDATE identity.email_codes SET consumed_at = :now "
-                    "WHERE user_id = :u AND consumed_at IS NULL"
+                    "WHERE user_id = :u AND purpose = :p AND consumed_at IS NULL"
                 ),
-                {"u": record.user_id, "now": record.created_at},
+                {"u": record.user_id, "now": record.created_at, "p": record.purpose.value},
             )
             await session.execute(
                 text(
                     "INSERT INTO identity.email_codes "
-                    "(id, user_id, code_hash, expires_at, created_at) "
-                    "VALUES (:id, :u, :h, :e, :c)"
+                    "(id, user_id, code_hash, expires_at, created_at, purpose) "
+                    "VALUES (:id, :u, :h, :e, :c, :p)"
                 ),
                 {
                     "id": record.id,
@@ -172,26 +179,35 @@ class PostgresCodeStore:
                     "h": record.code_hash,
                     "e": record.expires_at,
                     "c": record.created_at,
+                    "p": record.purpose.value,
                 },
             )
 
-    async def latest(self, user_id: UUID) -> CodeRecord | None:
+    async def latest(
+        self, user_id: UUID, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> CodeRecord | None:
         async with self._session_factory() as session:
             row = (
                 await session.execute(
                     text(
                         "SELECT id, user_id, code_hash, expires_at, created_at, attempts "
                         "FROM identity.email_codes "
-                        "WHERE user_id = :u AND consumed_at IS NULL "
+                        "WHERE user_id = :u AND purpose = :p AND consumed_at IS NULL "
                         "ORDER BY created_at DESC LIMIT 1"
                     ),
-                    {"u": user_id},
+                    {"u": user_id, "p": purpose.value},
                 )
             ).first()
         if row is None:
             return None
         return CodeRecord(
-            row.id, row.user_id, row.code_hash, row.expires_at, row.created_at, row.attempts
+            row.id,
+            row.user_id,
+            row.code_hash,
+            row.expires_at,
+            row.created_at,
+            row.attempts,
+            purpose,
         )
 
     async def add_attempt(self, code_id: UUID) -> int:

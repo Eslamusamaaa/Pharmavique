@@ -1,4 +1,5 @@
-"""Sign up, confirm the email with a code, sign in, keep a session, sign out, delete the account.
+"""Sign up, confirm the email with a code, sign in, keep a session, sign out, delete the account,
+and choose a new password with an emailed code when the old one is forgotten.
 
 Signing up makes an unconfirmed account and emails a six-digit code; there is no session until the
 code is entered. The code is random, kept only as a keyed hash, valid for ten minutes, allows five
@@ -18,7 +19,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from pharmavique.identity.application.messages import role_review_email, verification_email
+from pharmavique.identity.application.messages import (
+    reset_email,
+    role_review_email,
+    verification_email,
+)
 from pharmavique.identity.application.ports import (
     AccessTokens,
     CodeRecord,
@@ -38,6 +43,7 @@ from pharmavique.identity.domain.user import (
     TENANT_ROLES,
     AccountNotFound,
     CodeLocked,
+    CodePurpose,
     EmailNotVerified,
     EmailTaken,
     InvalidCode,
@@ -179,6 +185,51 @@ class IdentityService:
             return None
         return await self._issue_code(user)
 
+    async def forgot_password(self, email: str) -> EmailMessage | None:
+        """A code to choose a new password, or None. Never says which: an address with no account
+        and a request that is too soon look the same from outside."""
+        try:
+            user = await self._users.by_email(normalize_email(email))
+        except InvariantViolation:
+            return None
+        if user is None:
+            return None
+        return await self._issue_code(user, CodePurpose.RESET)
+
+    async def reset_password(self, email: str, code: str, new_password: str) -> Session:
+        """Check the emailed code, set the new password, end every earlier session and open a new
+        one. The code proves the address, so an unconfirmed account counts as confirmed. A new
+        password that breaks the rules is refused before the code is used, so it can be fixed."""
+        try:
+            user = await self._users.by_email(normalize_email(email))
+        except InvariantViolation:
+            raise InvalidCode from None
+        if user is None:
+            raise InvalidCode
+        record = await self._codes.latest(user.id, CodePurpose.RESET)
+        if record is None or record.expires_at <= self._clock.now():
+            raise InvalidCode
+        if record.attempts >= CODE_MAX_ATTEMPTS:
+            raise CodeLocked
+        expected = self._hash_code(user.id, code.strip(), CodePurpose.RESET)
+        if not hmac.compare_digest(record.code_hash, expected):
+            if await self._codes.add_attempt(record.id) >= CODE_MAX_ATTEMPTS:
+                raise CodeLocked
+            raise InvalidCode
+        check_password(new_password, user.email)
+        if not await self._codes.consume(record.id):
+            raise InvalidCode
+        password_hash = await self._hasher.hash(new_password)
+        await self._users.set_password(user.id, password_hash)
+        await self._sessions.revoke_user(user.id)  # anyone who knew the old password is out
+        now = self._clock.now()
+        if not user.verified:
+            await self._users.mark_verified(user.id, now)
+        changed = replace(
+            user, password_hash=password_hash, email_verified_at=user.email_verified_at or now
+        )
+        return await self._open_session(changed)
+
     async def set_email_notifications(self, user_id: UUID, enabled: bool) -> bool:
         return await self._users.set_email_notifications(user_id, enabled)
 
@@ -253,12 +304,20 @@ class IdentityService:
         user = await self._users.by_id(user_id)
         return _view(user) if user else None
 
-    def _hash_code(self, user_id: UUID, code: str) -> str:
-        return hmac.new(self._code_key, f"{user_id}:{code}".encode(), hashlib.sha256).hexdigest()
+    def _hash_code(
+        self, user_id: UUID, code: str, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> str:
+        # the purpose is part of the hash, so a sign-up code can never reset a password
+        bound = (
+            f"{user_id}:{code}" if purpose is CodePurpose.VERIFY else f"{user_id}:{purpose}:{code}"
+        )
+        return hmac.new(self._code_key, bound.encode(), hashlib.sha256).hexdigest()
 
-    async def _issue_code(self, user: User) -> EmailMessage | None:
+    async def _issue_code(
+        self, user: User, purpose: CodePurpose = CodePurpose.VERIFY
+    ) -> EmailMessage | None:
         now = self._clock.now()
-        recent = await self._codes.latest(user.id)
+        recent = await self._codes.latest(user.id, purpose)
         if recent is not None and (now - recent.created_at).total_seconds() < CODE_RESEND_SECONDS:
             return None
         if await self._codes.count_since(user.id, now - timedelta(hours=1)) >= CODE_MAX_PER_HOUR:
@@ -268,11 +327,14 @@ class IdentityService:
             CodeRecord(
                 id=uuid4(),
                 user_id=user.id,
-                code_hash=self._hash_code(user.id, code),
+                code_hash=self._hash_code(user.id, code, purpose),
                 expires_at=now + timedelta(minutes=CODE_TTL_MINUTES),
                 created_at=now,
+                purpose=purpose,
             )
         )
+        if purpose is CodePurpose.RESET:
+            return reset_email(user.email, code, CODE_TTL_MINUTES)
         return verification_email(user.email, code, CODE_TTL_MINUTES)
 
     async def _new_user(
