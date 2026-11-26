@@ -1,20 +1,14 @@
 // B16 · Assistant: levels, cited answers, redirect, not found, listen (pharmavique-wireframes/PvB3).
 import { router, useLocalSearchParams } from 'expo-router';
 import {
+  ArrowCounterClockwiseIcon,
   ArrowRightIcon,
   CameraIcon,
-  FileTextIcon,
-  GlobeIcon,
-  FirstAidKitIcon,
-  InfoIcon,
-  LinkSimpleIcon,
-  MagnifyingGlassIcon,
+  ChatsIcon,
   MicrophoneIcon,
   PaperPlaneTiltIcon,
-  SealCheckIcon,
-  SpeakerHighIcon,
+  PlusIcon,
   StopIcon,
-  WarningIcon,
   XIcon,
 } from '@/components/icons';
 import { Image } from 'expo-image';
@@ -24,7 +18,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Keyboard,
   Platform,
   Pressable,
@@ -36,16 +29,19 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  ApiError,
   askAssistant,
   friendlyError,
   scanImage,
   type AssistantAnswer,
   type ConversationTurn,
 } from '@/api/client';
-import { askWithMyMedicines } from '@/api/me';
+import { getConversation, writeTitle, type SavedMessage } from '@/api/conversations';
+import { AnswerCard } from '@/components/AnswerCard';
+import { ConversationList } from '@/components/ConversationList';
 import { HistoryCard } from '@/components/history-card';
 import { useAccount } from '@/state/auth';
-import { DisclaimerBar, Row, T, TrustBadge } from '@/components/ui';
+import { DisclaimerBar, Row, T } from '@/components/ui';
 import { roleInfo, useRole } from '@/state/role';
 import { useSpeaker, useVoiceInput } from '@/state/voice';
 import { cardShadow, fonts, radius, useTheme } from '@/theme';
@@ -53,14 +49,43 @@ import { SignInGate } from '@/components/SignInGate';
 
 type Turn =
   | { id: string; role: 'user'; text: string; sent?: string; photo?: string }
-  | { id: string; role: 'assistant'; answer: AssistantAnswer }
+  | { id: string; role: 'assistant'; answer: AssistantAnswer; savedAt?: string }
   | { id: string; role: 'pending' }
-  | { id: string; role: 'error'; text: string };
+  // `retry`: the question to send again ("try again"); a saved one replaces its failed copy
+  | { id: string; role: 'error'; text: string; retry?: string };
 
 let counter = 0;
 const nextId = () => `t${++counter}`;
 // the question a photo carries when it is sent without one (Saudi dialect)
 const PHOTO_ONLY_QUESTION = 'وش هذا الدواء؟';
+const NO_ANSWER = 'ما وصلت الإجابة. جرّب مرة ثانية.';
+
+/** A saved conversation as turns on screen: answers as they were shown, with their dates. */
+function savedTurns(messages: SavedMessage[]): Turn[] {
+  return messages.flatMap((m): Turn[] => {
+    if (m.role === 'assistant')
+      return [
+        {
+          id: nextId(),
+          role: 'assistant',
+          savedAt: m.created_at,
+          answer: m.answer ?? {
+            answer: m.text,
+            citations: [],
+            grounded: false,
+            web: false,
+            general: true,
+            urgent: false,
+            refused: false,
+            level: 'patient',
+            tools_used: [],
+          },
+        },
+      ];
+    const question: Turn = { id: nextId(), role: 'user', text: m.text, sent: m.text };
+    return m.status === 'ok' ? [question] : [question, { id: nextId(), role: 'error', text: NO_ANSWER, retry: m.text }];
+  });
+}
 
 export default function Assistant() {
   return (
@@ -73,7 +98,8 @@ export default function Assistant() {
 function AssistantScreen() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ register?: string; name?: string; q?: string }>();
+  // `c`: a saved conversation to open; `list=1`: open the list of saved conversations
+  const params = useLocalSearchParams<{ register?: string; name?: string; q?: string; c?: string; list?: string }>();
   const { account } = useAccount();
   const [useMine, setUseMine] = useState(false);
   const { role } = useRole();
@@ -89,6 +115,28 @@ function AssistantScreen() {
   // true while the text in the box came from the microphone: its answer is spoken too
   const [spokenDraft, setSpokenDraft] = useState(false);
   const readingNow = useRef(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [opening, setOpening] = useState(false);
+
+  const newConversation = () => {
+    setTurns([]);
+    setConversationId(null);
+  };
+
+  const openConversation = async (id: string) => {
+    setOpening(true);
+    try {
+      const { messages } = await getConversation(id);
+      setTurns(savedTurns(messages));
+      setConversationId(id);
+    } catch (e) {
+      setTurns([{ id: nextId(), role: 'error', text: friendlyError(e) }]);
+      setConversationId(null);
+    } finally {
+      setOpening(false);
+    }
+  };
 
   const ask = async (question: string, spoken = false, shown?: string, photoUri?: string) => {
     const q = question.trim();
@@ -109,16 +157,41 @@ function AssistantScreen() {
     Keyboard.dismiss(); // the answer is what matters now, not the keyboard
     setTurns((all) => [...all, { id: nextId(), role: 'user', text: shown ?? q, sent: q, photo: photoUri }, { id: pendingId, role: 'pending' }]);
     try {
-      const answer =
-        useMine && account && params.register
-          ? await askWithMyMedicines({ question: q, level, register_number: params.register, spoken, history })
-          : await askAssistant({ question: q, level, register_number: params.register ?? null, spoken, history });
+      const answer = await askAssistant({
+        question: q,
+        level,
+        register_number: params.register ?? null,
+        spoken,
+        history,
+        conversation_id: conversationId,
+        use_history: !!(useMine && account && params.register),
+      });
       setTurns((all) => all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'assistant', answer } : t)));
+      if (answer.conversation_id) {
+        setConversationId(answer.conversation_id);
+        // a new conversation is named by the model after its first answer; never waited for
+        if (answer.new_conversation) writeTitle(answer.conversation_id).catch(() => undefined);
+      }
       // A question asked by voice is answered by voice too (Saudi Arabic).
       if (spoken && !answer.refused) speaker.speak(pendingId, answer.answer);
     } catch (e) {
-      setTurns((all) => all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'error', text: friendlyError(e) } : t)));
+      if (e instanceof ApiError && e.conversationId) setConversationId(e.conversationId);
+      setTurns((all) =>
+        all.map((t) => (t.id === pendingId ? { id: pendingId, role: 'error', text: friendlyError(e), retry: q } : t)),
+      );
     }
+  };
+
+  // "Try again": the failed question and its error leave the screen and the question is asked again
+  // (in a saved conversation the server replaces the failed copy instead of adding another).
+  const retry = (errorId: string, question: string) => {
+    if (busy) return;
+    setTurns((all) => {
+      const at = all.findIndex((t) => t.id === errorId);
+      const before = all[at - 1];
+      return all.filter((t, i) => i !== at && !(i === at - 1 && before?.role === 'user'));
+    });
+    ask(question);
   };
 
   // A photo stays attached until the person adds the question to send with it. The box scan only
@@ -200,6 +273,15 @@ function AssistantScreen() {
   }, [params.q]);
 
   useEffect(() => {
+    if (params.c) openConversation(params.c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.c]);
+
+  useEffect(() => {
+    if (params.list === '1' && account) setListOpen(true);
+  }, [params.list, account]);
+
+  useEffect(() => {
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
   }, [turns]);
 
@@ -228,7 +310,27 @@ function AssistantScreen() {
         <T size={17} weight={700} style={{ flex: 1 }} numberOfLines={1}>
           {params.name ? `اسأل عن ${params.name}` : 'اسأل عن بيانات الأدوية'}
         </T>
+        {account ? (
+          <>
+            <Pressable onPress={newConversation} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="محادثة جديدة">
+              <PlusIcon size={22} color={c.ink} />
+            </Pressable>
+            <Pressable onPress={() => setListOpen(true)} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="محادثاتي">
+              <ChatsIcon size={24} color={c.ink} />
+            </Pressable>
+          </>
+        ) : null}
       </View>
+      {account ? (
+        <ConversationList
+          visible={listOpen}
+          onClose={() => setListOpen(false)}
+          currentId={conversationId}
+          onOpen={openConversation}
+          onNew={newConversation}
+          level={level}
+        />
+      ) : null}
       <DisclaimerBar />
       {account && params.register ? (
         <Pressable
@@ -253,7 +355,8 @@ function AssistantScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
-          {turns.length === 0 ? (
+          {opening ? <ActivityIndicator color={c.ink2} /> : null}
+          {turns.length === 0 && !opening ? (
             <View style={{ gap: 10, paddingTop: 8 }}>
               <T size={15} color={c.ink2}>
                 اسأل عن أي دواء مسجل: المادة الفعالة، السعر المسجل، البدائل بنفس المادة، أو التحذيرات الرسمية.
@@ -285,6 +388,19 @@ function AssistantScreen() {
                   <T size={14} color={c.ink2}>
                     {turn.text}
                   </T>
+                  {turn.retry ? (
+                    <Pressable
+                      onPress={() => retry(turn.id, turn.retry as string)}
+                      disabled={busy}
+                      style={[styles.retry, { borderColor: c.pr, opacity: busy ? 0.5 : 1 }]}
+                      accessibilityRole="button"
+                    >
+                      <ArrowCounterClockwiseIcon size={16} color={c.pr} />
+                      <T size={14} weight={600} color={c.pr}>
+                        حاول مرة ثانية
+                      </T>
+                    </Pressable>
+                  ) : null}
                 </View>
               );
             return (
@@ -293,6 +409,7 @@ function AssistantScreen() {
                   answer={turn.answer}
                   listening={speaker.loadingId === turn.id}
                   onListen={() => speaker.speak(turn.id, turn.answer.answer)}
+                  savedAt={turn.savedAt}
                 />
                 {turn.answer.history_check ? <HistoryCard check={turn.answer.history_check} /> : null}
               </View>
@@ -316,7 +433,7 @@ function AssistantScreen() {
               {speaker.error}
             </T>
           ) : null}
-          {turns.length === 0 ? (
+          {turns.length === 0 && !opening ? (
             <View style={styles.suggestions}>
               {suggestions.map((s) => (
                 <Pressable key={s} onPress={() => ask(s)} style={[styles.chip, { backgroundColor: c.sf, borderColor: c.ln }]}>
@@ -388,137 +505,6 @@ function AssistantScreen() {
   );
 }
 
-// A drug cited from the registry opens inside the app; a page from the web or an official
-// document opens in the browser.
-function openCitation(cite: AssistantAnswer['citations'][number]) {
-  if (cite.kind === 'catalog') {
-    const register = cite.source_id.slice('catalog:'.length);
-    if (register) {
-      router.push({ pathname: '/drug/[register]', params: { register } });
-      return;
-    }
-  }
-  if (cite.url) Linking.openURL(cite.url);
-}
-
-function AnswerCard({ answer, listening, onListen }: { answer: AssistantAnswer; listening: boolean; onListen: () => void }) {
-  const { c } = useTheme();
-
-  // Emergency: firm and first.
-  if (answer.urgent)
-    return (
-      <View style={[styles.card, { backgroundColor: c.rds, borderColor: c.rd, borderWidth: 1.5 }]}>
-        <Row gap={8}>
-          <WarningIcon size={22} color={c.rd} weight="fill" />
-          <T size={16} weight={700} color={c.rd}>
-            موقف طارئ
-          </T>
-        </Row>
-        <T>{answer.answer}</T>
-      </View>
-    );
-
-  // note 2: advice questions get a calm redirect; no partial advice.
-  if (answer.refused)
-    return (
-      <View style={[styles.card, { backgroundColor: c.sf, borderColor: c.pr, borderWidth: 1.5 }]}>
-        <Row gap={8}>
-          <FirstAidKitIcon size={20} color={c.pr} weight="fill" />
-          <T size={16} weight={700}>
-            هذا سؤال للصيدلي أو الطبيب
-          </T>
-        </Row>
-        <T size={14} color={c.ink2}>
-          {answer.answer}
-        </T>
-      </View>
-    );
-
-  const notFound = !answer.grounded && !answer.general;
-  if (notFound)
-    return (
-      <Row gap={8} style={[styles.card, { backgroundColor: c.sf }, cardShadow]}>
-        <MagnifyingGlassIcon size={20} color={c.ink} />
-        <T weight={600} style={{ flex: 1 }}>
-          {answer.answer}
-        </T>
-      </Row>
-    );
-
-  const documentCited = answer.citations.some((cite) => cite.kind === 'document');
-  return (
-    <View style={[styles.card, { backgroundColor: c.sf }, cardShadow]}>
-      <T size={16} style={{ lineHeight: 28 }}>
-        {answer.answer}
-      </T>
-      {answer.citations.length ? (
-        <View style={styles.citations}>
-          {answer.citations.map((cite) => (
-            <Pressable
-              key={cite.source_id}
-              onPress={() => openCitation(cite)}
-              style={[styles.citeChip, { backgroundColor: cite.kind === 'web' ? c.wns : c.prs }]}
-            >
-              {cite.kind === 'document' ? (
-                <FileTextIcon size={14} color={c.pr} />
-              ) : cite.kind === 'web' ? (
-                <GlobeIcon size={14} color={c.wn} />
-              ) : (
-                <LinkSimpleIcon size={14} color={c.pr} />
-              )}
-              <T size={12.5} weight={600} color={cite.kind === 'web' ? c.wn : c.pr} numberOfLines={1} style={{ maxWidth: 240 }}>
-                {`[${cite.number}] ${cite.title}`}
-              </T>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      {answer.citations.length ? (
-        <Row gap={6} style={{ flexWrap: 'wrap' }}>
-          {Array.from(new Set(answer.citations.map((cite) => cite.trust_grade ?? 'unverified'))).map((grade) => (
-            <TrustBadge
-              key={grade}
-              grade={grade}
-              label={answer.citations.find((cite) => (cite.trust_grade ?? 'unverified') === grade)?.trust_label_ar}
-            />
-          ))}
-        </Row>
-      ) : null}
-      {answer.web && answer.grounded ? (
-        <Row gap={4}>
-          <InfoIcon size={14} color={c.wn} weight="fill" />
-          <T size={12} color={c.ink2}>
-            جزء من الإجابة من الإنترنت وهو غير موثّق من الهيئة
-          </T>
-        </Row>
-      ) : null}
-      <Row style={{ justifyContent: 'space-between', marginTop: 2 }}>
-        {answer.grounded ? (
-          <Row gap={4}>
-            <SealCheckIcon size={14} color={c.ok} weight="fill" />
-            <T size={12} color={c.ink2}>
-              {documentCited ? 'المصدر: هيئة الغذاء والدواء' : 'المصدر: بياناتنا الرسمية'}
-            </T>
-          </Row>
-        ) : (
-          <Row gap={4}>
-            <InfoIcon size={14} color={c.wn} weight="fill" />
-            <T size={12} color={c.ink2}>
-              {answer.web ? 'معلومات من الإنترنت، غير موثّقة من الهيئة' : 'معلومة عامة، ليست من سجل الهيئة'}
-            </T>
-          </Row>
-        )}
-        <Pressable onPress={onListen} style={[styles.listen, { backgroundColor: c.bg }]} accessibilityLabel="استمع للإجابة">
-          {listening ? <ActivityIndicator size="small" color={c.ink} /> : <SpeakerHighIcon size={16} color={c.ink} />}
-          <T size={13} weight={600}>
-            استمع
-          </T>
-        </Pressable>
-      </Row>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   header: { height: 52, flexDirection: 'row-reverse', alignItems: 'center', gap: 8, paddingHorizontal: 8 },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -529,9 +515,7 @@ const styles = StyleSheet.create({
   userBubble: { alignSelf: 'flex-end', maxWidth: '85%', borderRadius: radius.lg, borderTopRightRadius: 4, paddingVertical: 10, paddingHorizontal: 14 },
   pending: { alignSelf: 'flex-end', borderRadius: radius.lg, paddingVertical: 12, paddingHorizontal: 14 },
   card: { borderRadius: radius.lg, padding: 16, gap: 10 },
-  citations: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  citeChip: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.pill },
-  listen: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, minHeight: 36 },
+  retry: { flexDirection: 'row-reverse', alignItems: 'center', alignSelf: 'flex-start', gap: 6, borderWidth: 1, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14, minHeight: 44 },
   mine: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, minHeight: 44, marginHorizontal: 16, marginTop: 8, paddingHorizontal: 14, borderWidth: 1, borderRadius: radius.md },
   suggestions: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   chip: { borderWidth: 1, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14 },

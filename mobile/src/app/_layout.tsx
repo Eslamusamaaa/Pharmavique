@@ -57,6 +57,7 @@ export default function RootLayout() {
         <Stack.Screen name="pharmacies" options={page} />
         <Stack.Screen name="shelf" options={page} />
         <Stack.Screen name="operator" options={dashboard} />
+        <Stack.Screen name="shared/[token]" options={page} />
         <Stack.Screen name="voice" options={{ presentation: 'modal' }} />
       </Stack>
       </View>

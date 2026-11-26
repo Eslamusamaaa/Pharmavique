@@ -108,6 +108,15 @@ export default function Account() {
               </Group>
             ) : null}
 
+            <Group title="المساعد">
+              <LinkRow
+                label="محادثاتي"
+                hint="محادثاتك المحفوظة مع المساعد: افتحها، ابحث فيها، ثبّتها أو شاركها"
+                onPress={() => router.push({ pathname: '/assistant', params: { list: '1' } })}
+                last
+              />
+            </Group>
+
             <Group title="عن البيانات">
               <LinkRow label="آخر تحديث والمصادر" hint="مصدر كل معلومة ودرجة الثقة فيها" onPress={() => router.push('/sources')} last />
             </Group>

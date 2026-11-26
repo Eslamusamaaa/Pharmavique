@@ -246,3 +246,14 @@ def test_the_sources_page_shows_the_trust_grades(page: Any) -> None:
     assert page.get_by_text("مرجع رسمي أجنبي").count() >= 1
     assert_right_to_left(page)
     assert_fits_the_screen(page)
+
+
+def test_a_dead_share_link_says_the_conversation_is_gone(first_visit: Any) -> None:
+    """A shared conversation opens for anyone, with no role chosen and nobody signed in; one that
+    was deleted or no longer shared says so instead of an error."""
+    first_visit.goto("/shared/no-such-link")
+
+    first_visit.get_by_text("هالمحادثة ما عادت موجودة").filter(visible=True).wait_for()
+    assert "/role" not in first_visit.url  # not sent to the role screen first
+    first_visit.get_by_text(DISCLAIMER, exact=False).filter(visible=True).first.wait_for()
+    assert_fits_the_screen(first_visit)

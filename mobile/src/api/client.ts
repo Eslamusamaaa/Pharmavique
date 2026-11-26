@@ -85,6 +85,8 @@ export class ApiError extends Error {
     message: string,
     readonly status: number | null,
     readonly detail: string = '',
+    // A failed question that was saved: the app shows it in that conversation with "try again".
+    readonly conversationId: string | null = null,
   ) {
     super(message);
   }
@@ -256,7 +258,10 @@ export type AssistantAnswer = {
   level: Level;
   tools_used: string[];
   history_check?: import('@/api/me').HistoryCheck | null; // only when I asked to use my medicines
-  disclaimer: string;
+  // The saved conversation (signed in); the app sends it back to continue the conversation.
+  conversation_id?: string | null;
+  new_conversation?: boolean; // the first answer of a new conversation: ask for its title
+  disclaimer?: string;
 };
 
 export type ScanCandidate = {
@@ -296,12 +301,18 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
     if ((error as Error).name === 'AbortError') throw error;
     throw new ApiError('network', null, reason(error));
   }
-  if (!response.ok) throw new ApiError(`http ${response.status}`, response.status);
+  if (!response.ok) {
+    const saved = response.headers.get('X-Conversation-Id');
+    throw new ApiError(`http ${response.status}`, response.status, '', saved);
+  }
   const data = (await response.json()) as T;
   // A slow answer is streamed (blank bytes keep the phone's connection alive), so a failure that
-  // comes late arrives as a 200 whose body is { error: { status, detail } }.
-  const late = (data as { error?: { status?: unknown } } | null)?.error;
-  if (late && typeof late.status === 'number') throw new ApiError(`http ${late.status}`, late.status);
+  // comes late arrives as a 200 whose body is { error: { status, detail, conversation_id? } }.
+  const late = (data as { error?: { status?: unknown; conversation_id?: unknown } } | null)?.error;
+  if (late && typeof late.status === 'number') {
+    const saved = typeof late.conversation_id === 'string' ? late.conversation_id : null;
+    throw new ApiError(`http ${late.status}`, late.status, '', saved);
+  }
   return data;
 }
 
@@ -378,7 +389,10 @@ export function askAssistant(
     level: Level;
     register_number?: string | null;
     spoken?: boolean;
-    history?: ConversationTurn[]; // earlier turns, oldest first: the server keeps no conversation
+    // earlier turns, oldest first; only read when the conversation is not saved (a guest)
+    history?: ConversationTurn[];
+    conversation_id?: string | null; // the saved conversation to continue; none starts one
+    use_history?: boolean; // compare the drug with my current medicines (signed in)
   },
   signal?: AbortSignal,
 ): Promise<AssistantAnswer> {
