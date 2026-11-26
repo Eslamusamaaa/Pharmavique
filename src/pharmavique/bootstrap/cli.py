@@ -83,6 +83,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.lists import (
     ListSpec,
     get_list,
 )
+from pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping import check_required_labels
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.pdf_ocr_windows import (
     windows_image_ocr,
     windows_pdf_ocr,
@@ -135,6 +136,7 @@ EXIT_OK = 0
 EXIT_PARTIAL = 2
 EXIT_STOPPED = 3
 EXIT_NO_BASELINE = 4
+EXIT_SOURCE_CHANGED = 5  # the pages no longer carry a required label: nothing was loaded
 
 
 def _add_fetch_options(parser: argparse.ArgumentParser, default_out: str = "data/sfda") -> None:
@@ -260,6 +262,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--changed-since",
         help="with --from-records: load only the drugs that differ from this earlier run (the one "
         "last loaded); every drug is loaded when that run is not on this machine",
+    )
+    load.add_argument(
+        "--max-missing-share",
+        type=float,
+        default=0.02,
+        help="refuse the whole load (exit 5) when more than this share of the drugs lack a "
+        "required label (register number, trade name, scientific name, price): SFDA changed "
+        "its pages",
     )
     return parser
 
@@ -582,6 +592,21 @@ async def _sfda_load(args: argparse.Namespace) -> int:
             source = JsonlRecords(store)
         else:
             source = StoredRecords(store)
+        check = check_required_labels(source.records())
+        print(
+            f"required labels: {check.records} drugs checked, {len(check.labels_seen)} labels "
+            f"seen, missing {dict(check.missing) or 'none'}"
+        )
+        failing = check.failing(args.max_missing_share)
+        if failing:
+            for label, share in failing.items():
+                print(
+                    f"'{label}' is missing from {share:.1%} of the drugs (limit "
+                    f"{args.max_missing_share:.1%}): SFDA's pages changed; nothing was loaded",
+                    file=sys.stderr,
+                )
+            print(f"labels seen: {sorted(check.labels_seen)}", file=sys.stderr)
+            return EXIT_SOURCE_CHANGED
         report = await LoadRecordsIntoCatalog(writer, args.batch_size).run(source, args.limit)
     finally:
         await engine.dispose()

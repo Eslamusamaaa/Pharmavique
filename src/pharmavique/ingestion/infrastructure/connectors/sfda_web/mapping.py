@@ -248,3 +248,40 @@ def map_records(records: Iterable[Mapping[str, Any]], price_currency: Currency) 
         if mapped.issues:
             issues[mapped.snapshot.register_number] = mapped.issues
     return MappedBatch(tuple(snapshots), tuple(skipped), issues)
+
+
+# ---- required labels (audit 2026-11, B1.1) ------------------------------------------------------
+# When SFDA renames or drops one of these labels, every drug reads as "not stated" at once. The
+# load counts them before it writes anything and refuses the run above a share (measured on the
+# full crawl of 2026-11-16: 9,145 drugs, one without a scientific name, none without the others).
+REQUIRED_LABELS = (_REGISTER, _TRADE_NAME, _SCIENTIFIC, _PRICE)
+
+
+@dataclass(frozen=True, slots=True)
+class LabelCheck:
+    records: int  # records with an English details page
+    missing: Mapping[str, int]  # per required label, records without it (absent or blank)
+    labels_seen: frozenset[str]  # every English label met: the run's page shape
+
+    def failing(self, max_share: float) -> dict[str, float]:
+        """The required labels missing from more than `max_share` of the records, with the share."""
+        if not self.records:
+            return {}
+        shares = {label: count / self.records for label, count in self.missing.items()}
+        return {label: share for label, share in shares.items() if share > max_share}
+
+
+def check_required_labels(records: Iterable[Mapping[str, Any]]) -> LabelCheck:
+    total = 0
+    missing: dict[str, int] = {}
+    seen: set[str] = set()
+    for record in records:
+        if not record.get("en"):
+            continue
+        total += 1
+        en = _labelled(record["en"])
+        seen.update(en)
+        for label in REQUIRED_LABELS:
+            if _text(en, label) is None:
+                missing[label] = missing.get(label, 0) + 1
+    return LabelCheck(total, missing, frozenset(seen))

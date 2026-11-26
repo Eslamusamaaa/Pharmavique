@@ -10,6 +10,8 @@ from typing import Any
 from pharmavique.catalog.application.translate import snapshot_to_data
 from pharmavique.catalog.contracts.commands import IngredientLineDto, PartyDto
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.mapping import (
+    REQUIRED_LABELS,
+    check_required_labels,
     to_product_snapshot,
 )
 from pharmavique.shared_kernel.currency import Currency
@@ -234,3 +236,38 @@ def test_a_batch_reports_skipped_records_and_issues_per_key() -> None:
     assert [s.register_number for s in batch.snapshots] == ["1-111-22", "2-222-33"]
     assert batch.skipped == ("3-333-44",)
     assert list(batch.issues) == ["2-222-33"]
+
+
+# ---- required labels (audit 2026-11, B1.1) ------------------------------------------------------
+# A renamed label reads as "not stated" for every drug at once. The load checks the share of
+# drugs missing each required label first, and refuses the whole run above the limit.
+
+
+def test_the_required_labels_are_register_trade_scientific_and_price() -> None:
+    assert REQUIRED_LABELS == ("Register Number", "Trade Name", "Scientific Name", "Price")
+
+
+def test_records_missing_a_required_label_are_counted_per_label() -> None:
+    renamed = {k: v for k, v in EN.items() if k != "Price"} | {"Unit Price": "9.5"}
+    records = [
+        record(),
+        record(),
+        {"key": "x", "en": rows(renamed)},
+        {"key": "y", "en": rows({**EN, "Trade Name": "  "})},
+        {"key": "z", "en": None},  # no English page: skipped by the load, not counted
+    ]
+
+    check = check_required_labels(records)
+
+    assert check.records == 4
+    assert check.missing == {"Price": 1, "Trade Name": 1}
+    assert "Unit Price" in check.labels_seen
+    assert check.failing(0.3) == {}
+    assert check.failing(0.2) == {"Price": 0.25, "Trade Name": 0.25}
+
+
+def test_an_empty_run_fails_nothing() -> None:
+    check = check_required_labels([])
+
+    assert check.records == 0
+    assert check.failing(0.0) == {}
