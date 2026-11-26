@@ -100,6 +100,7 @@ from pharmavique.ingestion.infrastructure.connectors.sfda_web.report import (
 )
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.store import SnapshotStore
 from pharmavique.ingestion.infrastructure.connectors.sfda_web.stored_records import (
+    ChangedRecords,
     JsonlRecords,
     StoredRecords,
 )
@@ -254,6 +255,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--from-records",
         action="store_true",
         help="read the run's records.jsonl instead of its stored pages (pages not on this machine)",
+    )
+    load.add_argument(
+        "--changed-since",
+        help="with --from-records: load only the drugs that differ from this earlier run (the one "
+        "last loaded); every drug is loaded when that run is not on this machine",
     )
     return parser
 
@@ -567,9 +573,16 @@ async def _sfda_load(args: argparse.Namespace) -> int:
             source_ref=f"{DEFAULT_BASE_URL}/en/drugs-list",
             fallback_time=clock.now(),
         )
-        report = await LoadRecordsIntoCatalog(writer, args.batch_size).run(
-            JsonlRecords(store) if args.from_records else StoredRecords(store), args.limit
-        )
+        source: JsonlRecords | ChangedRecords | StoredRecords
+        if args.from_records and args.changed_since:
+            source = ChangedRecords(
+                JsonlRecords(store), SnapshotStore(Path(args.out), args.changed_since)
+            )
+        elif args.from_records:
+            source = JsonlRecords(store)
+        else:
+            source = StoredRecords(store)
+        report = await LoadRecordsIntoCatalog(writer, args.batch_size).run(source, args.limit)
     finally:
         await engine.dispose()
 

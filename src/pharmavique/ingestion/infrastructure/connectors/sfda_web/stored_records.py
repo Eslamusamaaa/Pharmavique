@@ -77,3 +77,44 @@ class JsonlRecords:
                 if record.get("key") in skip or not record.get("en"):
                     continue
                 yield record
+
+
+# The parts of a record that say what the drug is; the provenance (fetch times) changes every run
+# even when nothing about the drug did, so it is not compared.
+_COMPARED = ("key", "list", "en", "ar")
+
+
+def _fingerprint(record: dict[str, Any]) -> str:
+    return json.dumps({k: record.get(k) for k in _COMPARED}, sort_keys=True, ensure_ascii=False)
+
+
+class ChangedRecords:
+    """The records of a run that differ from the run that was last loaded into the database.
+
+    The daily refresh used to load every drug (9,213) although only a few dozen had changed, and
+    each load reads the stored drug back from the database to compare: Neon bills every byte that
+    leaves it (public network transfer). The comparison is made here, between two local files.
+    When the earlier run's records are not on this machine, every record is loaded, as before.
+    """
+
+    def __init__(self, source: JsonlRecords, previous: SnapshotStore) -> None:
+        self._source = source
+        self._previous = previous
+
+    def _known(self) -> dict[str, str]:
+        path = self._previous.records_path
+        if not path.exists():
+            return {}
+        known: dict[str, str] = {}
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    record = json.loads(line)
+                    known[str(record.get("key"))] = _fingerprint(record)
+        return known
+
+    def records(self, skip: Collection[str] = frozenset()) -> Iterator[dict[str, Any]]:
+        known = self._known()
+        for record in self._source.records(skip):
+            if known.get(str(record.get("key"))) != _fingerprint(record):
+                yield record

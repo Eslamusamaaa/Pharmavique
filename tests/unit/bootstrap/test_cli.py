@@ -183,3 +183,18 @@ def test_verify_account_verifies_by_default() -> None:
     args = build_parser().parse_args(["verify-account", "--email", "p@example.com"])
     assert args.reject is False
     assert args.note is None
+
+
+def test_the_load_can_be_limited_to_what_changed_since_the_last_loaded_run() -> None:
+    args = build_parser().parse_args(
+        [
+            "sfda-load",
+            "--run-id",
+            "update-20261127",
+            "--from-records",
+            "--changed-since",
+            "update-20261126",
+        ]
+    )
+    assert args.changed_since == "update-20261126"
+    assert build_parser().parse_args(["sfda-load", "--run-id", "x"]).changed_since is None
