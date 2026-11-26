@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from pharmavique.analytics.application.service import AnalyticsService
@@ -255,7 +255,6 @@ async def review_account(
     _: Operator,
     user_id: UUID,
     body: ReviewIn,
-    background: BackgroundTasks,
     identity: Identity,
     sender: Annotated[EmailSender | None, Depends(get_email_sender)],
 ) -> UserOut:
@@ -267,5 +266,5 @@ async def review_account(
         raise HTTPException(status_code=404, detail="no such account") from None
     except InvariantViolation as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
-    background.add_task(deliver, sender, message)
+    await deliver(sender, message)
     return user_out(view)

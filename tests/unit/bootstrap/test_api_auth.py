@@ -3,8 +3,8 @@
 import re
 from collections.abc import AsyncIterator
 from dataclasses import replace
-from datetime import datetime
-from typing import Annotated
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any
 from uuid import UUID
 
 import httpx
@@ -593,3 +593,67 @@ async def test_reviewing_a_patient_or_an_unknown_account_is_refused(
 
     assert on_patient.status_code == 422
     assert unknown.status_code == 404
+
+
+# ---- emails go out before the answer (Vercel stops the function once it has answered) ----------
+
+
+class FrozenLater:
+    """A clock some minutes ahead of now."""
+
+    def __init__(self, minutes: int) -> None:
+        self._at = datetime.now(UTC) + timedelta(minutes=minutes)
+
+    def now(self) -> datetime:
+        return self._at
+
+
+class OrderedOutbox(Outbox):
+    def __init__(self, events: list[str]) -> None:
+        super().__init__()
+        self.events = events
+
+    async def send(self, message: EmailMessage) -> None:
+        self.events.append("email")
+        await super().send(message)
+
+
+def ordered_client(service: IdentityService, events: list[str]) -> httpx.AsyncClient:
+    app = create_app(
+        identity=service,
+        token_verifier=TOKENS,
+        email_sender=OrderedOutbox(events),
+        unsubscribe_secret=UNSUBSCRIBE_SECRET,
+        rate_limit_per_minute=0,
+    )
+
+    async def recording(scope: Any, receive: Any, send: Any) -> None:
+        async def watch(message: Any) -> None:
+            if message["type"] == "http.response.start":
+                events.append("response")
+            await send(message)
+
+        await app(scope, receive, watch)
+
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=recording), base_url="http://test")
+
+
+async def test_the_sign_up_code_is_sent_before_the_answer(service: IdentityService) -> None:
+    events: list[str] = []
+    async with ordered_client(service, events) as client:
+        response = await register(client)
+
+    assert response.status_code == 201
+    assert events == ["email", "response"]
+
+
+async def test_a_new_code_is_sent_before_the_answer(service: IdentityService) -> None:
+    events: list[str] = []
+    async with ordered_client(service, events) as client:
+        await register(client)
+        events.clear()
+        service._clock = FrozenLater(minutes=2)  # past the one-minute wait between codes
+        response = await client.post("/v1/auth/resend-code", json={"email": "ana@example.com"})
+
+    assert response.status_code == 202
+    assert events == ["email", "response"]

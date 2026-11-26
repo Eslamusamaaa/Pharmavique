@@ -11,7 +11,7 @@ from collections.abc import Callable, Coroutine
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -209,7 +209,6 @@ def get_email_sender(request: Request) -> EmailSender | None:
 )
 async def register(
     body: RegisterIn,
-    background: BackgroundTasks,
     service: Annotated[IdentityService, Depends(get_identity)],
     sender: Annotated[EmailSender | None, Depends(get_email_sender)],
 ) -> RegisteredOut:
@@ -219,7 +218,7 @@ async def register(
         raise HTTPException(status_code=422, detail=str(error)) from None
     except EmailTaken:
         raise HTTPException(status_code=409, detail="this email already has an account") from None
-    background.add_task(deliver, sender, registration.email)
+    await deliver(sender, registration.email)
     return RegisteredOut(email=registration.user.email)
 
 
@@ -240,13 +239,12 @@ async def verify_email(
 @router.post("/resend-code", status_code=202, summary="Email a new confirmation code")
 async def resend_code(
     body: ResendIn,
-    background: BackgroundTasks,
     service: Annotated[IdentityService, Depends(get_identity)],
     sender: Annotated[EmailSender | None, Depends(get_email_sender)],
 ) -> dict[str, str]:
     message = await service.resend_code(body.email)
     if message is not None:
-        background.add_task(deliver, sender, message)
+        await deliver(sender, message)
     # the same answer whether or not a code was sent: it must not reveal who has an account
     return {"detail": "if this account needs a code, a new one was sent"}
 
