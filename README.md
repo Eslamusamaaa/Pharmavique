@@ -695,7 +695,13 @@ committed; [`.env.example`](.env.example) lists every variable with placeholders
 | GET | `/v1/compare?a=&b=` | Two drugs side by side: facts, the fields that differ, and the computed equivalence verdict |
 | POST | `/v1/interactions/check` | Recorded interactions and duplicated ingredients among 2 to 20 products |
 | GET | `/v1/interactions/contraindications/{register_number}` | Conditions the product's ingredients are contraindicated with, with label text and source |
-| POST | `/v1/assistant/ask` | Cited answer to a question |
+| POST | `/v1/assistant/ask` | Cited answer to a question; signed in, it is saved in a conversation (`conversation_id`) |
+| GET | `/v1/assistant/conversations` | My saved conversations, pinned first; `q` searches (ADR-022) |
+| GET, PATCH, DELETE | `/v1/assistant/conversations/{id}` | Read one, rename or pin it, delete it |
+| DELETE | `/v1/assistant/conversations` | Delete every conversation in my list |
+| POST | `/v1/assistant/conversations/{id}/title` | Let the model name it after the first answer |
+| POST, DELETE | `/v1/assistant/conversations/{id}/share` | Share by link, or stop sharing |
+| GET | `/v1/shared/{token}` | A shared conversation (public, not indexed) |
 | POST | `/v1/voice/transcribe` | Audio upload to text |
 | POST | `/v1/voice/drug-name` | The drug name inside a spoken request, to search for |
 | POST | `/v1/voice/speak` | Text to audio in the Saudi Arabic voice; with `as_link` a one-time link for the app's player |
@@ -833,6 +839,7 @@ migrations/           Alembic environment
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
 | [Scan evaluation](docs/SCAN_EVALUATION.md) | How the box, prescription and shelf scans were measured, and how to measure real photos |
 | [Phase 0 report](docs/PHASE_0_REPORT.md) | The nine trust-foundation items: what was done, what the tests found, what is left |
+| [ADR-022](docs/adr/ADR-022-saved-assistant-conversations.md) | Saved assistant conversations, share links, and the encryption decision |
 | [Runbook](docs/RUNBOOK.md) | Outages, health checks, Vercel rollback, Neon restore and its drill, moving to Docker |
 | [Hand-off](docs/HANDOFF.md) | Where the project stands, how to run it, what is done and what is next: start here when taking over |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |

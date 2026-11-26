@@ -107,6 +107,13 @@ The drill proves the steps above work before they are needed. It writes nothing 
   direct address: `PHARMAVIQUE_DATABASE_URL=<direct address> uv run alembic downgrade <context>@-1`.
   Check that no newer code depends on it first (roll the deployment back before the schema).
 
+### Saved conversations need their schema
+
+The assistant's saved conversations (ADR-022) live in the `assistant` schema. After a deployment that
+adds it, run **Database migrate** once. Until then the assistant still answers, nothing is saved, and
+the conversation list answers with an error. Switching the feature off:
+`PHARMAVIQUE_FEATURE_CHAT_HISTORY=false` in Vercel, then redeploy.
+
 ## 6. Daily data refresh failed
 
 GitHub emails the repository owner when the **Daily refresh** workflow fails. Open the run, read the

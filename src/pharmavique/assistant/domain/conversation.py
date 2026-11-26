@@ -1,10 +1,10 @@
 """Conversation memory for follow-up questions ("and the 40 mg one?").
 
-The app keeps the conversation and sends the recent turns back with each question; the server
-stores nothing (privacy, and any API process can answer). Before the model sees them, turns are
-cleaned: only user and assistant roles, citation marks removed, each turn shortened, only the last
-few kept (the free model's tokens per minute are limited), and user turns that try to manipulate
-the assistant are dropped, so an old message cannot smuggle instructions in.
+A signed-in person's conversation is saved on the server and its recent turns are read from there
+(`history.py`, ADR-022); a guest's app sends them with each question. Before the model sees them,
+turns are cleaned: only user and assistant roles, citation marks removed, each turn shortened, only
+the last few kept (the free model's tokens per minute are limited), and user turns that try to
+manipulate the assistant are dropped, so an old message cannot smuggle instructions in.
 """
 
 import re
