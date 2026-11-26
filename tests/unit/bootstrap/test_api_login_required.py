@@ -22,6 +22,7 @@ from pharmavique.shared_kernel.principal import Principal, Role
 
 PUBLIC = {
     ("GET", "/health"),
+    ("GET", "/ready"),
     # Request counts and timings only, no personal data (also the rate-limit tests' probe).
     ("GET", "/metrics"),
     ("GET", "/v1/features"),

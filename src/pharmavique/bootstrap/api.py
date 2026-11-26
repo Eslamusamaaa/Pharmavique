@@ -7,6 +7,7 @@ needs a language-model key; without one it answers 503 and everything else still
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -74,7 +75,7 @@ from pharmavique.catalog.infrastructure.persistence.quality import SqlAlchemyQua
 from pharmavique.catalog.infrastructure.persistence.reader import SqlAlchemyProductReader
 from pharmavique.foundation.arq_jobs import ArqJobQueue
 from pharmavique.foundation.clock import SystemClock
-from pharmavique.foundation.db.engine import create_engine, create_session_factory
+from pharmavique.foundation.db.engine import create_engine, create_session_factory, ping_database
 from pharmavique.foundation.jobs import InlineJobQueue, JobQueue, JobRunner
 from pharmavique.foundation.kv import KeyValueStore, RedisStore, redis_client
 from pharmavique.foundation.read_cache import ReadCache
@@ -154,6 +155,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 max_overflow=settings.db_max_overflow,
             )
             session_factory = create_session_factory(engine)
+            app.state.database_ping = partial(ping_database, engine)
             app.state.search = SearchProductsHandler(PostgresSearchIndex(session_factory))
             reader = SqlAlchemyProductReader(session_factory)
             catalog = ReadProductCardsHandler(reader, SqlAlchemyPriceChangeReader(session_factory))
@@ -296,6 +298,7 @@ def create_app(
     app.state.metrics = observability.Metrics()
     app.state.audio_cache = LocalAudioStore()
     app.state.kv = None
+    app.state.database_ping = None
     app.state.read_cache = None
     app.state.jobs = jobs
     app.add_middleware(observability.RequestContextMiddleware, metrics=app.state.metrics)
