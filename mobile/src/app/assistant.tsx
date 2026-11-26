@@ -235,7 +235,7 @@ function AssistantScreen() {
           onPress={() => setUseMine((v) => !v)}
           style={[styles.mine, { backgroundColor: useMine ? c.prs : c.sf, borderColor: useMine ? c.pr : c.ln }]}
           accessibilityRole="switch"
-          accessibilityState={{ checked: useMine }}
+          aria-checked={useMine}
         >
           <T size={14} weight={600} style={{ flex: 1 }}>
             {useMine ? 'بقارن هذا الدواء بأدويتي الحالية' : 'قارن هذا الدواء بأدويتي الحالية'}

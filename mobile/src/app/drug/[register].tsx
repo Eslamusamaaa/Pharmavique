@@ -553,7 +553,7 @@ export default function DrugScreen() {
             قارن
           </T>
         </Pressable>
-        <Pressable onPress={share} style={[styles.actionIcon, { borderColor: c.pr }]} accessibilityLabel="مشاركة">
+        <Pressable onPress={share} style={[styles.actionIcon, { borderColor: c.pr }]} accessibilityRole="button" accessibilityLabel="مشاركة">
           <ShareNetworkIcon size={20} color={c.pr} />
         </Pressable>
       </View>

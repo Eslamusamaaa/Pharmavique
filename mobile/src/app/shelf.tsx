@@ -224,7 +224,7 @@ function Review({
                   key={cand.register_number}
                   onPress={() => setChosen({ ...chosen, [index]: on ? null : cand.register_number })}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: on }}
+                  aria-checked={on}
                   style={[styles.candidate, { borderColor: on ? c.pr : c.ln, backgroundColor: on ? c.prs : 'transparent' }]}
                 >
                   {on ? <CheckSquareIcon size={22} color={c.pr} weight="fill" /> : <SquareIcon size={22} color={c.ink2} />}

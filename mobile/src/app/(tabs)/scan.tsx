@@ -298,7 +298,7 @@ function PickCandidates({
             key={cand.register_number}
             onPress={() => onPick(cand)}
             accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
+            aria-selected={on}
             style={[styles.candidate, { borderColor: on ? c.pr : c.ln, backgroundColor: on ? c.prs : 'transparent' }]}
           >
             <View style={{ flex: 1 }}>

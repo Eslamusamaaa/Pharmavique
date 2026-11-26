@@ -110,7 +110,7 @@ export default function SignIn() {
                 onPress={() => setRole(r.key)}
                 style={[styles.role, { borderColor: role === r.key ? c.pr : c.ink2, backgroundColor: role === r.key ? c.prs : c.sf }]}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: role === r.key }}
+                aria-selected={role === r.key}
               >
                 <T weight={600}>{r.label}</T>
                 <T size={13} color={c.ink2}>

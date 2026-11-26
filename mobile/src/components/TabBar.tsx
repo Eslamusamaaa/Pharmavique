@@ -40,7 +40,7 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
           <Pressable
             key={route.key}
             accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
+            aria-selected={active}
             onPress={() => {
               const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!active && !event.defaultPrevented) navigateToTab(route.key);
