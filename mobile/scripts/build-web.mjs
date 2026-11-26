@@ -61,7 +61,11 @@ const HEAD = `
 
 const file = 'dist/index.html';
 let html = readFileSync(file, 'utf8');
-html = html.replace('<html lang="en">', '<html lang="ar" dir="rtl">');
+// Arabic, but no `dir="rtl"`: the screens lay themselves out right to left (rows are `row-reverse`,
+// text is right-aligned with `writingDirection: 'rtl'`), exactly as on a phone, and every text gets
+// `dir="auto"` from react-native-web. A right-to-left page mirrored every row back: the home tab,
+// the back arrow and the main button ended up on the left.
+html = html.replace('<html lang="en">', '<html lang="ar">');
 html = html.replace(
   /<meta name="viewport"[^>]*>/,
   // No `viewport-fit=cover`: with it the page is drawn under the status bar, and on a phone's home
@@ -70,7 +74,7 @@ html = html.replace(
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />',
 );
 html = html.replace('</head>', `${HEAD}  </head>`);
-if (!html.includes('rel="manifest"') || !html.includes('dir="rtl"')) {
+if (!html.includes('rel="manifest"') || !html.includes('<html lang="ar">')) {
   throw new Error('index.html was not patched: the export format changed');
 }
 writeFileSync(file, html);
