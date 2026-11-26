@@ -1,7 +1,8 @@
 # Findings of the secret scan (gitleaks) that were read one by one on 2026-11-25 and are not secrets.
 # A new finding fails CI: fix it, or add its fingerprint here with the reason.
 
-# The name of a key in the phone's local storage ("const KEY = 'pharmavique.recents.v1'"), not a credential.
+# The name of a key in the phone's local storage (a constant holding a storage key name such as
+# pharmavique.recents.v1), not a credential.
 70daafcc770f4b79c1e251432275c656e7fc2e31:mobile/src/state/basket.ts:generic-api-key:8
 da958e8c9d71524ad434fff920e42aa7baea20db:mobile/src/state/recents.ts:generic-api-key:7
 
@@ -11,3 +12,6 @@ da958e8c9d71524ad434fff920e42aa7baea20db:mobile/src/state/recents.ts:generic-api
 785411b077e287970d268f0626dc6184c0477a24:data/lists/drug-shortage-resolved/lists-1/records.jsonl:generic-api-key:1
 785411b077e287970d268f0626dc6184c0477a24:data/lists/drug-shortage/lists-1/details.jsonl:generic-api-key:4
 785411b077e287970d268f0626dc6184c0477a24:data/lists/drug-shortage/lists-1/records.jsonl:generic-api-key:4
+
+# This file's own first version quoted one of those constants in a comment.
+29195d4dc628e11f83e1118c04bfe6c7ca788954:.gitleaksignore:generic-api-key:4
