@@ -288,7 +288,13 @@ def build_scanner(
     if not readers:
         return None
     return ScanImage(
-        FallbackVisionReader(readers),
+        FallbackVisionReader(
+            readers,
+            per_reader_seconds=settings.vision_reader_timeout_seconds,
+            total_seconds=min(
+                settings.vision_total_timeout_seconds, settings.job_timeout_seconds - 10
+            ),
+        ),
         SearchCandidateFinder(search, catalog),
         min_score=settings.scan_min_score,
     )

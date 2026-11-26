@@ -5,10 +5,12 @@ is told not to read doses or instructions, and the domain discards them anyway. 
 as a data URL in memory; it is never written to disk or logs, and the key goes only in the header.
 """
 
+import asyncio
 import base64
 import io
 import json
 import re
+import time
 from collections.abc import Sequence
 from typing import Any
 
@@ -78,16 +80,20 @@ def _text(value: Any) -> str | None:
 
 
 def parse_lines(content: str) -> list[ExtractedLine]:
-    """The lines in the model's JSON answer; anything unreadable gives no lines, never a guess."""
+    """The lines in the model's JSON answer. An answer that is not the asked JSON (prose, a refusal,
+    broken JSON, no `lines` list) raises `VisionError`, so the next model is tried; a valid answer
+    with no legible medicine gives no lines. A line without a name is left out, never guessed."""
     match = _JSON.search(content or "")
     if match is None:
-        return []
+        raise VisionError("the model's answer is not the asked JSON (no JSON object)")
     try:
         data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return []
+    except json.JSONDecodeError as error:
+        raise VisionError("the model's answer is not the asked JSON (broken JSON)") from error
+    if not isinstance(data, dict) or not isinstance(data.get("lines"), list):
+        raise VisionError("the model's answer is not the asked JSON (no lines list)")
     lines = []
-    for item in data.get("lines", []) if isinstance(data, dict) else []:
+    for item in data["lines"]:
         if not isinstance(item, dict):
             continue
         name = _text(item.get("name"))
@@ -156,20 +162,39 @@ class OpenAICompatibleVisionReader:
 
 
 class FallbackVisionReader:
-    """Tries each reader in order until one answers: free models are often busy (HTTP 429)."""
+    """Tries each reader in order until one gives a valid answer: free models are often busy (HTTP
+    429), slow, or answer with prose. Each reader gets at most `per_reader_seconds`, and the whole
+    chain stops at `total_seconds`, which must stay below the job timeout and Vercel's limit
+    (audit 2026-11, A2). A valid empty answer ("no medicine here") is a result, not a failure."""
 
-    def __init__(self, readers: Sequence[VisionReader]) -> None:
+    def __init__(
+        self,
+        readers: Sequence[VisionReader],
+        *,
+        per_reader_seconds: float = 20.0,
+        total_seconds: float = 60.0,
+    ) -> None:
         if not readers:
             raise ValueError("at least one vision reader is needed")
+        if per_reader_seconds <= 0 or total_seconds <= 0:
+            raise ValueError("the vision time limits must be positive")
         self._readers = list(readers)
+        self._per_reader = per_reader_seconds
+        self._total = total_seconds
 
     async def read(self, image: bytes, media_type: str, kind: ScanKind) -> list[ExtractedLine]:
         failures: list[str] = []
+        deadline = time.monotonic() + self._total
         for reader in self._readers:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                failures.append("the scan timed out before every model was tried")
+                break
             try:
-                return await reader.read(image, media_type, kind)
+                async with asyncio.timeout(min(self._per_reader, left)):
+                    return await reader.read(image, media_type, kind)
             except VisionError as failure:
                 failures.append(str(failure))
-            except httpx.TimeoutException:
+            except (TimeoutError, httpx.TimeoutException):
                 failures.append("a model timed out")
         raise VisionError("; ".join(failures))

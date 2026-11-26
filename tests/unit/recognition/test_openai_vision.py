@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 
-from pharmavique.recognition.domain.scans import ScanKind
+from pharmavique.recognition.domain.scans import ExtractedLine, ScanKind
 from pharmavique.recognition.infrastructure.openai_vision import (
     OpenAICompatibleVisionReader,
     VisionError,
@@ -31,9 +31,16 @@ def test_json_inside_prose_or_a_code_fence_is_read() -> None:
 
 @pytest.mark.parametrize(
     "content",
-    ["", "no json here", "{broken", '{"lines": "x"}', '{"lines": [{"name": " "}, 5]}'],
+    ["", "no json here", "{broken", '{"lines": "x"}', '{"text": "Panadol"}', "[1, 2]"],
 )
-def test_anything_unreadable_gives_no_lines(content: str) -> None:
+def test_an_answer_that_is_not_the_asked_json_is_a_vision_error(content: str) -> None:
+    # audit 2026-11 (A2): garbage used to read as "no medicine" and ended the fallback chain
+    with pytest.raises(VisionError, match="not the asked JSON"):
+        parse_lines(content)
+
+
+@pytest.mark.parametrize("content", ['{"lines": []}', '{"lines": [{"name": " "}, 5]}'])
+def test_a_valid_answer_with_no_legible_medicine_gives_no_lines(content: str) -> None:
     assert parse_lines(content) == []
 
 
@@ -222,3 +229,76 @@ async def test_when_every_model_fails_the_error_names_each_model_and_status() ->
     assert "429" in message
     assert "second" in message
     assert "503" in message
+
+
+class _Reader:
+    """A vision reader that answers, fails or hangs as told."""
+
+    def __init__(self, answer: object, delay: float = 0.0) -> None:
+        self.answer = answer
+        self.delay = delay
+        self.calls = 0
+
+    async def read(self, image: bytes, media_type: str, kind: ScanKind) -> list[ExtractedLine]:
+        import asyncio
+
+        self.calls += 1
+        await asyncio.sleep(self.delay)
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        assert isinstance(self.answer, str)
+        return parse_lines(self.answer)
+
+
+async def test_garbage_from_the_first_model_tries_the_next_one() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    first, second = _Reader("I cannot help with that"), _Reader('{"lines": [{"name": "Panadol"}]}')
+
+    (line,) = await FallbackVisionReader([first, second]).read(b"I", "image/png", ScanKind.BOX)
+
+    assert line.name == "Panadol"
+    assert (first.calls, second.calls) == (1, 1)
+
+
+async def test_a_legitimately_empty_answer_is_the_result() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    first, second = _Reader('{"lines": []}'), _Reader('{"lines": [{"name": "Panadol"}]}')
+
+    assert await FallbackVisionReader([first, second]).read(b"I", "image/png", ScanKind.BOX) == []
+    assert second.calls == 0
+
+
+async def test_a_model_that_hangs_is_cut_off_and_the_next_is_tried() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    slow, fast = _Reader('{"lines": []}', delay=5), _Reader('{"lines": [{"name": "Panadol"}]}')
+    reader = FallbackVisionReader([slow, fast], per_reader_seconds=0.05, total_seconds=1)
+
+    (line,) = await reader.read(b"I", "image/png", ScanKind.BOX)
+
+    assert line.name == "Panadol"
+
+
+async def test_the_whole_chain_stops_at_its_deadline() -> None:
+    import time
+
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    readers = [_Reader('{"lines": []}', delay=5) for _ in range(5)]
+    chain = FallbackVisionReader(readers, per_reader_seconds=0.1, total_seconds=0.25)
+    started = time.perf_counter()
+
+    with pytest.raises(VisionError, match="timed out"):
+        await chain.read(b"I", "image/png", ScanKind.BOX)
+
+    assert time.perf_counter() - started < 1
+    assert sum(r.calls for r in readers) <= 3
+
+
+def test_the_chain_deadline_must_be_positive() -> None:
+    from pharmavique.recognition.infrastructure.openai_vision import FallbackVisionReader
+
+    with pytest.raises(ValueError, match="positive"):
+        FallbackVisionReader([_Reader("{}")], per_reader_seconds=0)

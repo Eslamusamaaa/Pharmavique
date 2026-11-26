@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     job_backend: Literal["inline", "arq"] = "inline"
     job_max_concurrency: int = 8  # jobs one worker runs at once (the model providers' limits apply)
     job_timeout_seconds: int = 90
+    # One vision model may take this long; the whole fallback chain stops at the second limit,
+    # which stays below `job_timeout_seconds` and Vercel's 300 s (audit 2026-11, A2).
+    vision_reader_timeout_seconds: float = Field(default=20.0, gt=0)
+    vision_total_timeout_seconds: float = Field(default=60.0, gt=0)
     jobs_per_user_per_minute: int = 6  # submissions per caller; 0 turns the limit off
     job_max_queue_depth: int = 500  # new jobs are refused (503) while this many are waiting
 
