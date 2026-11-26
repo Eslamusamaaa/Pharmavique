@@ -81,6 +81,19 @@ Status words: CONFIRMED, INCORRECT, ALREADY FIXED, PARTIAL, NEEDS INVESTIGATION.
 7. A2: vision fallback treats unparseable output as failure, per-reader timeout 20 s, overall
    deadline below `job_timeout_seconds`.
 
+**Batch 1 status (2026-11-26, local only, not pushed):**
+
+| Item | State | Commits |
+|---|---|---|
+| 1–3 triage, red flags, treatment path, dialect | done (ADR-024, flag `PHARMAVIQUE_FEATURE_TRIAGE`) | b558f70, 15d4b7f |
+| 4 interaction states | partly: no-clearance filter and model instruction; the three states are not yet passed from `check_interactions` as data | b558f70 |
+| 5 regression suite | deterministic part done (fake model); live run over real models not built | bd85524 |
+| 6 catalog integrity | known values kept; load refused (exit 5) above 2% missing required labels, measured on the real full crawl (9,145 drugs, 1 missing scientific name). Fingerprint compare with the last run and golden page test moved to Batch 3 | 8e632f5, 07280cd |
+| 7 vision fallback | done: invalid output fails over, 20 s per model, 60 s per scan | 13823dc |
+
+Checks at 07280cd: ruff, ruff format, mypy (562 files), lint-imports (8 kept), pytest 1,966
+passed / 22 skipped (unit; integration not run).
+
 **Batch 2: P0 infrastructure (needs owner answers below)**
 8. A1: one nightly backup job for all schemas, encrypted with `age` (public key in repo, private
    key only with the owner), uploaded to private storage, 30-day retention; full pre-migration dump
