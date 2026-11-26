@@ -21,7 +21,21 @@ from pharmavique.foundation.kv import KeyValueStore, StoreUnavailable
 HEAVY_PREFIXES = ("/v1/assistant", "/v1/voice", "/v1/recognition", "/v1/auth")
 HEAVY_WHEN_POSTING = ("/v1/jobs",)  # submitting is heavy; polling a job is cheap and frequent
 EXEMPT_PATHS = frozenset({"/health", "/ready"})
+# The website's own files (scripts, fonts, icons, manifest): opening the site loads dozens of them,
+# and many phones share one carrier address, so counting them broke screens with a 429.
+WEBSITE_FOLDERS = ("/_expo/static/", "/assets/")
 _SWEEP_EVERY = 256  # requests between clean-ups of idle clients
+
+
+def is_website_file(method: str, path: str) -> bool:
+    """A file of the exported website: under its asset folders, or a file at the root such as
+    `favicon.ico` or `manifest.webmanifest`. API routes (`/v1/...`, `/openapi.json`) are not."""
+    if method not in ("GET", "HEAD"):
+        return False
+    if path.startswith(WEBSITE_FOLDERS):
+        return True
+    at_root = path.count("/") == 1 and "." in path
+    return at_root and path != "/openapi.json"
 
 
 class SlidingWindow:
@@ -102,7 +116,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         path = request.url.path
         client = client_address(request, self._hops)
-        if path not in EXEMPT_PATHS:
+        if path not in EXEMPT_PATHS and not is_website_file(request.method, path):
             for scope, window in self._windows(path, request.method):
                 wait = await self._check(scope, window, client)
                 if wait is not None:

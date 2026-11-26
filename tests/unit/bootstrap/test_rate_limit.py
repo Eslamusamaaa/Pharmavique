@@ -1,9 +1,12 @@
 """Per-client request limits: heavy endpoints (AI, voice, scan) have a lower one."""
 
+from pathlib import Path
+
 import httpx
 
 from pharmavique.bootstrap.api import create_app
 from pharmavique.bootstrap.rate_limit import SlidingWindow
+from pharmavique.bootstrap.web_app import mount_web_app
 
 
 def test_a_window_allows_up_to_the_limit_then_refuses_until_the_oldest_request_expires() -> None:
@@ -68,3 +71,32 @@ async def test_a_limit_of_zero_turns_the_limiter_off() -> None:
         statuses = {(await api.get("/health")).status_code for _ in range(10)}
 
     assert statuses == {200}
+
+
+async def test_the_website_files_are_never_limited(tmp_path: Path) -> None:
+    """Opening the site loads dozens of script, font and icon files; counting them made a phone
+    (or several behind one carrier address) get 429 for a script and a broken screen."""
+    (tmp_path / "_expo" / "static" / "js").mkdir(parents=True)
+    (tmp_path / "_expo" / "static" / "js" / "[register]-abc.js").write_text("x")
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "font.ttf").write_text("x")
+    (tmp_path / "favicon.ico").write_text("x")
+    (tmp_path / "index.html").write_text("<html></html>")
+    app = create_app(rate_limit_per_minute=2, heavy_rate_limit_per_minute=0)
+    mount_web_app(app, tmp_path)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as api:
+        files = [
+            await api.get(path)
+            for _ in range(5)
+            for path in (
+                "/_expo/static/js/%5Bregister%5D-abc.js",
+                "/assets/font.ttf",
+                "/favicon.ico",
+            )
+        ]
+        calls = [await api.get("/metrics") for _ in range(3)]
+
+    assert {r.status_code for r in files} == {200}
+    assert [r.status_code for r in calls] == [200, 200, 429]  # the API is still limited
