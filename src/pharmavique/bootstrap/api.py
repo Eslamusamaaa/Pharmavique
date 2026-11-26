@@ -18,6 +18,8 @@ from pharmavique.analytics.infrastructure.catalog_source import CatalogMarketSou
 from pharmavique.analytics.infrastructure.postgres import PostgresAnalyticsStore
 from pharmavique.analytics.infrastructure.refresh_files import FileRefreshHistory
 from pharmavique.assistant.application.ask import AskAssistant
+from pharmavique.assistant.application.history import ConversationService
+from pharmavique.assistant.infrastructure.postgres_history import PostgresConversationStore
 from pharmavique.bootstrap import (
     api_assistant,
     api_auth,
@@ -206,6 +208,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 app.state.email_sender = build_email_sender(settings)
                 app.state.unsubscribe_secret = settings.jwt_secret.get_secret_value()
             app.state.interactions = CheckInteractions(PostgresInteractionStore(session_factory))
+            app.state.conversations = ConversationService(
+                PostgresConversationStore(session_factory), SystemClock()
+            )
             app.state.contraindications = ListContraindications(
                 PostgresContraindicationStore(session_factory)
             )
@@ -255,6 +260,7 @@ def create_app(
     rate_limit_per_minute: int | None = None,
     heavy_rate_limit_per_minute: int | None = None,
     trusted_proxy_hops: int | None = None,
+    conversations: ConversationService | None = None,
 ) -> FastAPI:
     """Backends are injected by tests; else built at startup from settings."""
     app = FastAPI(
@@ -293,6 +299,7 @@ def create_app(
     app.state.pharmacy_directories = {}
     app.state.refresh_history = refresh_history
     app.state.interactions = interactions
+    app.state.conversations = conversations
     app.state.contraindications = contraindications
     app.state.extract_name = ExtractDrugName(name_extractor)
     app.state.metrics = observability.Metrics()

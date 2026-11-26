@@ -26,6 +26,8 @@ class Features(BaseSettings):
     sources_page: bool = True
     # The assistant, scans and voice need a signed-in account (Phase 0, item 1).
     login_for_ai: bool = True
+    # Signed-in assistant conversations are saved, listed, searched and shared (Phase 1, ADR-022).
+    chat_history: bool = True
 
     def as_dict(self) -> dict[str, bool]:
         return {name: bool(getattr(self, name)) for name in type(self).model_fields}
