@@ -832,6 +832,7 @@ migrations/           Alembic environment
 | [ADR-013](docs/adr/ADR-013-pharmacy-finder-and-location.md) | The pharmacy finder and how the person's location is handled |
 | [Performance](docs/PERFORMANCE.md) | Measured baselines and what a large deployment needs |
 | [Scan evaluation](docs/SCAN_EVALUATION.md) | How the box, prescription and shelf scans were measured, and how to measure real photos |
+| [Phase 0 report](docs/PHASE_0_REPORT.md) | The nine trust-foundation items: what was done, what the tests found, what is left |
 | [Runbook](docs/RUNBOOK.md) | Outages, health checks, Vercel rollback, Neon restore and its drill, moving to Docker |
 | [Hand-off](docs/HANDOFF.md) | Where the project stands, how to run it, what is done and what is next: start here when taking over |
 | [Data sources](docs/DATA_SOURCES.md) | Every source and its probe results |
